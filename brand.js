@@ -1,27 +1,28 @@
 // Branding for this deployment. Edit this file (and manifest.webmanifest + the images in brand/)
-// to rebrand the app. Company details here are the defaults on every device; each device can
-// still override them under the "Company" button.
+// to rebrand the app. The company details below pre-fill the company profile on first launch.
 window.BRAND = {
   appName: 'Advanced Tree Service',
 
   colors: {
-    primary: '#2f5d3a',     // toolbar, headings, table header
+    primary: '#2f5d3a',     // header, buttons, selected choices
     primaryDark: '#224529',
-    accent: '#6b4f3a',      // "ESTIMATE" title
-    background: '#eef1ec',  // page background behind the form
+    accent: '#6b4f3a',      // "ESTIMATE" title on the printout
+    background: '#eef1ec',  // app background
   },
 
   company: {
-    coName: 'Advanced Tree Service',
-    coAddress: '',
-    coPhone: '',
-    coEmail: '',
-    coWebsite: 'advanced-treeservice.com',
-    coLicense: '',
-    coTax: 0,
-    coDeposit: 0,
-    coValidDays: 30,
-    coTerms: '', // leave blank to use the built-in default terms
+    name: 'Advanced Tree Service',
+    owner: '',       // estimator / arborist name
+    isa: '',         // ISA certification number
+    phone: '',
+    email: '',
+    website: 'advanced-treeservice.com',
+    address: '',
+    license: '',     // license / insurance info
+    taxRate: 0,
+    depositPct: 0,
+    validDays: 30,
+    terms: '',       // leave blank to use the built-in default terms
     logo: 'brand/logo.svg',
   },
 };

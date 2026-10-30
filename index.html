@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Advanced Tree Service</title>
   <meta name="theme-color" content="#2f5d3a">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ATS Estimates">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="brand/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
@@ -14,227 +15,60 @@
   <script src="brand.js"></script>
 </head>
 <body>
-  <header class="toolbar no-print">
-    <div class="brand"><img src="brand/logo.svg" alt="" id="app-logo"><span id="app-name">Advanced Tree Service</span></div>
-    <nav class="actions">
-      <button type="button" id="btn-new">New</button>
-      <button type="button" id="btn-save" class="primary">Save</button>
-      <button type="button" id="btn-open">Saved</button>
-      <button type="button" id="btn-print">Print / PDF</button>
-      <button type="button" id="btn-settings">Company</button>
-      <button type="button" id="btn-install" hidden>Install app</button>
-    </nav>
+  <header class="appbar">
+    <button type="button" class="icon-btn" id="appbar-back" data-act="home" aria-label="Back to estimates" hidden>‹</button>
+    <img src="brand/logo.svg" alt="" class="appbar-logo" id="appbar-logo">
+    <div class="appbar-title" id="appbar-title">Advanced Tree Service</div>
+    <button type="button" class="icon-btn" data-act="menu" aria-label="Menu">☰</button>
   </header>
 
-  <main id="estimate" class="sheet">
-    <!-- Company header -->
-    <section class="letterhead">
-      <img id="logo-preview" class="logo" alt="" hidden>
-      <div class="company">
-        <h1 id="co-name-display">Advanced Tree Service</h1>
-        <div id="co-details-display" class="muted"></div>
-      </div>
-      <div class="doc-meta">
-        <h2>ESTIMATE</h2>
-        <label>Estimate #<input name="number" required></label>
-        <label>Date<input type="date" name="date" required></label>
-        <label>Valid until<input type="date" name="validUntil"></label>
-        <label>Arborist<input name="arborist" placeholder="Name / ISA cert #"></label>
-      </div>
-    </section>
+  <main id="view"></main>
 
-    <!-- Client & site -->
-    <section class="grid two">
-      <fieldset>
-        <legend>Client</legend>
-        <label>Name<input name="clientName" autocomplete="name"></label>
-        <label>Phone<input type="tel" name="clientPhone" autocomplete="tel"></label>
-        <label>Email<input type="email" name="clientEmail" autocomplete="email"></label>
-        <label>Billing address<textarea name="clientAddress" rows="2"></textarea></label>
-      </fieldset>
-      <fieldset>
-        <legend>Job site</legend>
-        <label class="inline"><input type="checkbox" name="siteSameAsBilling"> Same as billing address</label>
-        <label>Site address<textarea name="siteAddress" rows="2"></textarea></label>
-        <label>Access notes<textarea name="accessNotes" rows="2" placeholder="Gate code, dogs, parking, backyard access width…"></textarea></label>
-      </fieldset>
-    </section>
+  <footer class="bottombar" id="bottombar" hidden>
+    <button type="button" class="btn" data-act="prev" id="btn-prev">‹ Back</button>
+    <button type="button" class="btn primary" data-act="next" id="btn-next">Next ›</button>
+  </footer>
 
-    <fieldset>
-      <legend>Site conditions</legend>
-      <div class="checks">
-        <label class="inline"><input type="checkbox" name="cond_powerlines"> Overhead power lines</label>
-        <label class="inline"><input type="checkbox" name="cond_structure"> Near structure</label>
-        <label class="inline"><input type="checkbox" name="cond_crane"> Crane required</label>
-        <label class="inline"><input type="checkbox" name="cond_bucket"> Bucket truck access</label>
-        <label class="inline"><input type="checkbox" name="cond_climb"> Climb only (no truck access)</label>
-        <label class="inline"><input type="checkbox" name="cond_permit"> Permit required</label>
-        <label class="inline"><input type="checkbox" name="cond_utilities"> Call 811 / locate utilities</label>
-        <label class="inline"><input type="checkbox" name="cond_hoa"> HOA approval needed</label>
-      </div>
-    </fieldset>
+  <!-- Printable estimate, filled in right before printing -->
+  <div id="print-doc"></div>
 
-    <!-- Line items -->
-    <section>
-      <h3>Work to be performed</h3>
-      <div class="table-wrap">
-        <table class="items">
-          <thead>
-            <tr>
-              <th class="c-num">#</th>
-              <th class="c-service">Service</th>
-              <th class="c-species">Species / Location</th>
-              <th class="c-dim">DBH (in)</th>
-              <th class="c-dim">Height (ft)</th>
-              <th class="c-desc">Description</th>
-              <th class="c-qty">Qty</th>
-              <th class="c-money">Unit price</th>
-              <th class="c-money">Amount</th>
-              <th class="c-del no-print"></th>
-            </tr>
-          </thead>
-          <tbody id="items"></tbody>
-        </table>
-      </div>
-      <button type="button" id="btn-add-item" class="no-print">+ Add line item</button>
-      <datalist id="species-list"></datalist>
-    </section>
+  <!-- Add / edit a tree or work item -->
+  <dialog id="item-dlg" class="sheet" data-scope="item"></dialog>
 
-    <!-- Cleanup + totals -->
-    <section class="grid two">
-      <fieldset>
-        <legend>Cleanup &amp; debris</legend>
-        <label>Wood<select name="wood">
-          <option value="haul">Haul away all wood</option>
-          <option value="leave-rounds">Leave wood in rounds on site</option>
-          <option value="leave-split">Cut to firewood length, leave stacked</option>
-        </select></label>
-        <label>Brush / chips<select name="chips">
-          <option value="haul">Chip and haul away</option>
-          <option value="leave">Leave chips on site</option>
-        </select></label>
-        <label>Stumps<select name="stumps">
-          <option value="flush">Cut flush to ground</option>
-          <option value="grind">Grind 6–8" below grade</option>
-          <option value="grind-backfill">Grind, backfill and seed</option>
-          <option value="leave">Leave stump (height noted)</option>
-        </select></label>
-        <label class="inline"><input type="checkbox" name="raking" checked> Rake and blow work area</label>
-      </fieldset>
-
-      <div class="totals">
-        <div class="row"><span>Subtotal</span><span id="t-subtotal">$0.00</span></div>
-        <div class="row">
-          <span>Discount
-            <input name="discount" type="number" min="0" step="0.01" class="small">
-            <select name="discountType" class="small">
-              <option value="pct">%</option>
-              <option value="amt">$</option>
-            </select>
-          </span>
-          <span id="t-discount">−$0.00</span>
-        </div>
-        <div class="row">
-          <span>Tax <input name="taxRate" type="number" min="0" step="0.001" class="small"> %</span>
-          <span id="t-tax">$0.00</span>
-        </div>
-        <div class="row total"><span>Total</span><span id="t-total">$0.00</span></div>
-        <div class="row">
-          <span>Deposit <input name="depositPct" type="number" min="0" max="100" step="1" class="small"> %</span>
-          <span id="t-deposit">$0.00</span>
-        </div>
-        <div class="row"><span>Balance due on completion</span><span id="t-balance">$0.00</span></div>
-      </div>
-    </section>
-
-    <section class="grid two">
-      <label>Notes to client<textarea name="notes" rows="4" placeholder="Observations, tree health, recommendations…"></textarea></label>
-      <label>Terms &amp; conditions<textarea name="terms" rows="4"></textarea></label>
-    </section>
-
-    <!-- Acceptance -->
-    <section class="acceptance">
-      <h3>Acceptance</h3>
-      <p class="muted">By signing below, I authorize the work described above at the prices and terms stated.</p>
-      <div class="grid two">
-        <div>
-          <canvas id="sig" class="sig" width="600" height="160" aria-label="Client signature"></canvas>
-          <div class="sig-line">
-            <span>Client signature</span>
-            <button type="button" id="btn-clear-sig" class="link no-print">Clear</button>
-          </div>
-        </div>
-        <div>
-          <label>Printed name<input name="sigName"></label>
-          <label>Date signed<input type="date" name="sigDate"></label>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Saved estimates -->
-  <dialog id="dlg-saved">
-    <form method="dialog">
-      <h3>Saved estimates</h3>
-      <input type="search" id="saved-search" placeholder="Search client, number, address…">
-      <ul id="saved-list" class="saved-list"></ul>
-      <div class="dlg-actions">
-        <button type="button" id="btn-export">Export all (JSON)</button>
-        <label class="button">Import JSON<input type="file" id="file-import" accept="application/json" hidden></label>
-        <button value="close">Close</button>
-      </div>
-    </form>
+  <!-- Simple list picker (previous customers) -->
+  <dialog id="pick-dlg" class="sheet small">
+    <div class="sheet-head">
+      <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
+      <h3 id="pick-title">Previous customers</h3>
+      <span></span>
+    </div>
+    <div class="sheet-body">
+      <input type="search" id="pick-search" placeholder="Search name, phone, address">
+      <div id="pick-list" class="pick-list"></div>
+    </div>
   </dialog>
 
-  <!-- Company settings -->
-  <dialog id="dlg-settings">
-    <form method="dialog" id="settings-form">
-      <h3>Company details</h3>
-      <p class="muted">Saved on this device and used on every estimate.</p>
-      <label>Company name<input name="coName"></label>
-      <label>Address<textarea name="coAddress" rows="2"></textarea></label>
-      <div class="grid two">
-        <label>Phone<input name="coPhone" type="tel"></label>
-        <label>Email<input name="coEmail" type="email"></label>
-      </div>
-      <div class="grid two">
-        <label>Website<input name="coWebsite"></label>
-        <label>License / Insurance #<input name="coLicense"></label>
-      </div>
-      <div class="grid two">
-        <label>Default tax rate (%)<input name="coTax" type="number" min="0" step="0.001"></label>
-        <label>Default deposit (%)<input name="coDeposit" type="number" min="0" max="100" step="1"></label>
-      </div>
-      <div class="grid two">
-        <label>Estimate valid for (days)<input name="coValidDays" type="number" min="1" step="1"></label>
-        <label>Next estimate #<input name="coNextNumber" type="number" min="1" step="1"></label>
-      </div>
-      <label>Default terms<textarea name="coTerms" rows="4"></textarea></label>
-      <label>Logo<input type="file" id="logo-file" accept="image/*"></label>
-      <button type="button" id="btn-remove-logo" class="link">Remove logo</button>
-      <div class="dlg-actions">
-        <button value="cancel" formnovalidate>Cancel</button>
-        <button value="save" class="primary">Save</button>
-      </div>
-    </form>
+  <dialog id="menu-dlg" class="sheet small">
+    <div class="sheet-head">
+      <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
+      <h3>Menu</h3>
+      <span></span>
+    </div>
+    <div class="sheet-body menu">
+      <button type="button" class="menu-item" data-act="home">📋 Estimates</button>
+      <button type="button" class="menu-item" data-act="profile">🏢 Company profile</button>
+      <button type="button" class="menu-item" data-act="export">⬇️ Back up estimates</button>
+      <button type="button" class="menu-item" data-act="import">⬆️ Restore from backup</button>
+      <button type="button" class="menu-item" data-act="install" id="menu-install" hidden>📲 Install app on this device</button>
+    </div>
   </dialog>
+
+  <input type="file" id="vcf-file" accept=".vcf,text/vcard,text/x-vcard" hidden>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+  <input type="file" id="logo-file" accept="image/*" hidden>
+  <datalist id="species-list"></datalist>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-  <template id="item-row">
-    <tr>
-      <td class="c-num"></td>
-      <td class="c-service"><select data-f="service"></select></td>
-      <td class="c-species"><input data-f="species" list="species-list"></td>
-      <td class="c-dim"><input data-f="dbh" type="number" min="0" step="0.5" inputmode="decimal"></td>
-      <td class="c-dim"><input data-f="height" type="number" min="0" step="1" inputmode="numeric"></td>
-      <td class="c-desc"><textarea data-f="description" rows="1"></textarea></td>
-      <td class="c-qty"><input data-f="qty" type="number" min="0" step="1" inputmode="numeric"></td>
-      <td class="c-money"><input data-f="price" type="number" min="0" step="0.01" inputmode="decimal"></td>
-      <td class="c-money amount"></td>
-      <td class="c-del no-print"><button type="button" class="link danger" aria-label="Remove line">✕</button></td>
-    </tr>
-  </template>
 
   <script src="app.js"></script>
 </body>
