@@ -1,6 +1,6 @@
 // Offline support: serve the app from cache when there's no signal on site.
 // Bump VERSION whenever you deploy changes so devices pick up the new files.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'canopy-' + VERSION;
 const ASSETS = [
   './',

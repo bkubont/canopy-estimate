@@ -2,7 +2,7 @@
 // to rebrand the app. Company details here are the defaults on every device; each device can
 // still override them under the "Company" button.
 window.BRAND = {
-  appName: 'Canopy Estimate',
+  appName: 'Advanced Tree Service',
 
   colors: {
     primary: '#2f5d3a',     // toolbar, headings, table header
@@ -12,11 +12,11 @@ window.BRAND = {
   },
 
   company: {
-    coName: 'Your Tree Service',
+    coName: 'Advanced Tree Service',
     coAddress: '',
     coPhone: '',
     coEmail: '',
-    coWebsite: '',
+    coWebsite: 'advanced-treeservice.com',
     coLicense: '',
     coTax: 0,
     coDeposit: 0,

@@ -4,13 +4,24 @@ The app is plain static files, so any Hostinger web hosting plan works. No Node.
 
 ## 1. Pick where it lives
 
+### Starting on a temporary domain (current plan)
+
+When you add a website in hPanel without connecting a domain, Hostinger gives it a free temporary address. It looks something like `something-12345.hostingersite.com`, and it already has SSL. Use that address to try the app before pointing advanced-treeservice.com at it. The app uses relative paths, so the files don't need any change when the domain changes.
+
+**Before you switch to the real domain:** estimates are stored per web address. Anything saved on phones while using the temporary address won't appear automatically once you move to advanced-treeservice.com. Before switching, on each device:
+1. Open **Saved → Export all** on the temporary address.
+2. Open the app on the new address and use **Saved → Import JSON**.
+3. Delete the old home-screen icon and install it again from the new address.
+
+### Final address
+
 Either:
-- **A subdomain** such as `estimates.yourcompany.com` (recommended). In hPanel, go to **Domains → Subdomains** and create it. Hostinger gives it its own folder, e.g. `public_html/estimates`.
-- **The main domain**, which uses `public_html` itself.
+- **A subdomain** such as `estimates.advanced-treeservice.com` (recommended, so it stays separate from your main website). In hPanel, go to **Domains → Subdomains** and create it. Hostinger gives it its own folder, e.g. `public_html/estimates`.
+- **The main domain**, which uses `public_html` itself. Only do this if this app *is* the whole site; otherwise it would replace your existing website.
 
 ## 2. Turn on SSL (required)
 
-Installing to the home screen and working offline only work over `https://`. In hPanel, open **Security → SSL** and install the free SSL certificate for the domain or subdomain. The included `.htaccess` then redirects all `http://` traffic to `https://`.
+Installing to the home screen and working offline only work over `https://`. In hPanel, open **Security → SSL** and install the free SSL certificate for the domain or subdomain. Temporary Hostinger domains normally come with SSL already. The included `.htaccess` then redirects all `http://` traffic to `https://`.
 
 ## 3. Upload the files
 

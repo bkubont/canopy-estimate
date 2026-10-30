@@ -1,7 +1,7 @@
 {
-  "name": "Canopy Estimate",
-  "short_name": "Estimates",
-  "description": "Tree service estimates in the field",
+  "name": "Advanced Tree Service Estimates",
+  "short_name": "ATS Estimates",
+  "description": "Advanced Tree Service field estimates",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

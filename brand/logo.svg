@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="112" fill="#2f5d3a"/>
-  <path fill="#7fb069" d="M256 72c-62 0-112 46-112 104 0 9 1 17 4 25-38 14-64 48-64 88 0 53 46 95 104 95h136c58 0 104-42 104-95 0-40-26-74-64-88 3-8 4-16 4-25 0-58-50-104-112-104z"/>
-  <path fill="#6b4f3a" d="M236 300h40v140h-40z"/>
-  <path fill="#6b4f3a" d="M256 360l-52-40 12-14 40 30zM256 340l46-36 12 14-58 44z"/>
+  <path fill="#7fb069" d="M256 52c-50 0-90 37-90 83 0 7 1 14 3 20-30 11-51 38-51 70 0 42 37 76 83 76h110c46 0 83-34 83-76 0-32-21-59-51-70 2-6 3-13 3-20 0-46-40-83-90-83z"/>
+  <path fill="#6b4f3a" d="M240 270h32v60h-32z"/>
+  <text x="256" y="452" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="120" letter-spacing="6" fill="#ffffff">ATS</text>
 </svg>
