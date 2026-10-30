@@ -8,19 +8,21 @@ Open `index.html` in any modern browser; there's no build step. Hosted over HTTP
 
 ## How it works
 
-1. **Company profile (first launch only):** company name, logo, phone, estimator and ISA number, license, tax, deposit, terms. It prints on every estimate automatically and can be changed later from the menu.
+The app follows the paper Tree Service Estimate Form, with tap-to-select choices wherever possible.
+
+1. **Company profile (first launch only):** company name, license number, address, phone, email, logo, default labor rate, tax, deposit, validity period, and your contractor signature. It fills every estimate automatically and can be changed later from the ☰ menu.
 2. **New estimate**, one section per screen with big Back / Next buttons:
-   - **Customer:** import from phone contacts (Android), a contact card file (iPhone), or a past customer
-   - **Site:** same-as-customer toggle, plus tap-to-select site conditions and access
-   - **Work:** add trees or work items. For each one you tap the service, its work details, species, location, trunk diameter and height, then enter quantity and price.
-   - **Cleanup:** wood, brush, stumps and extras
-   - **Price:** tap-to-select discount and deposit, tax, and live totals
-   - **Notes:** tap-to-add common notes, free text, and terms
-   - **Sign:** the customer signs on screen; the name and date fill in automatically
-   - **Send:** print or save as PDF, share, text, or email a summary, with a preview of the finished estimate
+   - **Client:** import from phone contacts (Android), a contact card file (iPhone), or a past client
+   - **Service:** type of service, location of trees, large / medium / small tree counts (total adds up automatically), condition of trees
+   - **Site:** site conditions, additional services, start date (quick "next week" buttons) and job length
+   - **Materials:** tap common equipment and materials to add them. Each price is remembered for next time.
+   - **Labor:** hour buttons plus your default hourly rate, with as many labor lines as needed
+   - **Summary:** subtotal, tax, additional costs, total, validity period and deposit
+   - **Sign:** the client signs on screen; your saved contractor signature is added automatically
+   - **Send:** print or save as PDF, share, text, or email a summary, with a preview of the finished form
 3. **Estimates list:** search, reopen, duplicate or delete. Everything saves automatically.
 
-Pick lists (services and their details, species, conditions and so on) are at the top of `app.js`, so they're easy to edit.
+Pick lists are at the top of `app.js`, so they're easy to edit.
 
 ## Where data lives
 

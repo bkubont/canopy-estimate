@@ -12,17 +12,15 @@ window.BRAND = {
 
   company: {
     name: 'Advanced Tree Service',
-    owner: '',       // estimator / arborist name
-    isa: '',         // ISA certification number
+    license: '',
+    address: '',
     phone: '',
     email: '',
     website: 'advanced-treeservice.com',
-    address: '',
-    license: '',     // license / insurance info
+    laborRate: '',   // default $/hour on new estimates
     taxRate: 0,
     depositPct: 0,
     validDays: 30,
-    terms: '',       // leave blank to use the built-in default terms
     logo: 'brand/logo.svg',
   },
 };

@@ -1,73 +1,33 @@
 (() => {
   'use strict';
 
-  // ---------- pick lists ----------
+  // ---------- pick lists (match the paper estimate form) ----------
 
-  // Each service has its own quick-pick work details.
-  const SERVICES = {
-    'Tree removal': ['Remove to ground level', 'Section down with ropes', 'Crane-assisted removal', 'Bucket truck removal', 'Fell in open area', 'Leave 10–15 ft wildlife snag'],
-    'Crown reduction': ['Reduce crown 10–15%', 'Reduce crown 15–25%', 'Reduce away from house', 'Reduce over roof', 'Reduce from power lines', 'Reduce end weight on heavy limbs'],
-    'Crown thinning': ['Thin crown 10–15%', 'Thin crown 15–25%', 'Remove crossing / rubbing limbs', 'Remove water sprouts', 'Improve light & airflow'],
-    'Crown raising': ['Raise to 8 ft over lawn', 'Raise to 10 ft over sidewalk', 'Raise to 14 ft over driveway / street', 'Clear sight lines', 'Clear house / roof by 6 ft'],
-    'Deadwood removal': ['Remove deadwood 1"+', 'Remove deadwood 2"+', 'Remove broken / hanging limbs', 'Remove storm-damaged limbs'],
-    'Clearance pruning': ['Clear roof by 6 ft', 'Clear from house siding', 'Clear service drop to house', 'Clear fence line', 'Clear driveway / street'],
-    'Structural pruning': ['Establish central leader', 'Subordinate competing stems', 'Remove included-bark unions', 'Young tree training prune'],
-    'Cabling & bracing': ['Install dynamic cable system', 'Install static cable', 'Install through-bolt brace', 'Inspect existing cables'],
-    'Stump grinding': ['Grind 6–8" below grade', 'Grind 10–12" below grade', 'Grind surface roots', 'Backfill with grindings', 'Haul grindings, backfill with topsoil', 'Seed and straw'],
-    'Storm / emergency': ['Remove tree from structure', 'Remove fallen tree', 'Remove hanging limbs', 'After-hours response', 'Tarp roof damage'],
-    'Hedge / shrub trimming': ['Shape and shear', 'Reduce height', 'Reduce width', 'Remove shrubs to ground'],
-    'Plant health care': ['Deep root fertilization', 'Insect treatment', 'Disease treatment', 'EAB trunk injection', 'Dormant oil spray'],
-    'Tree planting': ['Supply and plant', 'Plant customer-supplied tree', 'Stake and mulch', 'Install watering bag'],
-    'Land / lot clearing': ['Clear brush and small trees', 'Forestry mulching', 'Clear fence line', 'Remove invasive species'],
-    'Tree risk assessment': ['Visual assessment', 'Written report', 'Resistograph testing'],
-    'Other': [],
-  };
+  const SERVICES = ['Tree Removal', 'Tree Trimming / Pruning', 'Stump Grinding / Removal', 'Emergency Tree Service', 'Tree Health Assessment', 'Land Clearing / Grading'];
+  const LOCATIONS = ['Front Yard', 'Backyard', 'Near Utility Lines', 'Over Structure'];
+  const CONDITIONS = ['Healthy', 'Diseased / Decayed', 'Storm-Damaged'];
+  const SITE = ['Clear Access', 'Restricted Access', 'Uneven Terrain', 'Sloped Terrain'];
+  const EXTRAS = ['Wood Chipping / Hauling', 'Firewood Preparation', 'Cleanup / Debris Removal'];
 
-  const SPECIES_COMMON = ['Oak', 'Maple', 'Pine', 'Ash', 'Elm', 'Spruce', 'Cedar', 'Cottonwood', 'Poplar', 'Birch', 'Walnut', 'Locust', 'Willow', 'Hackberry', 'Pear', 'Unknown'];
-  const SPECIES_ALL = [
-    'Red maple', 'Silver maple', 'Sugar maple', 'Norway maple', 'Boxelder', 'Red oak', 'White oak', 'Pin oak', 'Bur oak',
-    'Live oak', 'White pine', 'Scots pine', 'Austrian pine', 'Ponderosa pine', 'Blue spruce', 'Norway spruce', 'Eastern red cedar',
-    'Arborvitae', 'Douglas fir', 'Hemlock', 'American elm', 'Siberian elm', 'Green ash', 'White ash', 'Honey locust', 'Black locust',
-    'Tulip poplar', 'Aspen', 'River birch', 'Paper birch', 'Black walnut', 'Hickory', 'Pecan', 'Sycamore', 'Sweetgum', 'Linden',
-    'Bradford pear', 'Crabapple', 'Cherry', 'Mulberry', 'Catalpa', 'Russian olive', 'Magnolia', 'Dogwood', 'Redbud',
-  ];
-  const LOCATIONS = ['Front yard', 'Back yard', 'Side yard', 'Near house', 'Over roof', 'Driveway', 'Fence line', 'Street / ROW', 'Tree line'];
-  const DBH = ['< 6"', '6–12"', '12–18"', '18–24"', '24–30"', '30–36"', '36"+'];
-  const HEIGHTS = ['< 20 ft', '20–40 ft', '40–60 ft', '60–80 ft', '80 ft+'];
+  // Quick-add buttons on the Materials / Equipment screen. Prices are remembered after first use.
+  const MATERIALS = ['Bucket truck', 'Crane', 'Chipper', 'Stump grinder', 'Skid steer / loader', 'Dump truck', 'Dump / disposal fee',
+    'Mulch', 'Topsoil & seed', 'Cabling hardware', 'Permit fee', 'Traffic control'];
 
-  const CONDITIONS = ['Overhead power lines', 'Near house / structure', 'Over roof', 'Over fence', 'Crane required', 'Bucket truck access',
-    'Climb only (no truck access)', 'Steep slope', 'Wet / soft ground', 'Permit required', 'Call 811 before grinding', 'HOA approval needed'];
-  const ACCESS = ['Gate access', 'Gate code needed', 'Narrow gate (under 36")', 'Dogs on property', 'Back yard only', 'Must cross lawn',
-    'Septic / leach field', 'Irrigation system', 'Park on street', 'Customer must be home'];
-
-  const WOOD = ['Haul away all wood', 'Leave wood in rounds', 'Cut to firewood length & stack', 'Leave logs full length'];
-  const BRUSH = ['Chip and haul away', 'Leave chips on site', 'Leave chips in a pile'];
-  const STUMPS = ['Cut flush to ground', 'Grind stumps', 'Leave stump (customer request)', 'Stumps not included'];
-  const EXTRAS = ['Rake & blow work area', 'Ground protection mats', 'Clean gutters of debris', 'Customer to move vehicles'];
-
-  const NOTE_CHIPS = ['Tree shows signs of decay', 'Dead / dying – removal recommended', 'Leaning toward structure', 'Storm damage present',
-    'Emerald ash borer signs', 'Recommend follow-up inspection in 1 year', 'Work scheduled 2–3 weeks after acceptance', 'Price includes all cleanup'];
-
-  const DISCOUNTS = [[0, 'None'], [5, '5%'], [10, '10%'], [15, '15%']];
+  const HOURS = [1, 2, 4, 6, 8];
+  const ADDITIONAL = [[0, 'None'], [50, '$50'], [100, '$100'], [150, '$150'], [250, '$250']];
   const DEPOSITS = [[0, 'None'], [25, '25%'], [50, '50%']];
   const VALID_DAYS = [[15, '15 days'], [30, '30 days'], [60, '60 days'], [90, '90 days']];
-
-  const DEFAULT_TERMS =
-    'Pricing valid for the period shown above. A deposit may be required to schedule work. ' +
-    'Customer is responsible for identifying property lines and any underground irrigation, ' +
-    'invisible fences or private utilities. We are not responsible for damage to lawns from ' +
-    'equipment travel beyond reasonable care. Fully insured; certificate available on request. ' +
-    'Balance due upon completion.';
+  const DURATION = [[0, 'Same day'], [1, '+1 day'], [2, '+2 days'], [3, '+3 days'], [5, '+5 days']];
 
   const STEPS = [
-    { id: 'customer', label: 'Customer', render: stepCustomer },
+    { id: 'client', label: 'Client', render: stepClient },
+    { id: 'service', label: 'Service', render: stepService },
     { id: 'site', label: 'Site', render: stepSite },
-    { id: 'work', label: 'Work', render: stepWork },
-    { id: 'cleanup', label: 'Cleanup', render: stepCleanup },
-    { id: 'price', label: 'Price', render: stepPrice },
-    { id: 'notes', label: 'Notes', render: stepNotes },
+    { id: 'materials', label: 'Materials', render: stepMaterials },
+    { id: 'labor', label: 'Labor', render: stepLabor },
+    { id: 'summary', label: 'Summary', render: stepSummary },
     { id: 'sign', label: 'Sign', render: stepSign },
-    { id: 'review', label: 'Send', render: stepReview },
+    { id: 'send', label: 'Send', render: stepSend },
   ];
 
   // ---------- helpers ----------
@@ -105,7 +65,7 @@
 
   // ---------- storage ----------
 
-  const KEYS = { profile: 'ats.profile', estimates: 'ats.estimates' };
+  const KEYS = { profile: 'ats.profile', estimates: 'ats.estimates.v3' };
 
   function load(key, fallback) {
     try {
@@ -128,14 +88,15 @@
   }
 
   const DEFAULT_PROFILE = {
-    name: '', owner: '', isa: '', phone: '', email: '', website: '', address: '', license: '',
-    taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001, terms: '', logo: '',
+    name: '', license: '', address: '', phone: '', email: '', website: '',
+    laborRate: '', taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001,
+    logo: '', signature: '', prices: {},
     ...BRAND.company,
     complete: false,
   };
-  if (!DEFAULT_PROFILE.terms) DEFAULT_PROFILE.terms = DEFAULT_TERMS;
 
   let profile = { ...DEFAULT_PROFILE, ...load(KEYS.profile, {}) };
+  profile.prices = profile.prices || {};
   const saveProfile = () => store(KEYS.profile, profile);
 
   const allEstimates = () => load(KEYS.estimates, {});
@@ -143,60 +104,52 @@
   // ---------- state ----------
 
   let current = null;      // estimate open in the wizard
-  let editingItem = null;  // item open in the item sheet
-  let editingIndex = -1;
   let profileDraft = null; // profile being edited
   let installPrompt = null;
 
   const scopeOf = (el) => el.closest('[data-scope]')?.dataset.scope || 'est';
-  const objFor = (scope) => ({ est: current, item: editingItem, profile: profileDraft })[scope];
+  const objFor = (scope) => (scope === 'profile' ? profileDraft : current);
 
   function blankEstimate() {
-    const date = today();
     return {
       id: uid(),
       number: 'E-' + profile.nextNumber,
-      date,
-      validUntil: addDays(date, num(profile.validDays) || 30),
-      customer: { name: '', phone: '', email: '', address: '' },
-      siteSame: true,
-      siteAddress: '',
-      conditions: [],
-      access: [],
-      accessNotes: '',
-      items: [],
-      wood: WOOD[0],
-      brush: BRUSH[0],
-      stumps: STUMPS[0],
-      extras: [EXTRAS[0]],
-      discountPct: 0,
-      taxRate: num(profile.taxRate),
-      depositPct: num(profile.depositPct),
-      noteChips: [],
+      date: today(),
+      client: { name: '', phone: '', email: '', street: '', csz: '' },
+      services: [], servicesOther: '',
+      locations: [], locationsOther: '',
+      large: 0, medium: 0, small: 0,
+      conditions: [], conditionsOther: '',
+      site: [], siteOther: '',
+      extras: [], extrasOther: '',
+      startDate: '', endDate: '',
       notes: '',
-      terms: profile.terms || DEFAULT_TERMS,
-      signature: '',
-      sigName: '',
-      sigDate: '',
+      materials: [],
+      labor: [{ hours: '', rate: profile.laborRate }],
+      taxRate: num(profile.taxRate),
+      additional: 0,
+      validDays: num(profile.validDays) || 30,
+      depositPct: num(profile.depositPct),
+      depositAmt: '',
+      clientSig: '',
+      clientSigDate: '',
       createdAt: new Date().toISOString(),
       updatedAt: null,
     };
   }
 
-  function blankItem() {
-    return { service: '', details: [], species: '', location: '', dbh: '', height: '', description: '', qty: 1, price: '' };
-  }
-
-  const isEmpty = (e) => !e.customer.name.trim() && !e.customer.phone.trim() && !e.items.length;
+  const isEmpty = (e) => !e.client.name.trim() && !e.client.phone.trim() && !e.services.length && !e.materials.length;
+  const treeCount = (e) => num(e.large) + num(e.medium) + num(e.small);
 
   function totals(e) {
-    const subtotal = e.items.reduce((s, i) => s + (num(i.qty) || 1) * num(i.price), 0);
-    const discount = (subtotal * Math.min(100, num(e.discountPct))) / 100;
-    const taxable = subtotal - discount;
-    const tax = (taxable * num(e.taxRate)) / 100;
-    const total = taxable + tax;
-    const deposit = (total * Math.min(100, num(e.depositPct))) / 100;
-    return { subtotal, discount, tax, total, deposit, balance: total - deposit };
+    const materials = e.materials.reduce((s, m) => s + num(m.qty) * num(m.price), 0);
+    const labor = e.labor.reduce((s, l) => s + num(l.hours) * num(l.rate), 0);
+    const subtotal = materials + labor;
+    const tax = (subtotal * num(e.taxRate)) / 100;
+    const additional = num(e.additional);
+    const total = subtotal + tax + additional;
+    const deposit = e.depositAmt !== '' && e.depositAmt != null ? num(e.depositAmt) : (total * Math.min(100, num(e.depositPct))) / 100;
+    return { materials, labor, subtotal, tax, additional, total, deposit };
   }
 
   let saveTimer;
@@ -245,12 +198,27 @@
     return `<div class="chips" data-bind="${key}"${multi ? ' data-multi' : ''}${isNum ? ' data-num' : ''}${required ? ' data-required' : ''}>${btns}</div>`;
   }
 
+  // A multi-select group with an "Other" text box underneath, like the paper form.
+  const checkGroup = (key, options) =>
+    `${chips(key, options, { multi: true })}<input class="mt" data-bind="${key}Other" placeholder="Other…">`;
+
   function field(label, key, attrs = '', textarea = false) {
     const control = textarea
       ? `<textarea data-bind="${key}" ${attrs}></textarea>`
       : `<input data-bind="${key}" ${attrs}>`;
     return `<label class="field"><span>${label}</span>${control}</label>`;
   }
+
+  function stepper(key, { step = 1, min = 0 } = {}) {
+    return `<div class="stepper">
+      <button type="button" data-act="step" data-key="${key}" data-d="${-step}" data-min="${min}" aria-label="Less">−</button>
+      <input data-bind="${key}" type="number" inputmode="numeric" min="${min}">
+      <button type="button" data-act="step" data-key="${key}" data-d="${step}" data-min="${min}" aria-label="More">＋</button>
+    </div>`;
+  }
+
+  const moneyInput = (key, placeholder = '0') =>
+    `<div class="price-input"><span>$</span><input data-bind="${key}" type="number" inputmode="decimal" min="0" step="0.01" placeholder="${placeholder}"></div>`;
 
   // Push values from the data object into every control bound in this scope.
   function syncAll(root, scope) {
@@ -271,7 +239,7 @@
     if (el.classList.contains('chips')) {
       const multi = el.hasAttribute('data-multi');
       for (const b of $$('.chip', el)) {
-        const on = multi ? (val || []).includes(b.dataset.v) : String(val ?? '') === b.dataset.v;
+        const on = multi ? (val || []).includes(b.dataset.v) : val !== '' && val != null && String(val) === b.dataset.v;
         b.setAttribute('aria-pressed', on);
       }
     } else if (el.type === 'checkbox') {
@@ -282,20 +250,32 @@
   }
 
   function onChange(scope, key) {
-    if (scope === 'est') {
-      if (key === 'siteSame') $('#site-wrap')?.toggleAttribute('hidden', current.siteSame);
-      if (key === 'customer.name' && current.signature === '') current.sigName = current.customer.name;
-      updateTotals();
-      scheduleSave();
-    } else if (scope === 'item') {
-      if (key === 'service') {
-        editingItem.details = [];
-        renderDetails();
+    if (scope !== 'est') return;
+    // Remember material prices so they fill in automatically next time.
+    const m = key.match(/^materials\.(\d+)\.(price|desc)$/);
+    if (m) {
+      const row = current.materials[m[1]];
+      if (row?.desc && row.price !== '') {
+        profile.prices[row.desc.trim().toLowerCase()] = num(row.price);
+        saveProfile();
       }
-      updateItemTotal();
-    } else if (scope === 'profile' && key === 'logo') {
-      renderLogoPreview();
     }
+    if (/^(large|medium|small)$/.test(key)) $('#tree-count').textContent = treeCount(current);
+    if (key === 'startDate' && current.startDate && (!current.endDate || current.endDate < current.startDate)) {
+      current.endDate = current.startDate;
+      syncKey('est', 'endDate');
+    }
+    // A deposit is either a percentage or a fixed amount, not both.
+    if (key === 'depositPct') {
+      current.depositAmt = '';
+      syncKey('est', 'depositAmt');
+    }
+    if (key === 'depositAmt' && current.depositAmt !== '') {
+      current.depositPct = '';
+      syncKey('est', 'depositPct');
+    }
+    updateTotals();
+    scheduleSave();
   }
 
   // ---------- routing ----------
@@ -324,6 +304,8 @@
     document.body.classList.toggle('has-bottombar', !!bottombar);
   }
 
+  const wizardTitle = () => `${current.number}${current.client.name ? ' · ' + current.client.name : ''}`;
+
   // ---------- home ----------
 
   function renderHome() {
@@ -339,16 +321,16 @@
   function renderEstimateList() {
     const q = ($('#home-search')?.value || '').trim().toLowerCase();
     const list = Object.values(allEstimates())
-      .filter((e) => !q || [e.number, e.customer?.name, e.customer?.phone, e.customer?.address, e.siteAddress].join(' ').toLowerCase().includes(q))
+      .filter((e) => !q || [e.number, e.client?.name, e.client?.phone, e.client?.street, e.client?.csz].join(' ').toLowerCase().includes(q))
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
 
     $('#est-list').innerHTML = list.length
       ? list.map((e) => `
         <button type="button" class="est-card" data-act="open" data-id="${esc(e.id)}">
-          <div class="row"><b>${esc(e.customer?.name || 'No name')}</b><b>${money(e.total)}</b></div>
+          <div class="row"><b>${esc(e.client?.name || 'No name')}</b><b>${money(e.total)}</b></div>
           <div class="row muted"><span>${esc(e.number)} · ${niceDate(e.date)}</span>
-            <span class="badge ${e.signature ? 'ok' : ''}">${e.signature ? 'Signed' : 'Draft'}</span></div>
-          <div class="muted one-line">${esc((e.siteSame ? e.customer?.address : e.siteAddress) || '')}</div>
+            <span class="badge ${e.clientSig ? 'ok' : ''}">${e.clientSig ? 'Signed' : 'Draft'}</span></div>
+          <div class="muted one-line">${esc([e.client?.street, e.client?.csz].filter(Boolean).join(', '))}</div>
         </button>`).join('')
       : `<p class="empty">${q ? 'No matches.' : 'No estimates yet. Tap “New estimate” to start.'}</p>`;
   }
@@ -365,7 +347,7 @@
     if (i < 0) i = 0;
     const step = STEPS[i];
 
-    setChrome({ title: `${current.number}${current.customer.name ? ' · ' + current.customer.name : ''}`, back: true, bottombar: true });
+    setChrome({ title: wizardTitle(), back: true, bottombar: true });
 
     $('#view').innerHTML = `
       <nav class="steps">${STEPS.map((s, n) => `
@@ -375,8 +357,16 @@
 
     syncAll($('#view'), 'est');
     $('.step.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
-    if (step.id === 'site') $('#site-wrap')?.toggleAttribute('hidden', current.siteSame);
-    if (step.id === 'sign') initSignature($('#sig'));
+    if (step.id === 'sign') {
+      initSignature($('#sig-client'), () => current.clientSig, (url) => {
+        current.clientSig = url;
+        if (url && !current.clientSigDate) current.clientSigDate = today();
+        syncKey('est', 'clientSigDate');
+        scheduleSave();
+      });
+      const own = $('#sig-contractor');
+      if (own) initSignature(own, () => profile.signature, (url) => { profile.signature = url; saveProfile(); });
+    }
     updateTotals();
 
     $('#btn-prev').textContent = i === 0 ? '‹ Estimates' : '‹ Back';
@@ -385,149 +375,197 @@
     $('#btn-next').dataset.to = i === STEPS.length - 1 ? '#/' : stepHash(current.id, STEPS[i + 1].id);
   }
 
-  function stepCustomer() {
+  function stepClient() {
     const canPick = 'contacts' in navigator && 'select' in navigator.contacts;
     return `
-      <h2 class="step-title">Customer</h2>
+      <h2 class="step-title">Client information</h2>
       <div class="btn-pair">
         <button type="button" class="btn big-ish" data-act="pick-contact">📇 From contacts</button>
-        <button type="button" class="btn big-ish" data-act="pick-previous">↺ Past customer</button>
+        <button type="button" class="btn big-ish" data-act="pick-previous">↺ Past client</button>
       </div>
       ${canPick ? '' : '<p class="hint">On iPhone: in Contacts, open the person → Share Contact → Save to Files, then tap “From contacts” and pick the file.</p>'}
       <section class="card">
-        ${field('Name', 'customer.name', 'autocomplete="name" autocapitalize="words"')}
-        ${field('Phone', 'customer.phone', 'type="tel" autocomplete="tel" inputmode="tel"')}
-        ${field('Email', 'customer.email', 'type="email" autocomplete="email" inputmode="email"')}
-        ${field('Address', 'customer.address', 'rows="2" autocomplete="street-address"', true)}
+        ${field('Name', 'client.name', 'autocomplete="name" autocapitalize="words"')}
+        ${field('Phone', 'client.phone', 'type="tel" autocomplete="tel" inputmode="tel"')}
+        ${field('Email', 'client.email', 'type="email" autocomplete="email" inputmode="email"')}
+        ${field('Address', 'client.street', 'autocomplete="address-line1" autocapitalize="words"')}
+        ${field('City / State / ZIP', 'client.csz', 'autocapitalize="words"')}
+      </section>`;
+  }
+
+  function stepService() {
+    return `
+      <h2 class="step-title">Service details</h2>
+      <section class="card">
+        <h3>Type of tree service <small>check all that apply</small></h3>
+        ${checkGroup('services', SERVICES)}
+      </section>
+      <section class="card">
+        <h3>Location of trees</h3>
+        ${checkGroup('locations', LOCATIONS)}
+      </section>
+      <section class="card">
+        <h3>Number of trees: <span id="tree-count">${treeCount(current)}</span></h3>
+        <div class="tree-sizes">
+          <div><h4>Large <small>over 20 ft</small></h4>${stepper('large')}</div>
+          <div><h4>Medium <small>10–20 ft</small></h4>${stepper('medium')}</div>
+          <div><h4>Small <small>under 10 ft</small></h4>${stepper('small')}</div>
+        </div>
+      </section>
+      <section class="card">
+        <h3>Condition of trees</h3>
+        ${checkGroup('conditions', CONDITIONS)}
       </section>`;
   }
 
   function stepSite() {
     return `
-      <h2 class="step-title">Job site</h2>
+      <h2 class="step-title">Site &amp; schedule</h2>
       <section class="card">
-        <label class="switch"><input type="checkbox" data-bind="siteSame"><span>Job site is the customer’s address</span></label>
-        <div id="site-wrap">${field('Job site address', 'siteAddress', 'rows="2"', true)}</div>
+        <h3>Site conditions</h3>
+        ${checkGroup('site', SITE)}
       </section>
       <section class="card">
-        <h3>Site conditions <small>tap all that apply</small></h3>
-        ${chips('conditions', CONDITIONS, { multi: true })}
+        <h3>Additional services</h3>
+        ${checkGroup('extras', EXTRAS)}
       </section>
       <section class="card">
-        <h3>Access</h3>
-        ${chips('access', ACCESS, { multi: true })}
-        ${field('Access notes', 'accessNotes', 'rows="2" placeholder="Gate code, where to park…"', true)}
+        <h3>Schedule</h3>
+        <h4>Start</h4>
+        <div class="chips">
+          <button type="button" class="chip" data-act="start-in" data-d="7">Next week</button>
+          <button type="button" class="chip" data-act="start-in" data-d="14">In 2 weeks</button>
+          <button type="button" class="chip" data-act="start-in" data-d="21">In 3 weeks</button>
+        </div>
+        <div class="two mt">
+          ${field('Estimated start', 'startDate', 'type="date"')}
+          ${field('Estimated completion', 'endDate', 'type="date"')}
+        </div>
+        <h4>Job length</h4>
+        <div class="chips">${DURATION.map(([d, l]) => `<button type="button" class="chip" data-act="duration" data-d="${d}">${l}</button>`).join('')}</div>
+      </section>
+      <section class="card">
+        ${field('Notes for the client', 'notes', 'rows="3" placeholder="Optional"', true)}
       </section>`;
   }
 
-  function stepWork() {
-    const items = current.items.map((it, i) => `
-      <button type="button" class="item-card" data-act="edit-item" data-i="${i}">
-        <div class="row"><b>${i + 1}. ${esc(it.service)}${num(it.qty) > 1 ? ` × ${num(it.qty)}` : ''}</b><b>${money((num(it.qty) || 1) * num(it.price))}</b></div>
-        <div class="muted">${esc(itemSubline(it))}</div>
-        ${it.details.length || it.description ? `<div class="muted small">${esc([...it.details, it.description].filter(Boolean).join('; '))}</div>` : ''}
-      </button>`).join('');
+  function stepMaterials() {
+    const rows = current.materials.map((m, i) => `
+      <div class="line-card">
+        <div class="line-head">
+          <input data-bind="materials.${i}.desc" placeholder="Description" class="desc">
+          <button type="button" class="icon-btn del" data-act="del-row" data-list="materials" data-i="${i}" aria-label="Remove">✕</button>
+        </div>
+        <div class="qty-price">
+          <div><h4>Qty</h4>${stepper(`materials.${i}.qty`, { min: 1 })}</div>
+          <div><h4>Price</h4>${moneyInput(`materials.${i}.price`)}</div>
+        </div>
+        <div class="sum-line">Line total <b data-line="materials.${i}"></b></div>
+      </div>`).join('');
     return `
-      <h2 class="step-title">Work to be performed</h2>
-      <div class="item-list">${items || '<p class="empty">No trees or work added yet.</p>'}</div>
-      <button type="button" class="btn primary big" data-act="add-item">＋ Add tree / work</button>
-      <div class="sum-line">Subtotal <b data-total="subtotal"></b></div>`;
+      <h2 class="step-title">Material / equipment cost</h2>
+      <section class="card">
+        <h3>Tap to add <small>prices are remembered</small></h3>
+        <div class="chips">${MATERIALS.map((d) => `<button type="button" class="chip" data-act="add-material" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
+      </section>
+      <div class="line-list">${rows || '<p class="empty">No materials or equipment yet.</p>'}</div>
+      <button type="button" class="btn big" data-act="add-material" data-desc="">＋ Other item</button>
+      <section class="card"><div class="sum-line grand">Total material / equipment <b data-total="materials"></b></div></section>`;
   }
 
-  const itemSubline = (it) => [it.species, it.location, it.dbh && it.dbh + ' DBH', it.height].filter(Boolean).join(' · ');
-
-  function stepCleanup() {
+  function stepLabor() {
+    const rows = current.labor.map((l, i) => `
+      <div class="line-card">
+        <div class="line-head"><b>Labor${current.labor.length > 1 ? ' ' + (i + 1) : ''}</b>
+          <button type="button" class="icon-btn del" data-act="del-row" data-list="labor" data-i="${i}" aria-label="Remove">✕</button></div>
+        <h4>Estimated hours</h4>
+        <div class="chips-plus">${chips(`labor.${i}.hours`, HOURS.map((h) => [h, h + ' hr']), { isNum: true })}
+          <label class="mini"><input data-bind="labor.${i}.hours" type="number" inputmode="decimal" min="0" step="0.5"> hr</label></div>
+        <h4>Rate per hour</h4>
+        ${moneyInput(`labor.${i}.rate`)}
+        <div class="sum-line">Line total <b data-line="labor.${i}"></b></div>
+      </div>`).join('');
     return `
-      <h2 class="step-title">Cleanup</h2>
-      <section class="card"><h3>Wood</h3>${chips('wood', WOOD)}</section>
-      <section class="card"><h3>Brush &amp; chips</h3>${chips('brush', BRUSH)}</section>
-      <section class="card"><h3>Stumps</h3>${chips('stumps', STUMPS)}</section>
-      <section class="card"><h3>Also included</h3>${chips('extras', EXTRAS, { multi: true })}</section>`;
+      <h2 class="step-title">Labor cost</h2>
+      <div class="line-list">${rows || '<p class="empty">No labor added.</p>'}</div>
+      <button type="button" class="btn big" data-act="add-labor">＋ Add labor line</button>
+      <section class="card"><div class="sum-line grand">Total labor <b data-total="labor"></b></div></section>`;
   }
 
-  function stepPrice() {
+  function stepSummary() {
     return `
-      <h2 class="step-title">Price</h2>
-      <section class="card">
-        <div class="sum-line">Subtotal (${current.items.length} item${current.items.length === 1 ? '' : 's'}) <b data-total="subtotal"></b></div>
-      </section>
-      <section class="card">
-        <h3>Discount</h3>
-        <div class="chips-plus">${chips('discountPct', DISCOUNTS, { isNum: true, required: true })}
-          <label class="mini"><input data-bind="discountPct" type="number" inputmode="decimal" min="0" max="100"> %</label></div>
-      </section>
-      <section class="card">
-        <h3>Deposit to schedule</h3>
-        <div class="chips-plus">${chips('depositPct', DEPOSITS, { isNum: true, required: true })}
-          <label class="mini"><input data-bind="depositPct" type="number" inputmode="decimal" min="0" max="100"> %</label></div>
-      </section>
-      <section class="card">
-        <h3>Sales tax</h3>
-        <label class="mini"><input data-bind="taxRate" type="number" inputmode="decimal" min="0" step="0.001"> %</label>
-      </section>
-      ${totalsCard()}`;
-  }
-
-  function totalsCard() {
-    return `
+      <h2 class="step-title">Estimate summary</h2>
       <section class="card totals">
-        <div class="sum-line">Subtotal <span data-total="subtotal"></span></div>
-        <div class="sum-line">Discount <span data-total="discount"></span></div>
-        <div class="sum-line">Tax <span data-total="tax"></span></div>
-        <div class="sum-line grand">Total <b data-total="total"></b></div>
-        <div class="sum-line">Deposit <span data-total="deposit"></span></div>
-        <div class="sum-line">Balance on completion <span data-total="balance"></span></div>
+        <div class="sum-line">Materials / equipment <span data-total="materials"></span></div>
+        <div class="sum-line">Labor <span data-total="labor"></span></div>
+        <div class="sum-line"><b>Subtotal</b> <b data-total="subtotal"></b></div>
+      </section>
+      <section class="card">
+        <h3>Tax</h3>
+        <div class="row"><label class="mini"><input data-bind="taxRate" type="number" inputmode="decimal" min="0" step="0.001"> %</label><span data-total="tax"></span></div>
+      </section>
+      <section class="card">
+        <h3>Additional costs <small>travel, equipment, etc.</small></h3>
+        ${chips('additional', ADDITIONAL, { isNum: true })}
+        <div class="mt">${moneyInput('additional', 'Other amount')}</div>
+      </section>
+      <section class="card">
+        <div class="sum-line grand">Total estimate <b data-total="total"></b></div>
+      </section>
+      <section class="card">
+        <h3>Terms</h3>
+        <h4>Estimate is valid for</h4>
+        ${chips('validDays', VALID_DAYS, { isNum: true, required: true })}
+        <h4>Deposit required</h4>
+        ${chips('depositPct', DEPOSITS, { isNum: true })}
+        <div class="row mt">${moneyInput('depositAmt', 'or enter amount')}<b data-total="deposit" class="dep"></b></div>
       </section>`;
   }
 
   function updateTotals() {
     if (!current) return;
     const t = totals(current);
-    for (const el of $$('[data-total]')) {
-      const k = el.dataset.total;
-      el.textContent = (k === 'discount' && t[k] ? '−' : '') + money(t[k]);
+    for (const el of $$('[data-total]')) el.textContent = money(t[el.dataset.total]);
+    for (const el of $$('[data-line]')) {
+      const [list, i] = el.dataset.line.split('.');
+      const r = current[list][i];
+      if (r) el.textContent = money(list === 'materials' ? num(r.qty) * num(r.price) : num(r.hours) * num(r.rate));
     }
   }
 
-  function stepNotes() {
-    return `
-      <h2 class="step-title">Notes</h2>
-      <section class="card">
-        <h3>Quick notes <small>tap all that apply</small></h3>
-        ${chips('noteChips', NOTE_CHIPS, { multi: true })}
-        ${field('Other notes for the customer', 'notes', 'rows="3"', true)}
-      </section>
-      <details class="card">
-        <summary>Terms &amp; conditions</summary>
-        <textarea data-bind="terms" rows="6"></textarea>
-      </details>`;
-  }
-
   function stepSign() {
+    const t = totals(current);
     return `
-      <h2 class="step-title">Customer signature</h2>
+      <h2 class="step-title">Signatures</h2>
       <section class="card">
-        <div class="sum-line grand">Total <b data-total="total"></b></div>
-        ${num(current.depositPct) ? '<div class="sum-line">Deposit to schedule <span data-total="deposit"></span></div>' : ''}
+        <div class="sum-line grand">Total estimate <b>${money(t.total)}</b></div>
+        ${t.deposit ? `<div class="sum-line">Deposit required <span>${money(t.deposit)}</span></div>` : ''}
       </section>
       <section class="card">
-        <p class="muted">By signing, I authorize the work described at the prices and terms stated.</p>
-        <canvas id="sig" class="sig" aria-label="Sign here"></canvas>
-        <div class="sig-foot"><span>Sign above</span><button type="button" class="link" data-act="clear-sig">Clear</button></div>
-        ${field('Printed name', 'sigName', 'autocapitalize="words"')}
-        ${field('Date', 'sigDate', 'type="date"')}
+        <h3>Client acceptance</h3>
+        <p class="muted small">By signing, I accept this estimate and authorize the work described.</p>
+        <canvas id="sig-client" class="sig" aria-label="Client signs here"></canvas>
+        <div class="sig-foot"><span>Client signs above</span><button type="button" class="link" data-act="clear-sig">Clear</button></div>
+        ${field('Date', 'clientSigDate', 'type="date"')}
+      </section>
+      <section class="card">
+        <h3>Contractor signature</h3>
+        ${profile.signature
+          ? `<img src="${profile.signature}" alt="Your signature" class="sig-img"><p class="muted small">Added automatically from your company profile, dated ${niceDate(current.date)}.</p>`
+          : `<p class="muted small">Sign once – it’s saved and added to every estimate.</p>
+             <canvas id="sig-contractor" class="sig" aria-label="Contractor signs here"></canvas>`}
       </section>`;
   }
 
-  function stepReview() {
+  function stepSend() {
     const share = 'share' in navigator ? '<button type="button" class="btn" data-act="share">📤 Share</button>' : '';
     return `
-      <h2 class="step-title">Send to customer</h2>
+      <h2 class="step-title">Send to client</h2>
       <div class="btn-grid">
         <button type="button" class="btn primary" data-act="print">🖨️ Print / PDF</button>
         ${share}
-        <button type="button" class="btn" data-act="sms" ${current.customer.phone ? '' : 'disabled'}>💬 Text</button>
-        <button type="button" class="btn" data-act="email" ${current.customer.email ? '' : 'disabled'}>✉️ Email</button>
+        <button type="button" class="btn" data-act="sms" ${current.client.phone ? '' : 'disabled'}>💬 Text</button>
+        <button type="button" class="btn" data-act="email" ${current.client.email ? '' : 'disabled'}>✉️ Email</button>
       </div>
       <p class="hint">For a PDF: tap Print / PDF, then choose “Save as PDF” (Android) or use the Share button in the print screen (iPhone).</p>
       <div class="doc-preview">${renderDoc(current)}</div>
@@ -537,113 +575,34 @@
       </div>`;
   }
 
-  // ---------- item sheet ----------
+  // ---------- signature pad ----------
 
-  function openItem(i) {
-    editingIndex = i;
-    editingItem = i >= 0 ? clone(current.items[i]) : blankItem();
-    const dlg = $('#item-dlg');
-    dlg.innerHTML = `
-      <div class="sheet-head">
-        <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Cancel">✕</button>
-        <h3>${i >= 0 ? 'Edit item ' + (i + 1) : 'Add tree / work'}</h3>
-        <button type="button" class="btn primary sm" data-act="save-item">Save</button>
-      </div>
-      <div class="sheet-body">
-        <h4>Service</h4>
-        ${chips('service', Object.keys(SERVICES), { required: true })}
-        <div id="details-wrap"></div>
-        <h4>Tree species</h4>
-        ${chips('species', SPECIES_COMMON)}
-        <input data-bind="species" list="species-list" placeholder="Other species…" class="mt">
-        <h4>Location on property</h4>
-        ${chips('location', LOCATIONS)}
-        <h4>Trunk diameter (DBH)</h4>
-        ${chips('dbh', DBH)}
-        <h4>Height</h4>
-        ${chips('height', HEIGHTS)}
-        <h4>Extra notes</h4>
-        <textarea data-bind="description" rows="2" placeholder="Anything else about this tree…"></textarea>
-        <div class="qty-price">
-          <div>
-            <h4>Quantity</h4>
-            <div class="stepper">
-              <button type="button" data-act="qty" data-d="-1" aria-label="Less">−</button>
-              <input data-bind="qty" type="number" inputmode="numeric" min="1">
-              <button type="button" data-act="qty" data-d="1" aria-label="More">＋</button>
-            </div>
-          </div>
-          <div>
-            <h4>Price each</h4>
-            <div class="price-input"><span>$</span><input data-bind="price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
-          </div>
-        </div>
-        <div class="sum-line grand">Line total <b id="item-total"></b></div>
-        ${i >= 0 ? '<button type="button" class="btn danger big" data-act="delete-item">Delete this item</button>' : ''}
-        <button type="button" class="btn primary big" data-act="save-item">Save item</button>
-      </div>`;
-    renderDetails();
-    syncAll(dlg, 'item');
-    updateItemTotal();
-    dlg.showModal();
-    $('.sheet-body', dlg).scrollTop = 0;
-  }
-
-  function renderDetails() {
-    const wrap = $('#details-wrap');
-    const opts = SERVICES[editingItem.service] || [];
-    wrap.innerHTML = opts.length ? `<h4>Work details <small>tap all that apply</small></h4>${chips('details', opts, { multi: true })}` : '';
-    syncAll(wrap, 'item');
-  }
-
-  function updateItemTotal() {
-    const el = $('#item-total');
-    if (el && editingItem) el.textContent = money((num(editingItem.qty) || 1) * num(editingItem.price));
-  }
-
-  function saveItem() {
-    if (!editingItem.service) {
-      toast('Pick a service first');
-      return;
-    }
-    editingItem.qty = Math.max(1, num(editingItem.qty) || 1);
-    if (editingIndex >= 0) current.items[editingIndex] = editingItem;
-    else current.items.push(editingItem);
-    $('#item-dlg').close();
-    saveNow();
-    renderWizard(current.id, 'work');
-  }
-
-  // ---------- signature ----------
-
-  function initSignature(canvas) {
+  function initSignature(canvas, get, set) {
     const ctx = canvas.getContext('2d');
     let drawing = false;
     let last = null;
     let dirty = false;
 
-    const size = () => {
-      const r = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(r.width * dpr);
-      canvas.height = Math.round(r.height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      Object.assign(ctx, { lineWidth: 2.4, lineCap: 'round', lineJoin: 'round', strokeStyle: '#1f2421' });
-      if (current.signature) {
-        const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height);
-        img.src = current.signature;
-      }
-    };
-    const pt = (e) => {
-      const r = canvas.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    };
+    const r = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    Object.assign(ctx, { lineWidth: 2.4, lineCap: 'round', lineJoin: 'round', strokeStyle: '#1f2421' });
+    if (get()) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height);
+      img.src = get();
+    }
 
+    const pt = (e) => {
+      const b = canvas.getBoundingClientRect();
+      return { x: e.clientX - b.left, y: e.clientY - b.top };
+    };
     canvas.addEventListener('pointerdown', (e) => {
       drawing = true;
       last = pt(e);
-      canvas.setPointerCapture(e.pointerId);
+      canvas.setPointerCapture?.(e.pointerId);
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!drawing) return;
@@ -658,115 +617,109 @@
     const end = () => {
       if (!drawing) return;
       drawing = false;
-      if (!dirty) return;
-      current.signature = canvas.toDataURL('image/png');
-      if (!current.sigDate) current.sigDate = today();
-      if (!current.sigName) current.sigName = current.customer.name;
-      syncKey('est', 'sigDate');
-      syncKey('est', 'sigName');
-      scheduleSave();
+      if (dirty) set(canvas.toDataURL('image/png'));
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
-    size();
   }
 
-  // ---------- printable estimate ----------
+  // ---------- printable estimate (mirrors the paper form) ----------
 
   function renderDoc(e) {
     const t = totals(e);
     const p = profile;
-    const site = e.siteSame ? e.customer.address : e.siteAddress;
-    const lines = (arr) => arr.filter(Boolean).map((t) => esc(t).replace(/\n/g, '<br>')).join('<br>');
-    const preparer = [p.owner, p.isa && `ISA Certified Arborist #${p.isa}`].filter(Boolean).join(', ');
-    const cleanup = [e.wood, e.brush, e.stumps, ...(e.extras || [])].filter(Boolean);
-    const notes = [...(e.noteChips || []), e.notes].filter(Boolean);
-    const access = [...(e.access || []), e.accessNotes].filter(Boolean);
+    const box = (on, label) => `<span class="cb"><i class="${on ? 'on' : ''}">${on ? '✓' : ''}</i>${label}</span>`;
+    const boxes = (opts, sel = [], other = '') =>
+      opts.map((o) => box(sel.includes(o), esc(o))).join('') + box(!!other, `Other${other ? ': ' + esc(other) : ''}`);
+    const kv = (label, value) => `<div class="kv"><b>${label}:</b><span>${esc(value) || '&nbsp;'}</span></div>`;
+    const sec = (title, body) => `<section class="doc-sec"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
+    const tr = (label, body) => `<tr><th>${label}</th><td>${body}</td></tr>`;
+
+    const matRows = e.materials.map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
+    const labRows = e.labor.filter((l) => num(l.hours) || num(l.rate)).map((l) => `<tr><td class="r">${num(l.hours)}</td><td class="r">${money(num(l.rate))}</td><td class="r">${money(num(l.hours) * num(l.rate))}</td></tr>`).join('');
+    const validUntil = addDays(e.date, num(e.validDays) || 30);
 
     return `
       <article class="doc">
         <header class="doc-head">
           ${p.logo ? `<img src="${esc(p.logo)}" alt="" class="doc-logo">` : ''}
-          <div class="doc-co">
-            <h1>${esc(p.name)}</h1>
-            <div>${lines([p.address, [p.phone, p.email].filter(Boolean).join(' · '), p.website, p.license])}</div>
-          </div>
-          <div class="doc-title">
-            <h2>ESTIMATE</h2>
-            <table>
-              <tr><th>Estimate #</th><td>${esc(e.number)}</td></tr>
-              <tr><th>Date</th><td>${niceDate(e.date)}</td></tr>
-              <tr><th>Valid until</th><td>${niceDate(e.validUntil)}</td></tr>
-              ${preparer ? `<tr><th>Prepared by</th><td>${esc(preparer)}</td></tr>` : ''}
-            </table>
-          </div>
+          <h1>Tree Service Estimate</h1>
+          <div class="doc-no"><b>${esc(e.number)}</b><br>${niceDate(e.date)}</div>
         </header>
 
-        <section class="doc-parties">
-          <div><h4>Customer</h4>${lines([e.customer.name, e.customer.address, e.customer.phone, e.customer.email]) || '—'}</div>
-          <div><h4>Job site</h4>${lines([site]) || '—'}
-            ${access.length ? `<div class="doc-small">Access: ${esc(access.join('; '))}</div>` : ''}</div>
-        </section>
-        ${e.conditions?.length ? `<p class="doc-small"><b>Site conditions:</b> ${esc(e.conditions.join(' · '))}</p>` : ''}
+        ${sec('Company information', `
+          <div class="grid2">${kv('Company name', p.name)}${kv('License number', p.license)}</div>
+          ${kv('Address', p.address)}
+          <div class="grid2">${kv('Phone', p.phone)}${kv('Email', p.email)}</div>`)}
 
-        <table class="doc-items">
-          <thead><tr><th>#</th><th>Work to be performed</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
-          <tbody>
-            ${e.items.map((it, i) => `
-              <tr>
-                <td>${i + 1}</td>
-                <td><b>${esc(it.service)}</b>${itemSubline(it) ? ` — ${esc(itemSubline(it))}` : ''}
-                  ${it.details?.length || it.description ? `<div class="doc-small">${esc([...(it.details || []), it.description].filter(Boolean).join('; '))}</div>` : ''}</td>
-                <td class="r">${num(it.qty) || 1}</td>
-                <td class="r">${money(num(it.price))}</td>
-                <td class="r">${money((num(it.qty) || 1) * num(it.price))}</td>
-              </tr>`).join('') || '<tr><td colspan="5" class="doc-small">No items yet</td></tr>'}
-          </tbody>
-        </table>
+        ${sec('Client information', `
+          <div class="grid2">${kv('Name', e.client.name)}${kv('Email', e.client.email)}</div>
+          <div class="grid2">${kv('Address', e.client.street)}${kv('City / State / ZIP', e.client.csz)}</div>
+          ${e.client.phone ? kv('Phone', e.client.phone) : ''}`)}
 
-        <section class="doc-bottom">
-          <div>
-            <h4>Cleanup</h4>
-            <ul>${cleanup.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
-            ${notes.length ? `<h4>Notes</h4><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
-          </div>
-          <table class="doc-totals">
-            <tr><th>Subtotal</th><td>${money(t.subtotal)}</td></tr>
-            ${t.discount ? `<tr><th>Discount (${num(e.discountPct)}%)</th><td>−${money(t.discount)}</td></tr>` : ''}
-            ${t.tax ? `<tr><th>Tax (${num(e.taxRate)}%)</th><td>${money(t.tax)}</td></tr>` : ''}
-            <tr class="grand"><th>Total</th><td>${money(t.total)}</td></tr>
-            ${t.deposit ? `<tr><th>Deposit (${num(e.depositPct)}%)</th><td>${money(t.deposit)}</td></tr>
-              <tr><th>Balance on completion</th><td>${money(t.balance)}</td></tr>` : ''}
-          </table>
-        </section>
+        ${sec('Service details', `
+          <table class="doc-form">
+            ${tr('Type of tree service', boxes(SERVICES, e.services, e.servicesOther))}
+            ${tr('Location of trees', boxes(LOCATIONS, e.locations, e.locationsOther))}
+            ${tr('Number of trees', `<b>${treeCount(e)}</b> &nbsp;·&nbsp; Large (over 20 ft): <b>${num(e.large)}</b> &nbsp;·&nbsp; Medium (10–20 ft): <b>${num(e.medium)}</b> &nbsp;·&nbsp; Small (under 10 ft): <b>${num(e.small)}</b>`)}
+            ${tr('Condition of trees', boxes(CONDITIONS, e.conditions, e.conditionsOther))}
+            ${tr('Site conditions', boxes(SITE, e.site, e.siteOther))}
+            ${tr('Additional services', boxes(EXTRAS, e.extras, e.extrasOther))}
+            ${tr('Estimated dates', `Start: <b>${niceDate(e.startDate) || '—'}</b> &nbsp;&nbsp; Completion: <b>${niceDate(e.endDate) || '—'}</b>`)}
+            ${e.notes ? tr('Notes', esc(e.notes).replace(/\n/g, '<br>')) : ''}
+          </table>`)}
 
-        ${e.terms ? `<section class="doc-terms"><h4>Terms &amp; conditions</h4><p>${esc(e.terms)}</p></section>` : ''}
+        <div class="doc-cols">
+          ${sec('Material / equipment cost', `
+            <table class="doc-table">
+              <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
+              <tbody>${matRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
+              <tfoot><tr><th colspan="3">Total material / equipment cost</th><td class="r">${money(t.materials)}</td></tr></tfoot>
+            </table>`)}
+          ${sec('Labor cost', `
+            <table class="doc-table">
+              <thead><tr><th class="r">Estimated hours</th><th class="r">Rate per hour</th><th class="r">Amount</th></tr></thead>
+              <tbody>${labRows || '<tr><td colspan="3" class="none">None</td></tr>'}</tbody>
+              <tfoot><tr><th colspan="2">Total labor cost</th><td class="r">${money(t.labor)}</td></tr></tfoot>
+            </table>`)}
+        </div>
 
-        <section class="doc-sign">
-          <h4>Acceptance</h4>
-          <p class="doc-small">By signing below, I authorize the work described above at the prices and terms stated.</p>
-          <div class="doc-sign-row">
-            <div class="doc-sig">${e.signature ? `<img src="${e.signature}" alt="Customer signature">` : ''}<div>Customer signature</div></div>
-            <div class="doc-sig"><span>${esc(e.sigName)}</span><div>Printed name</div></div>
-            <div class="doc-sig"><span>${niceDate(e.sigDate)}</span><div>Date</div></div>
-          </div>
-        </section>
+        ${sec('Estimate summary', `
+          <table class="doc-sum">
+            <tr><th>Subtotal (materials / equipment + labor)</th><td>${money(t.subtotal)}</td></tr>
+            <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
+            <tr><th>Additional costs (travel, equipment, etc.)</th><td>${money(t.additional)}</td></tr>
+            <tr class="grand"><th>Total estimate</th><td>${money(t.total)}</td></tr>
+          </table>`)}
+
+        <div class="doc-cols">
+          ${sec('Signatures', `
+            <div class="sig-line"><div class="sig-box">${p.signature ? `<img src="${p.signature}" alt="">` : ''}</div><span>${niceDate(e.date)}</span></div>
+            <div class="sig-cap"><span>Contractor signature</span><span>Date</span></div>
+            <div class="sig-line"><div class="sig-box">${e.clientSig ? `<img src="${e.clientSig}" alt="">` : ''}</div><span>${niceDate(e.clientSigDate)}</span></div>
+            <div class="sig-cap"><span>Client acceptance signature</span><span>Date</span></div>`)}
+          ${sec('Terms', `
+            <p>This estimate is valid for <b>${num(e.validDays) || 30}</b> days from the date of issue (until ${niceDate(validUntil)}).</p>
+            <p>Final costs may vary depending on site conditions and additional work.</p>
+            <p>Deposit required: <b>${money(t.deposit)}</b></p>`)}
+        </div>
       </article>`;
   }
 
   function summaryText(e) {
     const t = totals(e);
-    const first = e.customer.name.split(' ')[0];
+    const first = e.client.name.split(' ')[0];
+    const services = [...e.services, e.servicesOther].filter(Boolean);
     return [
-      `Hi${first ? ' ' + first : ''}, here is your estimate ${e.number} from ${profile.name}:`,
+      `Hi${first ? ' ' + first : ''}, here is your tree service estimate ${e.number} from ${profile.name}:`,
       '',
-      ...e.items.map((it, i) => `${i + 1}. ${it.service}${it.species ? ' – ' + it.species : ''}: ${money((num(it.qty) || 1) * num(it.price))}`),
-      '',
-      `Total: ${money(t.total)}${t.deposit ? ` (deposit ${money(t.deposit)})` : ''}`,
-      `Valid until ${niceDate(e.validUntil)}.`,
+      services.length ? `Services: ${services.join(', ')}` : '',
+      treeCount(e) ? `Trees: ${treeCount(e)}` : '',
+      `Total estimate: ${money(t.total)}${t.deposit ? ` (deposit ${money(t.deposit)})` : ''}`,
+      `Valid for ${num(e.validDays) || 30} days.`,
       '',
       `Questions? ${[profile.phone, profile.email].filter(Boolean).join(' · ')}`,
-    ].join('\n');
+    ].filter((l, i, a) => l || (a[i - 1] && a[i + 1])).join('\n');
   }
 
   // ---------- company profile ----------
@@ -778,9 +731,10 @@
     $('#view').innerHTML = `
       <div data-scope="profile">
         ${first
-          ? '<div class="welcome"><h2>Welcome! 👋</h2><p>Set up your company profile once. It goes on every estimate automatically.</p></div>'
+          ? '<div class="welcome"><h2>Welcome! 👋</h2><p>Set up your company information once. It goes on every estimate automatically.</p></div>'
           : '<h2 class="step-title">Company profile</h2>'}
         <section class="card">
+          <h3>Company information</h3>
           <div class="logo-row">
             <img id="logo-preview" alt="">
             <div class="btn-pair">
@@ -789,13 +743,10 @@
             </div>
           </div>
           ${field('Company name *', 'name', 'autocapitalize="words"')}
-          ${field('Your name (estimator)', 'owner', 'autocapitalize="words"')}
-          ${field('ISA certification #', 'isa')}
+          ${field('License number', 'license')}
+          ${field('Address', 'address', 'rows="2"', true)}
           ${field('Phone *', 'phone', 'type="tel" inputmode="tel"')}
           ${field('Email', 'email', 'type="email" inputmode="email"')}
-          ${field('Website', 'website', 'inputmode="url"')}
-          ${field('Business address', 'address', 'rows="2"', true)}
-          ${field('License / insurance', 'license', 'placeholder="e.g. Licensed & insured · Lic #12345"')}
         </section>
         <section class="card">
           <h3>Estimate defaults</h3>
@@ -803,19 +754,23 @@
           ${chips('validDays', VALID_DAYS, { isNum: true, required: true })}
           <h4>Default deposit</h4>
           ${chips('depositPct', DEPOSITS, { isNum: true, required: true })}
-          <div class="two">
+          <div class="two mt">
+            ${field('Labor rate ($/hr)', 'laborRate', 'type="number" inputmode="decimal" min="0" step="0.01"')}
             ${field('Sales tax %', 'taxRate', 'type="number" inputmode="decimal" min="0" step="0.001"')}
-            ${field('Next estimate #', 'nextNumber', 'type="number" inputmode="numeric" min="1"')}
           </div>
+          ${field('Next estimate #', 'nextNumber', 'type="number" inputmode="numeric" min="1"')}
         </section>
-        <details class="card">
-          <summary>Terms &amp; conditions</summary>
-          <textarea data-bind="terms" rows="7"></textarea>
-        </details>
+        <section class="card">
+          <h3>Contractor signature</h3>
+          <p class="muted small">Sign once. It’s added to every estimate automatically.</p>
+          <canvas id="sig-profile" class="sig" aria-label="Sign here"></canvas>
+          <div class="sig-foot"><span>Sign above</span><button type="button" class="link" data-act="clear-profile-sig">Clear</button></div>
+        </section>
         <button type="button" class="btn primary big" data-act="save-profile">Save profile</button>
       </div>`;
     syncAll($('#view'), 'profile');
     renderLogoPreview();
+    initSignature($('#sig-profile'), () => profileDraft.signature, (url) => { profileDraft.signature = url; });
   }
 
   function renderLogoPreview() {
@@ -839,6 +794,8 @@
 
   // ---------- contacts ----------
 
+  const cszOf = (city, region, zip) => [[city, region].filter(Boolean).join(', '), zip].filter(Boolean).join(' ');
+
   async function pickContact() {
     if ('contacts' in navigator && 'select' in navigator.contacts) {
       try {
@@ -846,11 +803,12 @@
         const [c] = await navigator.contacts.select(props.filter((p) => ['name', 'tel', 'email', 'address'].includes(p)), { multiple: false });
         if (!c) return;
         const a = c.address?.[0];
-        fillCustomer({
+        fillClient({
           name: c.name?.[0] || '',
           phone: c.tel?.[0] || '',
           email: c.email?.[0] || '',
-          address: a ? [a.addressLine?.join(' '), [a.city, a.region].filter(Boolean).join(', ') + (a.postalCode ? ' ' + a.postalCode : '')].filter((s) => s && s.trim()).join('\n') : '',
+          street: a?.addressLine?.join(' ') || '',
+          csz: a ? cszOf(a.city, a.region, a.postalCode) : '',
         });
       } catch (err) {
         console.warn(err);
@@ -874,51 +832,54 @@
       if (key === 'N' && !out.nParts) out.nParts = raw.split(';').map(unesc);
       if (key === 'TEL' && !out.phone) out.phone = unesc(raw);
       if (key === 'EMAIL' && !out.email) out.email = unesc(raw);
-      if (key === 'ADR' && !out.address) {
-        const [, , street, city, region, postal] = raw.split(/(?<!\\);/).map(unesc);
-        out.address = [street, [[city, region].filter(Boolean).join(', '), postal].filter(Boolean).join(' ')].filter(Boolean).join('\n');
+      if (key === 'ADR' && !out.street) {
+        const [, , street, city, region, zip] = raw.split(/(?<!\\);/).map(unesc);
+        out.street = street;
+        out.csz = cszOf(city, region, zip);
       }
     }
     if (!out.name && out.nParts) out.name = [out.nParts[1], out.nParts[0]].filter(Boolean).join(' ');
     return out;
   }
 
-  function fillCustomer(c) {
-    for (const k of ['name', 'phone', 'email', 'address']) {
-      if (c[k]) current.customer[k] = c[k];
-      syncKey('est', 'customer.' + k);
+  function fillClient(c) {
+    for (const k of ['name', 'phone', 'email', 'street', 'csz']) {
+      if (c[k]) current.client[k] = c[k];
+      syncKey('est', 'client.' + k);
     }
-    if (!current.signature) current.sigName = current.customer.name;
-    setChrome({ title: `${current.number} · ${current.customer.name}`, back: true, bottombar: true });
+    $('#appbar-title').textContent = wizardTitle();
     scheduleSave();
     toast(c.name ? `Added ${c.name}` : 'Contact added');
   }
 
-  function pastCustomers() {
+  function pastClients() {
     const seen = new Map();
     const list = Object.values(allEstimates()).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     for (const e of list) {
-      const c = e.customer || {};
+      const c = e.client || {};
       const k = (c.name + '|' + c.phone).toLowerCase();
       if (c.name && !seen.has(k) && e.id !== current?.id) seen.set(k, c);
     }
     return [...seen.values()];
   }
 
-  function renderPickList() {
+  function filteredClients() {
     const q = $('#pick-search').value.trim().toLowerCase();
-    const list = pastCustomers().filter((c) => !q || [c.name, c.phone, c.address].join(' ').toLowerCase().includes(q));
+    return pastClients().filter((c) => !q || [c.name, c.phone, c.street, c.csz].join(' ').toLowerCase().includes(q));
+  }
+
+  function renderPickList() {
+    const list = filteredClients();
     $('#pick-list').innerHTML = list.length
-      ? list.map((c, i) => `<button type="button" class="pick-item" data-act="choose-customer" data-i="${i}">
-          <b>${esc(c.name)}</b><span class="muted">${esc([c.phone, c.address?.split('\n')[0]].filter(Boolean).join(' · '))}</span></button>`).join('')
-      : `<p class="empty">${q ? 'No matches.' : 'No past customers yet.'}</p>`;
-    $('#pick-list').dataset.q = q;
+      ? list.map((c, i) => `<button type="button" class="pick-item" data-act="choose-client" data-i="${i}">
+          <b>${esc(c.name)}</b><span class="muted">${esc([c.phone, c.street].filter(Boolean).join(' · '))}</span></button>`).join('')
+      : `<p class="empty">${$('#pick-search').value ? 'No matches.' : 'No past clients yet.'}</p>`;
   }
 
   // ---------- backup ----------
 
   function exportAll() {
-    const data = { app: 'ats-estimates', version: 2, exportedAt: new Date().toISOString(), profile, estimates: allEstimates() };
+    const data = { app: 'ats-estimates', version: 3, exportedAt: new Date().toISOString(), profile, estimates: allEstimates() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -930,15 +891,15 @@
   async function importFile(file) {
     try {
       const data = JSON.parse(await file.text());
-      const incoming = data.estimates || {};
+      const incoming = data.version >= 3 ? data.estimates || {} : {};
       const count = Object.keys(incoming).length;
-      if (!count) return toast('No estimates found in that file');
-      store(KEYS.estimates, { ...allEstimates(), ...incoming });
+      if (count) store(KEYS.estimates, { ...allEstimates(), ...incoming });
       if (data.profile && confirm('Also restore the company profile from this backup?')) {
         profile = { ...DEFAULT_PROFILE, ...data.profile, complete: true };
+        profile.prices = profile.prices || {};
         saveProfile();
       }
-      toast(`Restored ${count} estimate${count === 1 ? '' : 's'}`);
+      toast(count ? `Restored ${count} estimate${count === 1 ? '' : 's'}` : 'No estimates found in that file');
       route();
     } catch (err) {
       console.error(err);
@@ -970,9 +931,9 @@
       current = blankEstimate();
       profile.nextNumber = num(profile.nextNumber) + 1;
       saveProfile();
-      go(stepHash(current.id, 'customer'));
+      go(stepHash(current.id, 'client'));
     },
-    open: (el) => go(stepHash(el.dataset.id, 'customer')),
+    open: (el) => go(stepHash(el.dataset.id, 'client')),
     prev: (el) => go(el.dataset.to),
     next: (el) => {
       if (el.dataset.to === '#/' && !isEmpty(current)) toast(`${current.number} saved`);
@@ -985,36 +946,73 @@
       renderPickList();
       $('#pick-dlg').showModal();
     },
-    'choose-customer': (el) => {
-      const q = $('#pick-list').dataset.q;
-      const list = pastCustomers().filter((c) => !q || [c.name, c.phone, c.address].join(' ').toLowerCase().includes(q));
-      const c = list[num(el.dataset.i)];
+    'choose-client': (el) => {
+      const c = filteredClients()[num(el.dataset.i)];
       $('#pick-dlg').close();
-      if (c) fillCustomer(c);
+      if (c) fillClient(c);
     },
 
-    'add-item': () => openItem(-1),
-    'edit-item': (el) => openItem(num(el.dataset.i)),
-    'save-item': saveItem,
-    'delete-item': () => {
-      if (!confirm('Delete this item?')) return;
-      current.items.splice(editingIndex, 1);
-      $('#item-dlg').close();
-      saveNow();
-      renderWizard(current.id, 'work');
+    step: (el) => {
+      const scope = scopeOf(el);
+      const obj = objFor(scope);
+      const key = el.dataset.key;
+      setPath(obj, key, Math.max(num(el.dataset.min), num(getPath(obj, key)) + num(el.dataset.d)));
+      syncKey(scope, key);
+      onChange(scope, key);
     },
-    qty: (el) => {
-      editingItem.qty = Math.max(1, (num(editingItem.qty) || 1) + num(el.dataset.d));
-      syncKey('item', 'qty');
-      updateItemTotal();
+    'start-in': (el) => {
+      const len = current.startDate && current.endDate
+        ? Math.round((new Date(current.endDate) - new Date(current.startDate)) / 864e5) : 0;
+      current.startDate = addDays(today(), num(el.dataset.d));
+      current.endDate = addDays(current.startDate, Math.max(0, len));
+      syncKey('est', 'startDate');
+      syncKey('est', 'endDate');
+      scheduleSave();
+    },
+    duration: (el) => {
+      if (!current.startDate) {
+        toast('Pick a start date first');
+        return;
+      }
+      current.endDate = addDays(current.startDate, num(el.dataset.d));
+      syncKey('est', 'endDate');
+      scheduleSave();
+    },
+
+    'add-material': (el) => {
+      const desc = el.dataset.desc;
+      const price = profile.prices[desc.toLowerCase()];
+      current.materials.push({ desc, qty: 1, price: price ?? '' });
+      saveNow();
+      renderWizard(current.id, 'materials');
+      const row = $$('.line-card').pop();
+      row?.scrollIntoView({ block: 'center' });
+      // Jump straight to whatever still needs typing.
+      const next = !desc ? '.desc' : price == null ? '.price-input input' : null;
+      if (next) $(next, row)?.focus({ preventScroll: true });
+    },
+    'add-labor': () => {
+      current.labor.push({ hours: '', rate: profile.laborRate });
+      saveNow();
+      renderWizard(current.id, 'labor');
+      $$('.line-card').pop()?.scrollIntoView({ block: 'center' });
+    },
+    'del-row': (el) => {
+      current[el.dataset.list].splice(num(el.dataset.i), 1);
+      saveNow();
+      renderWizard(current.id, el.dataset.list);
     },
 
     'clear-sig': () => {
-      current.signature = '';
-      current.sigDate = '';
-      syncKey('est', 'sigDate');
+      current.clientSig = '';
+      current.clientSigDate = '';
       scheduleSave();
       renderWizard(current.id, 'sign');
+    },
+    'clear-profile-sig': () => {
+      profileDraft.signature = '';
+      const c = $('#sig-profile');
+      c.getContext('2d').clearRect(0, 0, c.width, c.height);
     },
 
     print: () => {
@@ -1028,10 +1026,10 @@
     },
     sms: () => {
       const sep = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) ? '&' : '?';
-      location.href = `sms:${current.customer.phone.replace(/[^\d+]/g, '')}${sep}body=${encodeURIComponent(summaryText(current))}`;
+      location.href = `sms:${current.client.phone.replace(/[^\d+]/g, '')}${sep}body=${encodeURIComponent(summaryText(current))}`;
     },
     email: () => {
-      location.href = `mailto:${encodeURIComponent(current.customer.email)}?subject=${encodeURIComponent(`Estimate ${current.number} from ${profile.name}`)}&body=${encodeURIComponent(summaryText(current))}`;
+      location.href = `mailto:${encodeURIComponent(current.client.email)}?subject=${encodeURIComponent(`Estimate ${current.number} from ${profile.name}`)}&body=${encodeURIComponent(summaryText(current))}`;
     },
     duplicate: () => {
       saveNow();
@@ -1040,8 +1038,7 @@
         id: uid(),
         number: 'E-' + profile.nextNumber,
         date: today(),
-        validUntil: addDays(today(), num(profile.validDays) || 30),
-        signature: '', sigName: '', sigDate: '',
+        clientSig: '', clientSigDate: '',
         createdAt: new Date().toISOString(),
       };
       profile.nextNumber = num(profile.nextNumber) + 1;
@@ -1050,7 +1047,7 @@
       current = copy;
       saveNow();
       toast(`Copied to ${copy.number}`);
-      go(stepHash(copy.id, 'customer'));
+      go(stepHash(copy.id, 'client'));
     },
     'delete-est': () => {
       if (!confirm(`Delete ${current.number}? This can't be undone.`)) return;
@@ -1073,7 +1070,7 @@
   // ---------- events ----------
 
   document.addEventListener('click', (e) => {
-    const chip = e.target.closest('.chip');
+    const chip = e.target.closest('.chips[data-bind] .chip');
     if (chip) {
       const group = chip.closest('.chips');
       const scope = scopeOf(group);
@@ -1124,7 +1121,7 @@
     e.target.value = '';
     if (!file) return;
     const c = parseVCard(await file.text());
-    if (c.name || c.phone) fillCustomer(c);
+    if (c.name || c.phone) fillClient(c);
     else toast('No contact found in that file');
   });
 
@@ -1175,6 +1172,5 @@
 
   if (BRAND.appName) document.title = BRAND.appName;
   if (BRAND.colors?.primary) $('meta[name=theme-color]').content = BRAND.colors.primary;
-  for (const s of SPECIES_ALL) $('#species-list').appendChild(new Option(s));
   route();
 })();
