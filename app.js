@@ -3,28 +3,34 @@
 
   // ---------- pick lists (match the paper estimate form) ----------
 
-  const SERVICES = ['Tree Removal', 'Tree Trimming / Pruning', 'Stump Grinding / Removal', 'Emergency Tree Service', 'Tree Health Assessment', 'Land Clearing / Grading'];
-  const LOCATIONS = ['Front Yard', 'Backyard', 'Near Utility Lines', 'Over Structure'];
-  const CONDITIONS = ['Healthy', 'Diseased / Decayed', 'Storm-Damaged'];
+  // Per-tree choices
+  const SPECIES = ['Oak', 'Maple', 'Pine', 'Ash', 'Elm', 'Spruce', 'Cedar', 'Cottonwood', 'Poplar', 'Birch', 'Walnut',
+    'Locust', 'Willow', 'Hackberry', 'Pear', 'Cherry', 'Mulberry', 'Fruit tree', 'Unknown'];
+  const WORK = ['Removal', 'Removal + stump grinding', 'Trimming / pruning', 'Crown reduction', 'Deadwood removal',
+    'Stump grinding only', 'Emergency / storm work', 'Health assessment', 'Land clearing'];
+  const LOCATIONS = ['Front Yard', 'Backyard', 'Side Yard', 'Near Utility Lines', 'Over Structure', 'Over Fence', 'Driveway', 'Tree Line'];
+  const SIZES = [['Large', 'Large (over 20 ft)'], ['Medium', 'Medium (10–20 ft)'], ['Small', 'Small (under 10 ft)']];
+  const CONDITIONS = ['Healthy', 'Diseased / Decayed', 'Storm-Damaged', 'Dead', 'Leaning'];
+
+  // Job-wide choices
   const SITE = ['Clear Access', 'Restricted Access', 'Uneven Terrain', 'Sloped Terrain'];
   const EXTRAS = ['Wood Chipping / Hauling', 'Firewood Preparation', 'Cleanup / Debris Removal'];
 
-  // Quick-add buttons on the Materials / Equipment screen. Prices are remembered after first use.
-  const MATERIALS = ['Bucket truck', 'Crane', 'Chipper', 'Stump grinder', 'Skid steer / loader', 'Dump truck', 'Dump / disposal fee',
-    'Mulch', 'Topsoil & seed', 'Cabling hardware', 'Permit fee', 'Traffic control'];
+  // Quick-add buttons on the Equipment screen. Prices are remembered after first use.
+  const EQUIPMENT = ['Crane rental', 'Bucket truck / lift rental', 'Spider lift rental', 'Stump grinder rental', 'Mini skid steer rental',
+    'Dump trailer', 'Dump / disposal fee', 'Traffic control', 'Permit fee'];
 
-  const HOURS = [1, 2, 4, 6, 8];
+  const DAYS = [[0.5, '½ day'], [1, '1 day'], [1.5, '1½ days'], [2, '2 days'], [3, '3 days'], [4, '4 days'], [5, '5 days']];
   const ADDITIONAL = [[0, 'None'], [50, '$50'], [100, '$100'], [150, '$150'], [250, '$250']];
   const DEPOSITS = [[0, 'None'], [25, '25%'], [50, '50%']];
   const VALID_DAYS = [[15, '15 days'], [30, '30 days'], [60, '60 days'], [90, '90 days']];
-  const DURATION = [[0, 'Same day'], [1, '+1 day'], [2, '+2 days'], [3, '+3 days'], [5, '+5 days']];
 
   const STEPS = [
     { id: 'client', label: 'Client', render: stepClient },
-    { id: 'service', label: 'Service', render: stepService },
+    { id: 'trees', label: 'Trees', render: stepTrees },
     { id: 'site', label: 'Site', render: stepSite },
-    { id: 'materials', label: 'Materials', render: stepMaterials },
-    { id: 'labor', label: 'Labor', render: stepLabor },
+    { id: 'crew', label: 'Crew days', render: stepCrew },
+    { id: 'equipment', label: 'Equipment', render: stepEquipment },
     { id: 'summary', label: 'Summary', render: stepSummary },
     { id: 'sign', label: 'Sign', render: stepSign },
     { id: 'send', label: 'Send', render: stepSend },
@@ -65,7 +71,7 @@
 
   // ---------- storage ----------
 
-  const KEYS = { profile: 'ats.profile', estimates: 'ats.estimates.v3' };
+  const KEYS = { profile: 'ats.profile', estimates: 'ats.estimates.v4' };
 
   function load(key, fallback) {
     try {
@@ -89,7 +95,7 @@
 
   const DEFAULT_PROFILE = {
     name: '', license: '', address: '', phone: '', email: '', website: '',
-    laborRate: '', taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001,
+    dayRate: 2000, crew: '3 regular employees + 1 part-time', taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001,
     logo: '', signature: '', prices: {},
     ...BRAND.company,
     complete: false,
@@ -105,10 +111,12 @@
 
   let current = null;      // estimate open in the wizard
   let profileDraft = null; // profile being edited
+  let editingTree = null;  // tree open in the tree sheet
+  let editingIndex = -1;
   let installPrompt = null;
 
   const scopeOf = (el) => el.closest('[data-scope]')?.dataset.scope || 'est';
-  const objFor = (scope) => (scope === 'profile' ? profileDraft : current);
+  const objFor = (scope) => ({ profile: profileDraft, tree: editingTree })[scope] || current;
 
   function blankEstimate() {
     return {
@@ -116,16 +124,15 @@
       number: 'E-' + profile.nextNumber,
       date: today(),
       client: { name: '', phone: '', email: '', street: '', csz: '' },
-      services: [], servicesOther: '',
-      locations: [], locationsOther: '',
-      large: 0, medium: 0, small: 0,
-      conditions: [], conditionsOther: '',
+      trees: [],
       site: [], siteOther: '',
       extras: [], extrasOther: '',
-      startDate: '', endDate: '',
       notes: '',
-      materials: [],
-      labor: [{ hours: '', rate: profile.laborRate }],
+      days: 1,
+      dayRate: num(profile.dayRate),
+      crew: profile.crew,
+      startDate: '', endDate: '',
+      equipment: [],
       taxRate: num(profile.taxRate),
       additional: 0,
       validDays: num(profile.validDays) || 30,
@@ -138,18 +145,22 @@
     };
   }
 
-  const isEmpty = (e) => !e.client.name.trim() && !e.client.phone.trim() && !e.services.length && !e.materials.length;
-  const treeCount = (e) => num(e.large) + num(e.medium) + num(e.small);
+  const blankTree = () => ({ species: '', work: '', location: '', size: '', condition: '', qty: 1, notes: '' });
+
+  const isEmpty = (e) => !e.client.name.trim() && !e.client.phone.trim() && !e.trees.length && !e.equipment.length;
+  const treeCount = (e) => e.trees.reduce((n, t) => n + (num(t.qty) || 1), 0);
+  const treeTitle = (t) => `${num(t.qty) > 1 ? num(t.qty) + ' × ' : ''}${t.species || 'Tree'}${t.work ? ' — ' + t.work : ''}`;
+  const treeDetails = (t) => [t.location, t.size && SIZES.find((s) => s[0] === t.size)?.[1], t.condition].filter(Boolean).join(' · ');
 
   function totals(e) {
-    const materials = e.materials.reduce((s, m) => s + num(m.qty) * num(m.price), 0);
-    const labor = e.labor.reduce((s, l) => s + num(l.hours) * num(l.rate), 0);
-    const subtotal = materials + labor;
+    const equipment = e.equipment.reduce((s, m) => s + num(m.qty) * num(m.price), 0);
+    const labor = num(e.days) * num(e.dayRate);
+    const subtotal = equipment + labor;
     const tax = (subtotal * num(e.taxRate)) / 100;
     const additional = num(e.additional);
     const total = subtotal + tax + additional;
     const deposit = e.depositAmt !== '' && e.depositAmt != null ? num(e.depositAmt) : (total * Math.min(100, num(e.depositPct))) / 100;
-    return { materials, labor, subtotal, tax, additional, total, deposit };
+    return { equipment, labor, subtotal, tax, additional, total, deposit };
   }
 
   let saveTimer;
@@ -249,22 +260,25 @@
     }
   }
 
+  // Completion date follows from the start date and the number of crew days.
+  function syncEndDate() {
+    if (!current.startDate) return;
+    current.endDate = addDays(current.startDate, Math.max(0, Math.ceil(num(current.days) || 1) - 1));
+    syncKey('est', 'endDate');
+  }
+
   function onChange(scope, key) {
     if (scope !== 'est') return;
-    // Remember material prices so they fill in automatically next time.
-    const m = key.match(/^materials\.(\d+)\.(price|desc)$/);
+    // Remember equipment prices so they fill in automatically next time.
+    const m = key.match(/^equipment\.(\d+)\.(price|desc)$/);
     if (m) {
-      const row = current.materials[m[1]];
+      const row = current.equipment[m[1]];
       if (row?.desc && row.price !== '') {
         profile.prices[row.desc.trim().toLowerCase()] = num(row.price);
         saveProfile();
       }
     }
-    if (/^(large|medium|small)$/.test(key)) $('#tree-count').textContent = treeCount(current);
-    if (key === 'startDate' && current.startDate && (!current.endDate || current.endDate < current.startDate)) {
-      current.endDate = current.startDate;
-      syncKey('est', 'endDate');
-    }
+    if (key === 'days' || key === 'startDate') syncEndDate();
     // A deposit is either a percentage or a fixed amount, not both.
     if (key === 'depositPct') {
       current.depositAmt = '';
@@ -393,34 +407,26 @@
       </section>`;
   }
 
-  function stepService() {
+  function stepTrees() {
+    const cards = current.trees.map((t, i) => `
+      <div class="tree-card">
+        <button type="button" class="tree-main" data-act="edit-tree" data-i="${i}">
+          <b>${i + 1}. ${esc(treeTitle(t))}</b>
+          <span class="muted">${esc(treeDetails(t)) || 'Tap to add details'}</span>
+          ${t.notes ? `<span class="muted small">${esc(t.notes)}</span>` : ''}
+        </button>
+        <button type="button" class="btn sm" data-act="copy-tree" data-i="${i}" aria-label="Add another like this">⧉ Copy</button>
+      </div>`).join('');
     return `
-      <h2 class="step-title">Service details</h2>
-      <section class="card">
-        <h3>Type of tree service <small>check all that apply</small></h3>
-        ${checkGroup('services', SERVICES)}
-      </section>
-      <section class="card">
-        <h3>Location of trees</h3>
-        ${checkGroup('locations', LOCATIONS)}
-      </section>
-      <section class="card">
-        <h3>Number of trees: <span id="tree-count">${treeCount(current)}</span></h3>
-        <div class="tree-sizes">
-          <div><h4>Large <small>over 20 ft</small></h4>${stepper('large')}</div>
-          <div><h4>Medium <small>10–20 ft</small></h4>${stepper('medium')}</div>
-          <div><h4>Small <small>under 10 ft</small></h4>${stepper('small')}</div>
-        </div>
-      </section>
-      <section class="card">
-        <h3>Condition of trees</h3>
-        ${checkGroup('conditions', CONDITIONS)}
-      </section>`;
+      <h2 class="step-title">Trees <small class="muted">${treeCount(current)} total</small></h2>
+      <p class="hint">One line per tree. If several trees are the same, use one line and set “How many”. Tap ⧉ Copy to add a similar tree.</p>
+      <div class="line-list">${cards || '<p class="empty">No trees added yet.</p>'}</div>
+      <button type="button" class="btn primary big" data-act="add-tree">＋ Add tree</button>`;
   }
 
   function stepSite() {
     return `
-      <h2 class="step-title">Site &amp; schedule</h2>
+      <h2 class="step-title">Site</h2>
       <section class="card">
         <h3>Site conditions</h3>
         ${checkGroup('site', SITE)}
@@ -430,8 +436,26 @@
         ${checkGroup('extras', EXTRAS)}
       </section>
       <section class="card">
+        ${field('Notes for the client', 'notes', 'rows="3" placeholder="Optional"', true)}
+      </section>`;
+  }
+
+  function stepCrew() {
+    return `
+      <h2 class="step-title">Crew days</h2>
+      <section class="card">
+        <h3>How many days?</h3>
+        ${chips('days', DAYS, { isNum: true })}
+        <div class="mt">${stepper('days', { step: 0.5, min: 0.5 })}</div>
+      </section>
+      <section class="card">
+        <h3>Day rate</h3>
+        ${moneyInput('dayRate')}
+        ${field('Crew', 'crew', 'class="mt"')}
+        <div class="sum-line grand">Crew total <b data-total="labor"></b></div>
+      </section>
+      <section class="card">
         <h3>Schedule</h3>
-        <h4>Start</h4>
         <div class="chips">
           <button type="button" class="chip" data-act="start-in" data-d="7">Next week</button>
           <button type="button" class="chip" data-act="start-in" data-d="14">In 2 weeks</button>
@@ -441,63 +465,39 @@
           ${field('Estimated start', 'startDate', 'type="date"')}
           ${field('Estimated completion', 'endDate', 'type="date"')}
         </div>
-        <h4>Job length</h4>
-        <div class="chips">${DURATION.map(([d, l]) => `<button type="button" class="chip" data-act="duration" data-d="${d}">${l}</button>`).join('')}</div>
-      </section>
-      <section class="card">
-        ${field('Notes for the client', 'notes', 'rows="3" placeholder="Optional"', true)}
       </section>`;
   }
 
-  function stepMaterials() {
-    const rows = current.materials.map((m, i) => `
+  function stepEquipment() {
+    const rows = current.equipment.map((m, i) => `
       <div class="line-card">
         <div class="line-head">
-          <input data-bind="materials.${i}.desc" placeholder="Description" class="desc">
-          <button type="button" class="icon-btn del" data-act="del-row" data-list="materials" data-i="${i}" aria-label="Remove">✕</button>
+          <input data-bind="equipment.${i}.desc" placeholder="Description" class="desc">
+          <button type="button" class="icon-btn del" data-act="del-row" data-list="equipment" data-i="${i}" aria-label="Remove">✕</button>
         </div>
         <div class="qty-price">
-          <div><h4>Qty</h4>${stepper(`materials.${i}.qty`, { min: 1 })}</div>
-          <div><h4>Price</h4>${moneyInput(`materials.${i}.price`)}</div>
+          <div><h4>Qty / days</h4>${stepper(`equipment.${i}.qty`, { min: 1 })}</div>
+          <div><h4>Price each</h4>${moneyInput(`equipment.${i}.price`)}</div>
         </div>
-        <div class="sum-line">Line total <b data-line="materials.${i}"></b></div>
+        <div class="sum-line">Line total <b data-line="equipment.${i}"></b></div>
       </div>`).join('');
     return `
-      <h2 class="step-title">Material / equipment cost</h2>
+      <h2 class="step-title">Equipment rentals</h2>
       <section class="card">
         <h3>Tap to add <small>prices are remembered</small></h3>
-        <div class="chips">${MATERIALS.map((d) => `<button type="button" class="chip" data-act="add-material" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
+        <div class="chips">${EQUIPMENT.map((d) => `<button type="button" class="chip" data-act="add-equip" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
       </section>
-      <div class="line-list">${rows || '<p class="empty">No materials or equipment yet.</p>'}</div>
-      <button type="button" class="btn big" data-act="add-material" data-desc="">＋ Other item</button>
-      <section class="card"><div class="sum-line grand">Total material / equipment <b data-total="materials"></b></div></section>`;
-  }
-
-  function stepLabor() {
-    const rows = current.labor.map((l, i) => `
-      <div class="line-card">
-        <div class="line-head"><b>Labor${current.labor.length > 1 ? ' ' + (i + 1) : ''}</b>
-          <button type="button" class="icon-btn del" data-act="del-row" data-list="labor" data-i="${i}" aria-label="Remove">✕</button></div>
-        <h4>Estimated hours</h4>
-        <div class="chips-plus">${chips(`labor.${i}.hours`, HOURS.map((h) => [h, h + ' hr']), { isNum: true })}
-          <label class="mini"><input data-bind="labor.${i}.hours" type="number" inputmode="decimal" min="0" step="0.5"> hr</label></div>
-        <h4>Rate per hour</h4>
-        ${moneyInput(`labor.${i}.rate`)}
-        <div class="sum-line">Line total <b data-line="labor.${i}"></b></div>
-      </div>`).join('');
-    return `
-      <h2 class="step-title">Labor cost</h2>
-      <div class="line-list">${rows || '<p class="empty">No labor added.</p>'}</div>
-      <button type="button" class="btn big" data-act="add-labor">＋ Add labor line</button>
-      <section class="card"><div class="sum-line grand">Total labor <b data-total="labor"></b></div></section>`;
+      <div class="line-list">${rows || '<p class="empty">No equipment rentals. Skip this step if none are needed.</p>'}</div>
+      <button type="button" class="btn big" data-act="add-equip" data-desc="">＋ Other item</button>
+      <section class="card"><div class="sum-line grand">Total equipment <b data-total="equipment"></b></div></section>`;
   }
 
   function stepSummary() {
     return `
       <h2 class="step-title">Estimate summary</h2>
       <section class="card totals">
-        <div class="sum-line">Materials / equipment <span data-total="materials"></span></div>
-        <div class="sum-line">Labor <span data-total="labor"></span></div>
+        <div class="sum-line">Crew (${num(current.days)} day${num(current.days) === 1 ? '' : 's'} × ${money(num(current.dayRate))}) <span data-total="labor"></span></div>
+        <div class="sum-line">Equipment rentals <span data-total="equipment"></span></div>
         <div class="sum-line"><b>Subtotal</b> <b data-total="subtotal"></b></div>
       </section>
       <section class="card">
@@ -505,7 +505,7 @@
         <div class="row"><label class="mini"><input data-bind="taxRate" type="number" inputmode="decimal" min="0" step="0.001"> %</label><span data-total="tax"></span></div>
       </section>
       <section class="card">
-        <h3>Additional costs <small>travel, equipment, etc.</small></h3>
+        <h3>Additional costs <small>travel, etc.</small></h3>
         ${chips('additional', ADDITIONAL, { isNum: true })}
         <div class="mt">${moneyInput('additional', 'Other amount')}</div>
       </section>
@@ -522,6 +522,51 @@
       </section>`;
   }
 
+  // ---------- tree sheet ----------
+
+  function openTree(i, from) {
+    editingIndex = i;
+    editingTree = i >= 0 ? clone(current.trees[i]) : from ? { ...clone(from), notes: '' } : blankTree();
+    const dlg = $('#tree-dlg');
+    dlg.innerHTML = `
+      <div class="sheet-head">
+        <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Cancel">✕</button>
+        <h3>${i >= 0 ? 'Tree ' + (i + 1) : 'Add tree'}</h3>
+        <button type="button" class="btn primary sm" data-act="save-tree">Save</button>
+      </div>
+      <div class="sheet-body">
+        <h4>Type of tree</h4>
+        ${chips('species', SPECIES)}
+        <input data-bind="species" placeholder="Other type…" class="mt" autocapitalize="words">
+        <h4>Work</h4>
+        ${chips('work', WORK)}
+        <h4>Location</h4>
+        ${chips('location', LOCATIONS)}
+        <h4>Size</h4>
+        ${chips('size', SIZES)}
+        <h4>Condition</h4>
+        ${chips('condition', CONDITIONS)}
+        <h4>How many trees like this?</h4>
+        ${stepper('qty', { min: 1 })}
+        <h4>Notes</h4>
+        <textarea data-bind="notes" rows="2" placeholder="Anything else about this tree…"></textarea>
+        ${i >= 0 ? '<button type="button" class="btn danger big" data-act="delete-tree">Delete this tree</button>' : ''}
+        <button type="button" class="btn primary big" data-act="save-tree">Save tree</button>
+      </div>`;
+    syncAll(dlg, 'tree');
+    dlg.showModal();
+    $('.sheet-body', dlg).scrollTop = 0;
+  }
+
+  function saveTree() {
+    editingTree.qty = Math.max(1, num(editingTree.qty) || 1);
+    if (editingIndex >= 0) current.trees[editingIndex] = editingTree;
+    else current.trees.push(editingTree);
+    $('#tree-dlg').close();
+    saveNow();
+    renderWizard(current.id, 'trees');
+  }
+
   function updateTotals() {
     if (!current) return;
     const t = totals(current);
@@ -529,7 +574,7 @@
     for (const el of $$('[data-line]')) {
       const [list, i] = el.dataset.line.split('.');
       const r = current[list][i];
-      if (r) el.textContent = money(list === 'materials' ? num(r.qty) * num(r.price) : num(r.hours) * num(r.rate));
+      if (r) el.textContent = money(num(r.qty) * num(r.price));
     }
   }
 
@@ -635,8 +680,10 @@
     const sec = (title, body) => `<section class="doc-sec"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
     const tr = (label, body) => `<tr><th>${label}</th><td>${body}</td></tr>`;
 
-    const matRows = e.materials.map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
-    const labRows = e.labor.filter((l) => num(l.hours) || num(l.rate)).map((l) => `<tr><td class="r">${num(l.hours)}</td><td class="r">${money(num(l.rate))}</td><td class="r">${money(num(l.hours) * num(l.rate))}</td></tr>`).join('');
+    const eqRows = e.equipment.map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
+    const treeRows = e.trees.map((t, i) => `<tr>
+        <td>${i + 1}</td><td class="r">${num(t.qty) || 1}</td><td><b>${esc(t.species) || '—'}</b></td><td>${esc(t.work)}</td>
+        <td>${esc(t.location)}</td><td>${esc(t.size)}</td><td>${esc(t.condition)}${t.notes ? `<div class="doc-note">${esc(t.notes)}</div>` : ''}</td></tr>`).join('');
     const validUntil = addDays(e.date, num(e.validDays) || 30);
 
     return `
@@ -657,12 +704,14 @@
           <div class="grid2">${kv('Address', e.client.street)}${kv('City / State / ZIP', e.client.csz)}</div>
           ${e.client.phone ? kv('Phone', e.client.phone) : ''}`)}
 
-        ${sec('Service details', `
+        ${sec(`Trees (${treeCount(e)})`, `
+          <table class="doc-table trees">
+            <thead><tr><th>#</th><th class="r">Qty</th><th>Type of tree</th><th>Work</th><th>Location</th><th>Size</th><th>Condition / notes</th></tr></thead>
+            <tbody>${treeRows || '<tr><td colspan="7" class="none">None</td></tr>'}</tbody>
+          </table>`)}
+
+        ${sec('Site details', `
           <table class="doc-form">
-            ${tr('Type of tree service', boxes(SERVICES, e.services, e.servicesOther))}
-            ${tr('Location of trees', boxes(LOCATIONS, e.locations, e.locationsOther))}
-            ${tr('Number of trees', `<b>${treeCount(e)}</b> &nbsp;·&nbsp; Large (over 20 ft): <b>${num(e.large)}</b> &nbsp;·&nbsp; Medium (10–20 ft): <b>${num(e.medium)}</b> &nbsp;·&nbsp; Small (under 10 ft): <b>${num(e.small)}</b>`)}
-            ${tr('Condition of trees', boxes(CONDITIONS, e.conditions, e.conditionsOther))}
             ${tr('Site conditions', boxes(SITE, e.site, e.siteOther))}
             ${tr('Additional services', boxes(EXTRAS, e.extras, e.extrasOther))}
             ${tr('Estimated dates', `Start: <b>${niceDate(e.startDate) || '—'}</b> &nbsp;&nbsp; Completion: <b>${niceDate(e.endDate) || '—'}</b>`)}
@@ -670,25 +719,25 @@
           </table>`)}
 
         <div class="doc-cols">
-          ${sec('Material / equipment cost', `
+          ${sec('Crew labor', `
+            <table class="doc-table">
+              <thead><tr><th>Crew</th><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
+              <tbody><tr><td>${esc(e.crew)}</td><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.labor)}</td></tr></tbody>
+              <tfoot><tr><th colspan="3">Total crew labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
+            </table>`)}
+          ${sec('Equipment rentals', `
             <table class="doc-table">
               <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
-              <tbody>${matRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
-              <tfoot><tr><th colspan="3">Total material / equipment cost</th><td class="r">${money(t.materials)}</td></tr></tfoot>
-            </table>`)}
-          ${sec('Labor cost', `
-            <table class="doc-table">
-              <thead><tr><th class="r">Estimated hours</th><th class="r">Rate per hour</th><th class="r">Amount</th></tr></thead>
-              <tbody>${labRows || '<tr><td colspan="3" class="none">None</td></tr>'}</tbody>
-              <tfoot><tr><th colspan="2">Total labor cost</th><td class="r">${money(t.labor)}</td></tr></tfoot>
+              <tbody>${eqRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
+              <tfoot><tr><th colspan="3">Total equipment</th><td class="r">${money(t.equipment)}</td></tr></tfoot>
             </table>`)}
         </div>
 
         ${sec('Estimate summary', `
           <table class="doc-sum">
-            <tr><th>Subtotal (materials / equipment + labor)</th><td>${money(t.subtotal)}</td></tr>
+            <tr><th>Subtotal (crew labor + equipment)</th><td>${money(t.subtotal)}</td></tr>
             <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
-            <tr><th>Additional costs (travel, equipment, etc.)</th><td>${money(t.additional)}</td></tr>
+            <tr><th>Additional costs (travel, etc.)</th><td>${money(t.additional)}</td></tr>
             <tr class="grand"><th>Total estimate</th><td>${money(t.total)}</td></tr>
           </table>`)}
 
@@ -709,12 +758,12 @@
   function summaryText(e) {
     const t = totals(e);
     const first = e.client.name.split(' ')[0];
-    const services = [...e.services, e.servicesOther].filter(Boolean);
     return [
       `Hi${first ? ' ' + first : ''}, here is your tree service estimate ${e.number} from ${profile.name}:`,
       '',
-      services.length ? `Services: ${services.join(', ')}` : '',
-      treeCount(e) ? `Trees: ${treeCount(e)}` : '',
+      ...e.trees.map((t) => `• ${treeTitle(t)}`),
+      '',
+      `Crew: ${num(e.days)} day${num(e.days) === 1 ? '' : 's'}`,
       `Total estimate: ${money(t.total)}${t.deposit ? ` (deposit ${money(t.deposit)})` : ''}`,
       `Valid for ${num(e.validDays) || 30} days.`,
       '',
@@ -755,9 +804,10 @@
           <h4>Default deposit</h4>
           ${chips('depositPct', DEPOSITS, { isNum: true, required: true })}
           <div class="two mt">
-            ${field('Labor rate ($/hr)', 'laborRate', 'type="number" inputmode="decimal" min="0" step="0.01"')}
+            ${field('Day rate ($/day)', 'dayRate', 'type="number" inputmode="decimal" min="0" step="1"')}
             ${field('Sales tax %', 'taxRate', 'type="number" inputmode="decimal" min="0" step="0.001"')}
           </div>
+          ${field('Crew', 'crew')}
           ${field('Next estimate #', 'nextNumber', 'type="number" inputmode="numeric" min="1"')}
         </section>
         <section class="card">
@@ -961,46 +1011,40 @@
       onChange(scope, key);
     },
     'start-in': (el) => {
-      const len = current.startDate && current.endDate
-        ? Math.round((new Date(current.endDate) - new Date(current.startDate)) / 864e5) : 0;
       current.startDate = addDays(today(), num(el.dataset.d));
-      current.endDate = addDays(current.startDate, Math.max(0, len));
       syncKey('est', 'startDate');
-      syncKey('est', 'endDate');
-      scheduleSave();
-    },
-    duration: (el) => {
-      if (!current.startDate) {
-        toast('Pick a start date first');
-        return;
-      }
-      current.endDate = addDays(current.startDate, num(el.dataset.d));
-      syncKey('est', 'endDate');
+      syncEndDate();
       scheduleSave();
     },
 
-    'add-material': (el) => {
+    'add-tree': () => openTree(-1, current.trees[current.trees.length - 1] ? { ...blankTree(), species: '', work: current.trees[current.trees.length - 1].work } : null),
+    'edit-tree': (el) => openTree(num(el.dataset.i)),
+    'copy-tree': (el) => openTree(-1, current.trees[num(el.dataset.i)]),
+    'save-tree': saveTree,
+    'delete-tree': () => {
+      if (!confirm('Delete this tree?')) return;
+      current.trees.splice(editingIndex, 1);
+      $('#tree-dlg').close();
+      saveNow();
+      renderWizard(current.id, 'trees');
+    },
+
+    'add-equip': (el) => {
       const desc = el.dataset.desc;
       const price = profile.prices[desc.toLowerCase()];
-      current.materials.push({ desc, qty: 1, price: price ?? '' });
+      current.equipment.push({ desc, qty: 1, price: price ?? '' });
       saveNow();
-      renderWizard(current.id, 'materials');
+      renderWizard(current.id, 'equipment');
       const row = $$('.line-card').pop();
       row?.scrollIntoView({ block: 'center' });
       // Jump straight to whatever still needs typing.
       const next = !desc ? '.desc' : price == null ? '.price-input input' : null;
       if (next) $(next, row)?.focus({ preventScroll: true });
     },
-    'add-labor': () => {
-      current.labor.push({ hours: '', rate: profile.laborRate });
-      saveNow();
-      renderWizard(current.id, 'labor');
-      $$('.line-card').pop()?.scrollIntoView({ block: 'center' });
-    },
     'del-row': (el) => {
       current[el.dataset.list].splice(num(el.dataset.i), 1);
       saveNow();
-      renderWizard(current.id, el.dataset.list);
+      renderWizard(current.id, 'equipment');
     },
 
     'clear-sig': () => {

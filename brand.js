@@ -17,7 +17,8 @@ window.BRAND = {
     phone: '',
     email: '',
     website: 'advanced-treeservice.com',
-    laborRate: '',   // default $/hour on new estimates
+    dayRate: 2000,   // crew price per day
+    crew: '3 regular employees + 1 part-time',
     taxRate: 0,
     depositPct: 0,
     validDays: 30,

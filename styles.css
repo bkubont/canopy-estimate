@@ -323,6 +323,12 @@ dialog::backdrop { background: rgba(15,25,18,.5); }
 .line-head .desc { font-weight: 600; }
 .line-head b { flex: 1; }
 .icon-btn.del { color: var(--danger); font-size: 20px; flex: none; }
+.tree-card { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: var(--radius); padding: 6px 10px 6px 6px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.tree-main { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: left; font: inherit; color: inherit; background: none; border: 0; padding: 8px; cursor: pointer; min-width: 0; }
+.tree-main .muted { font-size: 14px; }
+.step-title small { font-size: 15px; font-weight: 500; }
+.doc-table.trees td { vertical-align: top; }
+.doc-note { color: var(--muted); font-size: .9em; }
 .tree-sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .tree-sizes h4 { margin-top: 0; }
 .tree-sizes .stepper button { width: 36px; }
