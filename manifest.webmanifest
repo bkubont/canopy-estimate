@@ -1,0 +1,16 @@
+{
+  "name": "Canopy Estimate",
+  "short_name": "Estimates",
+  "description": "Tree service estimates in the field",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef1ec",
+  "theme_color": "#2f5d3a",
+  "icons": [
+    { "src": "brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "brand/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "brand/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

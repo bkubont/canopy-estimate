@@ -5,17 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Canopy Estimate</title>
   <meta name="theme-color" content="#2f5d3a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="brand/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
+  <script src="brand.js"></script>
 </head>
 <body>
   <header class="toolbar no-print">
-    <div class="brand">🌳 Canopy Estimate</div>
+    <div class="brand"><img src="brand/logo.svg" alt="" id="app-logo"><span id="app-name">Canopy Estimate</span></div>
     <nav class="actions">
       <button type="button" id="btn-new">New</button>
       <button type="button" id="btn-save" class="primary">Save</button>
       <button type="button" id="btn-open">Saved</button>
       <button type="button" id="btn-print">Print / PDF</button>
       <button type="button" id="btn-settings">Company</button>
+      <button type="button" id="btn-install" hidden>Install app</button>
     </nav>
   </header>
 

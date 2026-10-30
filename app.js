@@ -48,10 +48,14 @@
     draft: 'canopy.draft',
   };
 
+  const BRAND = window.BRAND || {};
+
   const DEFAULT_SETTINGS = {
     coName: '', coAddress: '', coPhone: '', coEmail: '', coWebsite: '', coLicense: '',
     coTax: 0, coDeposit: 0, coValidDays: 30, coNextNumber: 1001, coTerms: DEFAULT_TERMS, logo: '',
+    ...BRAND.company,
   };
+  if (!DEFAULT_SETTINGS.coTerms) DEFAULT_SETTINGS.coTerms = DEFAULT_TERMS;
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -622,6 +626,30 @@
   });
 
   // ---------- boot ----------
+
+  if (BRAND.appName) {
+    document.title = BRAND.appName;
+    $('#app-name').textContent = BRAND.appName;
+  }
+  if (BRAND.colors?.primary) $('meta[name=theme-color]').content = BRAND.colors.primary;
+
+  // Installable app + offline support (needs HTTPS, so not when opened as a local file).
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Offline mode unavailable', err));
+  }
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    $('#btn-install').hidden = false;
+  });
+  $('#btn-install').addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    installPrompt = null;
+    $('#btn-install').hidden = true;
+  });
 
   const speciesList = $('#species-list');
   for (const s of SPECIES) speciesList.appendChild(new Option(s));

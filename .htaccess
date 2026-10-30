@@ -1,0 +1,26 @@
+# Hostinger (LiteSpeed/Apache) settings for the estimate app.
+
+# Always use HTTPS — required for "Add to Home Screen" and offline mode.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Don't expose repository files if deployed with Git.
+RedirectMatch 404 /\.git
+RedirectMatch 404 /(README|DEPLOY)\.md$
+
+AddType application/manifest+json .webmanifest
+DirectoryIndex index.html
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "same-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  # The service worker must never be cached, or devices won't see updates.
+  <FilesMatch "^(sw\.js|index\.html|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

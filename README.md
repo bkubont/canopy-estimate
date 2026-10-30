@@ -4,7 +4,7 @@ A simple, offline-friendly estimate form for arborists and tree-care companies. 
 
 ## Use it
 
-Open `index.html` in any modern browser. There's nothing to install and no build step. To use it on a phone, host the folder anywhere that serves static files (GitHub Pages, Netlify, or similar), then add it to your home screen.
+Open `index.html` in any modern browser; there's no build step. Hosted over HTTPS, it becomes an installable app with a home-screen icon that works offline. See [DEPLOY.md](DEPLOY.md) for Hostinger setup, and `brand.js` to rebrand it.
 
 ## Features
 
@@ -29,3 +29,6 @@ Everything is stored in your browser's `localStorage` on the device you're using
 - `index.html`: the form layout
 - `styles.css`: the screen and print styles
 - `app.js`: calculations, saving, signature pad, and printing
+- `brand.js`, `brand/`, `manifest.webmanifest`: branding and app icons
+- `sw.js`: offline support
+- `.htaccess`: Hostinger settings (HTTPS redirect, caching)

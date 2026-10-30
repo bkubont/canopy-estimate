@@ -34,7 +34,8 @@ body {
   background: var(--green);
   color: #fff;
 }
-.brand { font-weight: 700; font-size: 17px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; }
+.brand img { width: 28px; height: 28px; border-radius: 6px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .toolbar button { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.35); }
 .toolbar button.primary { background: #fff; color: var(--green); }
