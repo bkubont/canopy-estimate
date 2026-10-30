@@ -4,24 +4,22 @@ The app is plain static files, so any Hostinger web hosting plan works. No Node.
 
 ## 1. Pick where it lives
 
-### Starting on a temporary domain (current plan)
+### Temporary domain (current plan)
 
-When you add a website in hPanel without connecting a domain, Hostinger gives it a free temporary address. It looks something like `something-12345.hostingersite.com`, and it already has SSL. Use that address to try the app before pointing advanced-treeservice.com at it. The app uses relative paths, so the files don't need any change when the domain changes.
+When you add a website in hPanel without connecting a domain, Hostinger gives it a free temporary address. It looks something like `something-12345.hostingersite.com`, and it usually already has SSL. The estimate app runs there as its own site, separate from your main website. The app uses relative paths, so it works at any address without changes.
 
-**Before you switch to the real domain:** estimates are stored per web address. Anything saved on phones while using the temporary address won't appear automatically once you move to advanced-treeservice.com. Before switching, on each device:
-1. Open **Saved → Export all** on the temporary address.
+### Moving to your own domain later (optional)
+
+If you later want a nicer address, create a subdomain such as `estimates.advanced-treeservice.com` in hPanel under **Domains → Subdomains** and deploy there. Don't use the main domain itself, or it would replace your existing website.
+
+Estimates are stored per web address, so before moving, on each device:
+1. Open **Saved → Export all** on the old address.
 2. Open the app on the new address and use **Saved → Import JSON**.
 3. Delete the old home-screen icon and install it again from the new address.
 
-### Final address
-
-Either:
-- **A subdomain** such as `estimates.advanced-treeservice.com` (recommended, so it stays separate from your main website). In hPanel, go to **Domains → Subdomains** and create it. Hostinger gives it its own folder, e.g. `public_html/estimates`.
-- **The main domain**, which uses `public_html` itself. Only do this if this app *is* the whole site; otherwise it would replace your existing website.
-
 ## 2. Turn on SSL (required)
 
-Installing to the home screen and working offline only work over `https://`. In hPanel, open **Security → SSL** and install the free SSL certificate for the domain or subdomain. Temporary Hostinger domains normally come with SSL already. The included `.htaccess` then redirects all `http://` traffic to `https://`.
+Installing to the home screen and working offline only work over `https://`. Temporary Hostinger domains normally come with SSL already; if the address doesn't open with `https://`, go to **Security → SSL** in hPanel and install the free certificate. The included `.htaccess` then redirects all `http://` traffic to `https://`.
 
 ## 3. Upload the files
 
@@ -29,7 +27,7 @@ Installing to the home screen and working offline only work over `https://`. In 
 
 1. In hPanel, open **Advanced → Git** for the website.
 2. Repository: `https://github.com/bkubont/canopy-estimate.git`, branch `main`.
-3. Install path: the folder from step 1. Leave it blank for `public_html`; the folder must be empty.
+3. Install path: leave it blank to use the temporary site's `public_html`. The folder must be empty, so delete any default Hostinger placeholder files first.
 4. If the GitHub repo is private, Hostinger shows an SSH key. Add it to GitHub under **repo → Settings → Deploy keys**, and use the SSH URL `git@github.com:bkubont/canopy-estimate.git` instead.
 5. Click **Deploy**. Optionally, copy Hostinger's auto-deployment webhook URL into GitHub under **repo → Settings → Webhooks** so every push to `main` goes live automatically.
 
