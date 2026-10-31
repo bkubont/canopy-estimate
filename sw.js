@@ -1,13 +1,14 @@
 // Offline support: serve the app from cache when there's no signal on site.
-// Bump VERSION whenever you deploy changes so devices pick up the new files.
-const VERSION = 'v5';
-const CACHE = 'canopy-' + VERSION;
+// Bump VERSION whenever you deploy changes so devices pick up the new files,
+// and use the same number in the ?v= links in index.html.
+const VERSION = 6;
+const CACHE = 'canopy-v' + VERSION;
 const ASSETS = [
   './',
   'index.html',
-  'styles.css',
-  'app.js',
-  'brand.js',
+  `styles.css?v=${VERSION}`,
+  `app.js?v=${VERSION}`,
+  `brand.js?v=${VERSION}`,
   'manifest.webmanifest',
   'brand/logo.svg',
   'brand/icon-192.png',
@@ -35,7 +36,7 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(CACHE);
     const timeout = new Promise((resolve) => setTimeout(resolve, 4000));
     try {
-      const res = await Promise.race([fetch(req), timeout]);
+      const res = await Promise.race([fetch(req, { cache: 'no-cache' }), timeout]);
       if (res && res.ok) {
         cache.put(req, res.clone());
         return res;
@@ -43,7 +44,7 @@ self.addEventListener('fetch', (event) => {
     } catch {
       // offline: fall through to cache
     }
-    return (await cache.match(req, { ignoreSearch: true })) ||
+    return (await cache.match(req)) ||
       (req.mode === 'navigate' && (await cache.match('index.html'))) ||
       Response.error();
   })());

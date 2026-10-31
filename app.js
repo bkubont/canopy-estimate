@@ -883,7 +883,7 @@
       if (key === 'TEL' && !out.phone) out.phone = unesc(raw);
       if (key === 'EMAIL' && !out.email) out.email = unesc(raw);
       if (key === 'ADR' && !out.street) {
-        const [, , street, city, region, zip] = raw.split(/(?<!\\);/).map(unesc);
+        const [, , street, city, region, zip] = raw.replace(/\\;/g, '\u0000').split(';').map((x) => unesc(x.replace(/\u0000/g, ';')));
         out.street = street;
         out.csz = cszOf(city, region, zip);
       }

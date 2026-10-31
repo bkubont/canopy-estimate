@@ -175,7 +175,7 @@ input:focus, textarea:focus { outline: none; border-color: var(--green); box-sha
   text-decoration: none;
 }
 .step .dot { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--line); color: var(--ink); font-size: 12px; }
-.step.done .dot { background: color-mix(in srgb, var(--green) 25%, white); color: var(--green-dark); }
+.step.done .dot { background: #dfe8e1; background: color-mix(in srgb, var(--green) 25%, white); color: var(--green-dark); }
 .step.on { background: var(--green); color: #fff; }
 .step.on .dot { background: #fff; color: var(--green); }
 
@@ -214,7 +214,7 @@ input:focus, textarea:focus { outline: none; border-color: var(--green); box-sha
 .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .est-card .row + .row, .est-card .muted { font-size: 14px; margin-top: 2px; }
 .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #f1e7d9; color: var(--bark); font-weight: 600; }
-.badge.ok { background: color-mix(in srgb, var(--green) 18%, white); color: var(--green-dark); }
+.badge.ok { background: #dfe8e1; background: color-mix(in srgb, var(--green) 18%, white); color: var(--green-dark); }
 .pick-item { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--line); box-shadow: none; }
 .pick-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 
@@ -370,9 +370,9 @@ dialog::backdrop { background: rgba(15,25,18,.5); }
 .cb i.on { background: var(--green); border-color: var(--green); color: #fff; }
 .doc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .doc-table { width: 100%; border-collapse: collapse; }
-.doc-table th { text-align: left; font-size: .9em; background: color-mix(in srgb, var(--green) 12%, white); padding: 5px 6px; }
+.doc-table th { text-align: left; font-size: .9em; background: #dfe8e1; background: color-mix(in srgb, var(--green) 12%, white); padding: 5px 6px; }
 .doc-table td { border-bottom: 1px solid var(--line); padding: 5px 6px; }
-.doc-table tfoot th, .doc-table tfoot td { background: color-mix(in srgb, var(--green) 12%, white); font-weight: 700; border: 0; }
+.doc-table tfoot th, .doc-table tfoot td { background: #dfe8e1; background: color-mix(in srgb, var(--green) 12%, white); font-weight: 700; border: 0; }
 .doc-table .r { text-align: right; white-space: nowrap; }
 .doc-table .none { color: var(--muted); }
 .doc-sum { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
