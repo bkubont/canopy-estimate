@@ -25,16 +25,55 @@
   const DEPOSITS = [[0, 'None'], [25, '25%'], [50, '50%']];
   const VALID_DAYS = [[15, '15 days'], [30, '30 days'], [60, '60 days'], [90, '90 days']];
 
-  const STEPS = [
-    { id: 'client', label: 'Client', render: stepClient },
-    { id: 'trees', label: 'Trees', render: stepTrees },
-    { id: 'site', label: 'Site', render: stepSite },
-    { id: 'crew', label: 'Crew days', render: stepCrew },
-    { id: 'equipment', label: 'Equipment', render: stepEquipment },
-    { id: 'summary', label: 'Summary', render: stepSummary },
-    { id: 'sign', label: 'Sign', render: stepSign },
-    { id: 'send', label: 'Send', render: stepSend },
+  // Phone keeps one short screen per topic. Tablets combine related screens
+  // so there are fewer Next taps across a wider landscape layout.
+  const STEP_VIEWS = {
+    client: stepClient,
+    trees: stepTrees,
+    site: stepSite,
+    crew: stepCrew,
+    equipment: stepEquipment,
+    summary: stepSummary,
+    sign: stepSign,
+    send: stepSend,
+  };
+
+  const PHONE_STEPS = [
+    { id: 'client', label: 'Client', parts: ['client'] },
+    { id: 'trees', label: 'Trees', parts: ['trees'] },
+    { id: 'site', label: 'Site', parts: ['site'] },
+    { id: 'crew', label: 'Crew days', parts: ['crew'] },
+    { id: 'equipment', label: 'Equipment', parts: ['equipment'] },
+    { id: 'summary', label: 'Summary', parts: ['summary'] },
+    { id: 'sign', label: 'Sign', parts: ['sign'] },
+    { id: 'send', label: 'Send', parts: ['send'] },
   ];
+
+  const TABLET_STEPS = [
+    { id: 'client', label: 'Job', parts: ['client', 'site'] },
+    { id: 'trees', label: 'Trees', parts: ['trees'] },
+    { id: 'crew', label: 'Pricing', parts: ['crew', 'equipment'] },
+    { id: 'summary', label: 'Review', parts: ['summary', 'sign'] },
+    { id: 'send', label: 'Send', parts: ['send'] },
+  ];
+
+  const tabletMq = window.matchMedia('(min-width: 768px)');
+  const isTablet = () => tabletMq.matches;
+  const activeSteps = () => (isTablet() ? TABLET_STEPS : PHONE_STEPS);
+
+  function joinParts(parts) {
+    return parts.map((id, i) => {
+      let html = STEP_VIEWS[id]();
+      if (i > 0) html = html.replace('class="step-title"', 'class="step-title continued"');
+      return `<div class="step-block" data-part="${id}">${html}</div>`;
+    }).join('');
+  }
+
+  function findStepIndex(stepId) {
+    const steps = activeSteps();
+    const i = steps.findIndex((s) => s.id === stepId || s.parts.includes(stepId));
+    return i < 0 ? 0 : i;
+  }
 
   // ---------- helpers ----------
 
@@ -357,21 +396,29 @@
       if (!saved) return location.replace('#/');
       current = { ...blankEstimate(), ...saved };
     }
-    let i = STEPS.findIndex((s) => s.id === stepId);
-    if (i < 0) i = 0;
-    const step = STEPS[i];
+    const steps = activeSteps();
+    const i = findStepIndex(stepId);
+    const step = steps[i];
+    document.body.classList.toggle('is-tablet', isTablet());
+
+    // Keep the hash on the screen's canonical id (e.g. site → client on tablet).
+    if (stepId && stepId !== step.id) {
+      history.replaceState(null, '', stepHash(current.id, step.id));
+    }
 
     setChrome({ title: wizardTitle(), back: true, bottombar: true });
 
     $('#view').innerHTML = `
-      <nav class="steps">${STEPS.map((s, n) => `
+      <nav class="steps" aria-label="Estimate steps">${steps.map((s, n) => `
         <a href="${stepHash(current.id, s.id)}" class="step ${n === i ? 'on' : ''} ${n < i ? 'done' : ''}">
           <span class="dot">${n + 1}</span>${s.label}</a>`).join('')}</nav>
-      <div class="step-body" data-step="${step.id}">${step.render()}</div>`;
+      <div class="step-body ${step.parts.length > 1 ? 'combined' : ''}" data-step="${step.id}" data-parts="${step.parts.join(' ')}">
+        ${joinParts(step.parts)}
+      </div>`;
 
     syncAll($('#view'), 'est');
     $('.step.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
-    if (step.id === 'sign') {
+    if (step.parts.includes('sign')) {
       initSignature($('#sig-client'), () => current.clientSig, (url) => {
         current.clientSig = url;
         if (url && !current.clientSigDate) current.clientSigDate = today();
@@ -384,9 +431,9 @@
     updateTotals();
 
     $('#btn-prev').textContent = i === 0 ? '‹ Estimates' : '‹ Back';
-    $('#btn-next').textContent = i === STEPS.length - 1 ? 'Done ✓' : `Next: ${STEPS[i + 1].label} ›`;
-    $('#btn-prev').dataset.to = i === 0 ? '#/' : stepHash(current.id, STEPS[i - 1].id);
-    $('#btn-next').dataset.to = i === STEPS.length - 1 ? '#/' : stepHash(current.id, STEPS[i + 1].id);
+    $('#btn-next').textContent = i === steps.length - 1 ? 'Done ✓' : `Next: ${steps[i + 1].label} ›`;
+    $('#btn-prev').dataset.to = i === 0 ? '#/' : stepHash(current.id, steps[i - 1].id);
+    $('#btn-next').dataset.to = i === steps.length - 1 ? '#/' : stepHash(current.id, steps[i + 1].id);
   }
 
   function stepClient() {
@@ -398,12 +445,12 @@
         <button type="button" class="btn big-ish" data-act="pick-previous">↺ Past client</button>
       </div>
       ${canPick ? '' : '<p class="hint">On iPhone: in Contacts, open the person → Share Contact → Save to Files, then tap “From contacts” and pick the file.</p>'}
-      <section class="card">
+      <section class="card field-grid">
         ${field('Name', 'client.name', 'autocomplete="name" autocapitalize="words"')}
         ${field('Phone', 'client.phone', 'type="tel" autocomplete="tel" inputmode="tel"')}
         ${field('Email', 'client.email', 'type="email" autocomplete="email" inputmode="email"')}
-        ${field('Address', 'client.street', 'autocomplete="address-line1" autocapitalize="words"')}
         ${field('City / State / ZIP', 'client.csz', 'autocapitalize="words"')}
+        ${field('Address', 'client.street', 'autocomplete="address-line1" autocapitalize="words"')}
       </section>`;
   }
 
@@ -623,33 +670,50 @@
   // ---------- signature pad ----------
 
   function initSignature(canvas, get, set) {
+    if (canvas._sigCleanup) canvas._sigCleanup();
     const ctx = canvas.getContext('2d');
     let drawing = false;
     let last = null;
     let dirty = false;
 
-    const r = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(r.width * dpr);
-    canvas.height = Math.round(r.height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    Object.assign(ctx, { lineWidth: 2.4, lineCap: 'round', lineJoin: 'round', strokeStyle: '#1f2421' });
-    if (get()) {
+    const paintStyle = () => {
+      Object.assign(ctx, { lineWidth: 2.4, lineCap: 'round', lineJoin: 'round', strokeStyle: '#1f2421' });
+    };
+
+    const drawSaved = (src, cssW, cssH) => {
+      if (!src) return;
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height);
-      img.src = get();
-    }
+      img.onload = () => ctx.drawImage(img, 0, 0, cssW, cssH);
+      img.src = src;
+    };
+
+    const sizeToDisplay = () => {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.round(r.width * dpr));
+      const h = Math.max(1, Math.round(r.height * dpr));
+      if (canvas.width === w && canvas.height === h) return;
+      // Keep in-progress ink across orientation changes; otherwise reload saved sig.
+      const kept = dirty ? canvas.toDataURL('image/png') : '';
+      canvas.width = w;
+      canvas.height = h;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      paintStyle();
+      drawSaved(kept || get(), r.width, r.height);
+    };
+
+    sizeToDisplay();
 
     const pt = (e) => {
       const b = canvas.getBoundingClientRect();
       return { x: e.clientX - b.left, y: e.clientY - b.top };
     };
-    canvas.addEventListener('pointerdown', (e) => {
+    const onDown = (e) => {
       drawing = true;
       last = pt(e);
       canvas.setPointerCapture?.(e.pointerId);
-    });
-    canvas.addEventListener('pointermove', (e) => {
+    };
+    const onMove = (e) => {
       if (!drawing) return;
       const p = pt(e);
       ctx.beginPath();
@@ -658,14 +722,32 @@
       ctx.stroke();
       last = p;
       dirty = true;
-    });
+    };
     const end = () => {
       if (!drawing) return;
       drawing = false;
       if (dirty) set(canvas.toDataURL('image/png'));
     };
+    const onResize = () => {
+      if (drawing) return;
+      sizeToDisplay();
+    };
+
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    canvas._sigCleanup = () => {
+      canvas.removeEventListener('pointerdown', onDown);
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerup', end);
+      canvas.removeEventListener('pointercancel', end);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      delete canvas._sigCleanup;
+    };
   }
 
   // ---------- printable estimate (mirrors the paper form) ----------
@@ -1202,6 +1284,20 @@
   window.addEventListener('hashchange', route);
   window.addEventListener('pagehide', saveNow);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+
+  // Phone ↔ tablet swaps the step list; re-route so Back/Next and the pills stay in sync.
+  let layoutTablet = isTablet();
+  const onLayoutMode = () => {
+    const now = isTablet();
+    if (now === layoutTablet && document.body.classList.contains('is-tablet') === now) return;
+    layoutTablet = now;
+    document.body.classList.toggle('is-tablet', now);
+    if (/^#\/e\//.test(location.hash)) route();
+  };
+  if (tabletMq.addEventListener) tabletMq.addEventListener('change', onLayoutMode);
+  else tabletMq.addListener(onLayoutMode);
+  window.addEventListener('resize', onLayoutMode);
+  window.addEventListener('orientationchange', onLayoutMode);
 
   // Installable app + offline support (needs HTTPS, so not when opened as a local file).
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
