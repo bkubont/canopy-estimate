@@ -394,6 +394,99 @@ dialog::backdrop { background: rgba(15,25,18,.5); }
   .doc-form th { white-space: normal; width: 30%; }
 }
 
+/* ---------- tablet: wider canvas, fewer empty gutters ---------- */
+@media (min-width: 768px) {
+  #view { max-width: 980px; padding: 16px 24px 28px; }
+  .step-title { font-size: 24px; }
+  .step-title.continued {
+    font-size: 20px;
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .steps {
+    flex-wrap: wrap;
+    overflow: visible;
+    justify-content: flex-start;
+    gap: 8px;
+    margin: -16px -24px 12px;
+    padding: 12px 24px;
+  }
+  .step { font-size: 15px; padding: 8px 14px 8px 8px; }
+  .step .dot { width: 26px; height: 26px; font-size: 13px; }
+  .bottombar {
+    left: 50%;
+    right: auto;
+    width: min(980px, 100%);
+    transform: translateX(-50%);
+    border-radius: 16px 16px 0 0;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+  }
+  .field-grid .field:last-child { grid-column: 1 / -1; }
+  .est-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .sig { height: 220px; }
+  .btn.sm { min-height: 44px; padding: 8px 16px; }
+  .chip { min-height: 46px; font-size: 16px; padding: 10px 16px; }
+  .tree-card { padding: 8px 12px 8px 8px; }
+  .tree-main { padding: 10px; }
+  dialog.sheet {
+    width: min(720px, 92vw);
+    height: min(900px, 92vh);
+  }
+}
+
+/* Landscape tablet: related sections side-by-side (Job, Pricing, Review) */
+@media (min-width: 768px) and (orientation: landscape) {
+  .step-body.combined {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .step-body.combined .step-block { min-width: 0; }
+  .step-body.combined .step-title.continued {
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 6px;
+  }
+  .sig { height: min(200px, 42vh); }
+}
+
+/* Short landscape (tablet or phone sideways): reclaim vertical space */
+@media (max-height: 560px) and (orientation: landscape) {
+  :root { --appbar-h: 48px; }
+  .appbar { min-height: var(--appbar-h); }
+  .appbar-title { font-size: 16px; }
+  .steps {
+    position: static;
+    margin: 0 0 8px;
+    padding: 6px 0;
+    background: transparent;
+  }
+  .step { padding: 5px 10px 5px 5px; font-size: 13px; }
+  .step .dot { width: 22px; height: 22px; font-size: 11px; }
+  .step-title { font-size: 18px; margin: 2px 0 8px; }
+  .card { padding: 12px; margin-bottom: 10px; }
+  .sig { height: min(140px, 32vh); }
+  .bottombar {
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  .bottombar .btn { min-height: 48px; font-size: 16px; }
+  body.has-bottombar { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+
 @media print {
   @page { margin: 10mm; size: letter; }
   body { background: #fff; padding: 0 !important; font-size: 9.5pt; }

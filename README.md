@@ -11,13 +11,13 @@ Open `index.html` in any modern browser; there's no build step. Hosted over HTTP
 The app follows the paper Tree Service Estimate Form, with tap-to-select choices wherever possible. Pricing is by crew day plus equipment rentals.
 
 1. **Company profile (first launch only):** company name, license number, address, phone, email, logo, crew day rate (default $2,000) and crew description, tax, deposit, validity period, and your contractor signature. It fills every estimate automatically and can be changed later from the ☰ menu.
-2. **New estimate**, one section per screen with big Back / Next buttons:
-   - **Client:** import from phone contacts (Android), a contact card file (iPhone), or a past client
+2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet (about iPad width and up) related sections are combined so there are fewer steps — especially handy in landscape:
+   - **Client** *(tablet: Job = Client + Site):* import from phone contacts (Android), a contact card file (iPhone), or a past client
    - **Trees:** one line per tree. Each line has its own type of tree, work, location, size and condition, plus **How many** for identical trees. **⧉ Copy** adds a similar tree.
    - **Site:** site conditions, additional services, notes
-   - **Crew days:** tap ½ / 1 / 1½ / 2… days × the day rate. Tap a start date; the completion date fills in.
+   - **Crew days** *(tablet: Pricing = Crew days + Equipment):* tap ½ / 1 / 1½ / 2… days × the day rate. Tap a start date; the completion date fills in.
    - **Equipment:** tap rentals (crane, lift, stump grinder…) to add them. Each price is remembered for next time.
-   - **Summary:** subtotal, tax, additional costs, total, validity period and deposit
+   - **Summary** *(tablet: Review = Summary + Sign):* subtotal, tax, additional costs, total, validity period and deposit
    - **Sign:** the client signs on screen; your saved contractor signature is added automatically
    - **Send:** print or save as PDF, share, text, or email a summary, with a preview of the finished form
 3. **Estimates list:** search, reopen, duplicate or delete. Everything saves automatically.
