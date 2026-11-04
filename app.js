@@ -111,6 +111,8 @@
   // ---------- storage ----------
 
   const KEYS = { profile: 'ats.profile', estimates: 'ats.estimates.v4' };
+  // Older app versions wrote these keys; bring them forward so estimates don't vanish after an update.
+  const LEGACY_ESTIMATE_KEYS = ['ats.estimates.v3', 'ats.estimates', 'canopy.estimates'];
 
   function load(key, fallback) {
     try {
@@ -131,6 +133,25 @@
       return false;
     }
   }
+
+  function migrateEstimates() {
+    let merged = load(KEYS.estimates, {});
+    if (!merged || typeof merged !== 'object' || Array.isArray(merged)) merged = {};
+    let changed = false;
+    for (const key of LEGACY_ESTIMATE_KEYS) {
+      const legacy = load(key, null);
+      if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) continue;
+      for (const [id, est] of Object.entries(legacy)) {
+        if (est && typeof est === 'object' && !merged[id]) {
+          merged[id] = est;
+          changed = true;
+        }
+      }
+    }
+    if (changed) store(KEYS.estimates, merged);
+  }
+
+  migrateEstimates();
 
   const DEFAULT_PROFILE = {
     name: '', license: '', address: '', phone: '', email: '', website: '',
@@ -186,13 +207,58 @@
 
   const blankTree = () => ({ species: '', work: '', location: '', size: '', condition: '', qty: 1, notes: '' });
 
-  const isEmpty = (e) => !e.client.name.trim() && !e.client.phone.trim() && !e.trees.length && !e.equipment.length;
+  // True only for a brand-new blank draft. Any client detail, tree, equipment, site
+  // choice, notes, date, or signature means we keep it.
+  function isEmpty(e) {
+    if (!e) return true;
+    const c = e.client || {};
+    const hasText = (...vals) => vals.some((v) => String(v ?? '').trim());
+    if (hasText(c.name, c.phone, c.email, c.street, c.csz)) return false;
+    if ((e.trees || []).length || (e.equipment || []).length) return false;
+    if ((e.site || []).length || (e.extras || []).length) return false;
+    if (hasText(e.siteOther, e.extrasOther, e.notes, e.startDate, e.clientSig)) return false;
+    if (num(e.additional) > 0) return false;
+    return true;
+  }
+
+  // Pull the latest typed values out of the DOM. Safari autofill and fast
+  // Back/Done taps can leave the on-screen fields ahead of the in-memory model.
+  function flushBound(scope = 'est') {
+    const obj = objFor(scope);
+    if (!obj) return;
+    const root = scope === 'tree' ? $('#tree-dlg') : $('#view');
+    if (!root) return;
+    for (const el of $$('[data-bind]', root)) {
+      if (scopeOf(el) !== scope || el.classList.contains('chips')) continue;
+      let v = el.type === 'checkbox' ? el.checked : el.value;
+      if (el.type === 'number') v = el.value === '' ? '' : num(el.value);
+      setPath(obj, el.dataset.bind, v);
+    }
+  }
+
+  function hydrateEstimate(saved) {
+    const blank = blankEstimate();
+    const clientSrc = saved?.client || saved?.customer || {};
+    return {
+      ...blank,
+      ...saved,
+      id: saved?.id || blank.id,
+      client: { ...blank.client, ...clientSrc },
+      trees: Array.isArray(saved?.trees) ? saved.trees : blank.trees,
+      equipment: Array.isArray(saved?.equipment)
+        ? saved.equipment
+        : (Array.isArray(saved?.materials) ? saved.materials : blank.equipment),
+      site: Array.isArray(saved?.site) ? saved.site : blank.site,
+      extras: Array.isArray(saved?.extras) ? saved.extras : blank.extras,
+    };
+  }
+
   const treeCount = (e) => e.trees.reduce((n, t) => n + (num(t.qty) || 1), 0);
   const treeTitle = (t) => `${num(t.qty) > 1 ? num(t.qty) + ' × ' : ''}${t.species || 'Tree'}${t.work ? ' — ' + t.work : ''}`;
   const treeDetails = (t) => [t.location, t.size && SIZES.find((s) => s[0] === t.size)?.[1], t.condition].filter(Boolean).join(' · ');
 
   function totals(e) {
-    const equipment = e.equipment.reduce((s, m) => s + num(m.qty) * num(m.price), 0);
+    const equipment = (e.equipment || []).reduce((s, m) => s + num(m.qty) * num(m.price), 0);
     const labor = num(e.days) * num(e.dayRate);
     const subtotal = equipment + labor;
     const tax = (subtotal * num(e.taxRate)) / 100;
@@ -210,6 +276,7 @@
 
   function saveNow() {
     clearTimeout(saveTimer);
+    flushBound('est');
     if (!current || isEmpty(current)) return;
     current.updatedAt = new Date().toISOString();
     current.total = totals(current).total;
@@ -221,6 +288,7 @@
   // Close the open estimate: save it, or throw it away if nothing was entered.
   function closeCurrent() {
     if (!current) return;
+    flushBound('est');
     if (isEmpty(current)) {
       const all = allEstimates();
       if (all[current.id]) {
@@ -395,7 +463,7 @@
     if (!current || current.id !== id) {
       const saved = allEstimates()[id];
       if (!saved) return location.replace('#/');
-      current = { ...blankEstimate(), ...saved };
+      current = hydrateEstimate(saved);
     }
     const steps = activeSteps();
     const i = findStepIndex(stepId);
