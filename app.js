@@ -364,6 +364,7 @@
   function renderHome() {
     setChrome({ title: BRAND.appName || profile.name, back: false, bottombar: false });
     $('#view').innerHTML = `
+      <img class="brand-hero" src="brand/brand-art.jpg" alt="Advanced Tree Service">
       <button type="button" class="btn primary big" data-act="new">＋ New estimate</button>
       <input type="search" id="home-search" class="search" placeholder="Search estimates">
       <div id="est-list" class="est-list"></div>`;
@@ -1311,6 +1312,7 @@
   // ---------- boot ----------
 
   if (BRAND.appName) document.title = BRAND.appName;
-  if (BRAND.colors?.primary) $('meta[name=theme-color]').content = BRAND.colors.primary;
+  if (BRAND.colors?.background) $('meta[name=theme-color]').content = BRAND.colors.background;
+  else if (BRAND.colors?.primary) $('meta[name=theme-color]').content = BRAND.colors.primary;
   route();
 })();
