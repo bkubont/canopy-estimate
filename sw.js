@@ -1,7 +1,7 @@
 // Offline support: serve the app from cache when there's no signal on site.
 // Bump VERSION whenever you deploy changes so devices pick up the new files,
 // and use the same number in the ?v= links in index.html.
-const VERSION = 7;
+const VERSION = 8;
 const CACHE = 'canopy-v' + VERSION;
 const ASSETS = [
   './',
@@ -11,6 +11,7 @@ const ASSETS = [
   `brand.js?v=${VERSION}`,
   'manifest.webmanifest',
   'brand/logo.svg',
+  'brand/brand-art.jpg',
   'brand/icon-192.png',
   'brand/icon-512.png',
 ];
