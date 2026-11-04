@@ -4,10 +4,16 @@ window.BRAND = {
   appName: 'Advanced Tree Service',
 
   colors: {
-    primary: '#2f5d3a',     // header, buttons, selected choices
-    primaryDark: '#224529',
-    accent: '#6b4f3a',      // "ESTIMATE" title on the printout
-    background: '#eef1ec',  // app background
+    primary: '#d4e12b',     // neon lime — buttons, selected choices
+    primaryDark: '#a8b512', // pressed / darker lime
+    accent: '#e0312b',      // brand red — danger, accents
+    background: '#0d0f0e',  // charcoal black app background
+    ink: '#f2f4f1',
+    muted: '#a7aea8',
+    line: '#2c322e',
+    card: '#1a1d1b',
+    danger: '#e0312b',
+    onPrimary: '#0d0f0e',   // text on lime buttons
   },
 
   company: {
@@ -34,4 +40,10 @@ window.BRAND = {
   s.setProperty('--green-dark', c.primaryDark);
   s.setProperty('--bark', c.accent);
   s.setProperty('--bg', c.background);
+  if (c.ink) s.setProperty('--ink', c.ink);
+  if (c.muted) s.setProperty('--muted', c.muted);
+  if (c.line) s.setProperty('--line', c.line);
+  if (c.card) s.setProperty('--card', c.card);
+  if (c.danger) s.setProperty('--danger', c.danger);
+  if (c.onPrimary) s.setProperty('--on-primary', c.onPrimary);
 })();
