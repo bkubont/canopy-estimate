@@ -11,8 +11,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="brand/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=10">
-  <script src="brand.js?v=10"></script>
+  <link rel="stylesheet" href="styles.css?v=11">
+  <script src="brand.js?v=11"></script>
 </head>
 <body>
   <header class="appbar">
@@ -21,6 +21,14 @@
     <div class="appbar-title" id="appbar-title">Advanced Tree Service</div>
     <button type="button" class="icon-btn" data-act="menu" aria-label="Menu">☰</button>
   </header>
+
+  <div id="setup-banner" class="setup-banner" hidden role="status">
+    <div class="setup-banner-text">
+      <strong>Company profile incomplete</strong>
+      <span>Add your company name and phone so they appear on estimates.</span>
+    </div>
+    <button type="button" class="btn primary" data-act="profile">Finish company profile</button>
+  </div>
 
   <main id="view"></main>
 
@@ -58,9 +66,30 @@
       <button type="button" class="menu-item" data-act="home">📋 Estimates</button>
       <button type="button" class="menu-item" data-act="schedule">📅 Schedule</button>
       <button type="button" class="menu-item" data-act="profile">🏢 Company profile</button>
-      <button type="button" class="menu-item" data-act="export">⬇️ Back up estimates</button>
+      <button type="button" class="menu-item" data-act="export">⬇️ Back up data</button>
       <button type="button" class="menu-item" data-act="import">⬆️ Restore from backup</button>
       <button type="button" class="menu-item" data-act="install" id="menu-install" hidden>📲 Install app on this device</button>
+      <p class="menu-note muted small">Data stays on this device only. Backups are not synced to the cloud.</p>
+    </div>
+  </dialog>
+
+  <dialog id="restore-dlg" class="sheet small">
+    <div class="sheet-head">
+      <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
+      <h3>Restore backup</h3>
+      <span></span>
+    </div>
+    <div class="sheet-body">
+      <p id="restore-summary" class="restore-summary"></p>
+      <p class="muted small">Merge keeps your current estimates and adds or updates ones from the file. Replace swaps estimates (and optional profile/events) with the backup after saving a recovery snapshot on this device.</p>
+      <div class="btn-pair">
+        <button type="button" class="btn" data-act="restore-merge">Merge</button>
+        <button type="button" class="btn primary" data-act="restore-replace">Replace</button>
+      </div>
+      <label class="switch" id="restore-profile-opt">
+        <input type="checkbox" id="restore-include-profile" checked>
+        <span>Also restore company profile</span>
+      </label>
     </div>
   </dialog>
 
@@ -70,6 +99,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
