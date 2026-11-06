@@ -4,16 +4,17 @@ window.BRAND = {
   appName: 'Advanced Tree Service',
 
   colors: {
-    primary: '#d4e12b',     // neon lime — buttons, selected choices
-    primaryDark: '#a8b512', // pressed / darker lime
-    accent: '#e0312b',      // brand red — danger, accents
-    background: '#0d0f0e',  // charcoal black app background
-    ink: '#f2f4f1',
-    muted: '#a7aea8',
-    line: '#2c322e',
-    card: '#1a1d1b',
-    danger: '#e0312b',
-    onPrimary: '#0d0f0e',   // text on lime buttons
+    // Light workspace (Phase D) with ATS chartreuse accent used sparingly
+    primary: '#C5D92A',
+    primaryDark: '#A8B512',
+    accent: '#B42318',
+    background: '#F5F7FA',
+    ink: '#172022',
+    muted: '#5B6B73',
+    line: '#DDE3EA',
+    card: '#FFFFFF',
+    danger: '#B42318',
+    onPrimary: '#172022',
   },
 
   company: {

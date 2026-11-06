@@ -275,6 +275,7 @@
   let editingIndex = -1;
   let installPrompt = null;
   let pendingRestore = null; // parsed backup waiting for merge/replace choice
+  let estStatusFilter = 'all';
   let scheduleMode = (() => {
     try { return localStorage.getItem('ats.scheduleMode') === 'kanban' ? 'kanban' : 'list'; }
     catch { return 'list'; }
@@ -1371,27 +1372,72 @@
     window.scrollTo(0, 0);
   }
 
+  function currentNavKey() {
+    const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+    if (parts[0] === 'estimates' || parts[0] === 'home') return 'estimates';
+    if (parts[0] === 'profile') return 'profile';
+    if (parts[0] === 'schedule' || parts[0] === 'jobs') return 'jobs';
+    if (parts[0] === 'e') return 'estimates';
+    return 'calendar';
+  }
+
+  function syncShellNav() {
+    const key = currentNavKey();
+    for (const el of $$('[data-nav]')) {
+      const nav = el.dataset.nav;
+      const on = nav === key || (nav === 'more' && (key === 'jobs' || key === 'profile'));
+      if (on) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    }
+  }
+
   function setChrome({ title, back, bottombar }) {
     $('#appbar-title').textContent = title;
     $('#appbar-back').hidden = !back;
     $('#appbar-logo').hidden = !!back;
     $('#bottombar').hidden = !bottombar;
     document.body.classList.toggle('has-bottombar', !!bottombar);
+    document.body.classList.toggle('wizard-open', !!bottombar);
+    // Mobile tab nav stays for primary screens; hide during estimate wizard.
+    const showTabs = !bottombar;
+    document.body.classList.toggle('has-tabnav', showTabs);
+    syncShellNav();
+    const install = !installPrompt;
+    const mi = $('#menu-install');
+    const si = $('#sidebar-install');
+    if (mi) mi.hidden = install;
+    if (si) si.hidden = install;
   }
 
   const wizardTitle = () => `${current.number}${current.client.name ? ' · ' + current.client.name : ''}`;
 
   // ---------- home ----------
 
+  function nextAppointmentLabel(e) {
+    if (e.startDate) return niceDate(e.startDate);
+    const linked = Object.values(allEvents()).map(hydrateEvent)
+      .filter((ev) => ev.estimateId === e.id && ev.status !== 'cancelled')
+      .sort((a, b) => eventRangeMs(a).start - eventRangeMs(b).start)[0];
+    if (!linked) return '';
+    if (linked.allDay) return niceDate(String(linked.start).slice(0, 10));
+    return niceDate(detroitYmd(new Date(linked.start)));
+  }
+
   function renderHome() {
-    setChrome({ title: 'Estimates', back: true, bottombar: false });
+    setChrome({ title: 'Estimates', back: false, bottombar: false });
+    const filters = [['all', 'All'], ...STATUSES.map((s) => [s, STATUS_LABEL[s]])];
     $('#view').innerHTML = `
-      <img class="brand-hero" src="brand/brand-art.jpg" alt="Advanced Tree Service">
-      <div class="btn-pair">
-        <button type="button" class="btn primary big-ish" data-act="new">＋ New estimate</button>
-        <button type="button" class="btn big-ish" data-act="calendar">📅 Calendar</button>
+      <div class="page-head">
+        <h2>Estimates</h2>
+        <button type="button" class="btn primary" data-act="new">＋ New estimate</button>
       </div>
-      <input type="search" id="home-search" class="search" placeholder="Search estimates">
+      <div class="est-toolbar">
+        <input type="search" id="home-search" class="search" placeholder="Search number, customer, town">
+      </div>
+      <div class="chips est-filters" role="tablist" aria-label="Status filter">
+        ${filters.map(([id, label]) => `
+          <button type="button" class="chip" data-act="est-filter" data-status="${id}" aria-pressed="${estStatusFilter === id}">${esc(label)}</button>`).join('')}
+      </div>
       <div id="est-list" class="est-list"></div>`;
     renderEstimateList();
     $('#home-search').addEventListener('input', renderEstimateList);
@@ -1401,18 +1447,22 @@
     const q = ($('#home-search')?.value || '').trim().toLowerCase();
     const list = Object.values(allEstimates())
       .map(hydrateEstimate)
+      .filter((e) => estStatusFilter === 'all' || normalizeStatus(e) === estStatusFilter)
       .filter((e) => !q || [e.number, e.client?.name, e.client?.phone, e.client?.street, e.client?.town, e.client?.csz, STATUS_LABEL[e.status]].join(' ').toLowerCase().includes(q))
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
 
     $('#est-list').innerHTML = list.length
-      ? list.map((e) => `
+      ? list.map((e) => {
+        const appt = nextAppointmentLabel(e);
+        return `
         <button type="button" class="est-card" data-act="open" data-id="${esc(e.id)}">
           <div class="row"><b>${esc(e.client?.name || 'No name')}</b><b>${money(e.total)}</b></div>
-          <div class="row muted"><span>${esc(e.number)} · ${niceDate(e.date)}</span>
+          <div class="row muted"><span>${esc(e.number)}</span>
             <span class="badge ${statusBadgeClass(e.status)}">${esc(STATUS_LABEL[e.status] || 'Draft')}</span></div>
-          <div class="muted one-line">${esc([e.client?.town || e.client?.street, e.client?.csz].filter(Boolean).join(', '))}</div>
-        </button>`).join('')
-      : `<p class="empty">${q ? 'No matches.' : 'No estimates yet. Tap “New estimate” to start.'}</p>`;
+          <div class="meta">${esc(e.client?.town || 'No town')}${appt ? ` · Next: ${esc(appt)}` : ''}</div>
+        </button>`;
+      }).join('')
+      : `<p class="empty">${q || estStatusFilter !== 'all' ? 'No matches.' : 'No estimates yet. Tap “New estimate” to start.'}</p>`;
   }
 
   // ---------- wizard ----------
@@ -1974,7 +2024,7 @@
   }
 
   function renderSchedule() {
-    setChrome({ title: 'Jobs', back: true, bottombar: false });
+    setChrome({ title: 'Jobs', back: false, bottombar: false });
     const jobs = scheduleJobs();
     const mode = scheduleMode;
     $('#view').innerHTML = `
@@ -2027,17 +2077,33 @@
 
   // ---------- company profile ----------
 
+  function profileChecklistHtml() {
+    const nameOk = !!String(profile.name || '').trim();
+    const phoneOk = !!String(profile.phone || '').trim();
+    const sigOk = !!profile.signature;
+    const items = [
+      [nameOk, 'Company name'],
+      [phoneOk, 'Phone number'],
+      [sigOk, 'Contractor signature'],
+    ];
+    return `<div class="profile-checklist">
+      <h2>Setup checklist</h2>
+      <p>Finish these so they appear on every estimate. Calendar and Estimates stay available meanwhile.</p>
+      <ul class="checklist">
+        ${items.map(([ok, label]) => `<li class="${ok ? 'done' : ''}"><span class="mark">${ok ? '✓' : ''}</span>${esc(label)}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
   function renderProfile() {
     const incomplete = isProfileIncomplete();
     profileDraft = clone(profile);
-    setChrome({ title: 'Company profile', back: true, bottombar: false });
+    setChrome({ title: 'Company profile', back: false, bottombar: false });
     $('#view').innerHTML = `
       <div data-scope="profile">
-        ${incomplete
-          ? '<div class="welcome"><h2>Welcome</h2><p>Set up your company information once. It goes on every estimate automatically. You can still open Calendar, Estimates, and Jobs from the menu.</p></div>'
-          : '<h2 class="step-title">Company profile</h2>'}
+        ${incomplete ? profileChecklistHtml() : '<div class="page-head"><h2>Company profile</h2></div>'}
         <section class="card">
-          <h3>Company information</h3>
+          <h3>Company</h3>
           <div class="logo-row">
             <img id="logo-preview" alt="">
             <div class="btn-pair">
@@ -2052,7 +2118,7 @@
           ${field('Email', 'email', 'type="email" inputmode="email"')}
         </section>
         <section class="card">
-          <h3>Estimate defaults</h3>
+          <h3>Defaults</h3>
           <h4>Estimates are valid for</h4>
           ${chips('validDays', VALID_DAYS, { isNum: true, required: true })}
           <h4>Default deposit</h4>
@@ -2064,12 +2130,12 @@
           ${field('Next estimate #', 'nextNumber', 'type="number" inputmode="numeric" min="1"')}
         </section>
         <section class="card">
-          <h3>Contractor signature</h3>
+          <h3>Signature</h3>
           <p class="muted small">Sign once. It’s added to every estimate automatically.</p>
           <canvas id="sig-profile" class="sig" aria-label="Sign here"></canvas>
           <div class="sig-foot"><span>Sign above</span><button type="button" class="link" data-act="clear-profile-sig">Clear</button></div>
         </section>
-        <button type="button" class="btn primary big" data-act="save-profile">Save profile</button>
+        <button type="button" class="btn primary big" data-act="save-profile">Save changes</button>
       </div>`;
     syncAll($('#view'), 'profile');
     renderLogoPreview();
@@ -2107,7 +2173,7 @@
       if (profile.prices[k] == null) profile.prices[k] = v;
     }
     saveProfile();
-    toast(wasFirst ? 'All set! Start your first estimate.' : 'Company profile saved');
+    toast(wasFirst ? 'Saved — you’re set. Opening calendar.' : 'Saved');
     navigate('#/');
   }
 
@@ -2367,6 +2433,8 @@
     schedule: () => navigate('#/schedule'),
     menu: () => {
       $('#menu-install').hidden = !installPrompt;
+      const si = $('#sidebar-install');
+      if (si) si.hidden = !installPrompt;
       $('#menu-dlg').showModal();
     },
     'close-dlg': (el) => el.closest('dialog').close(),
@@ -2460,6 +2528,11 @@
     'cal-filter-reset': () => {
       cal.filters = { type: '', crew: '', status: '' };
       renderCalendar();
+    },
+
+    'est-filter': (el) => {
+      estStatusFilter = el.dataset.status || 'all';
+      renderHome();
     },
 
     'sched-mode': (el) => {
@@ -2762,5 +2835,6 @@
   if (BRAND.appName) document.title = BRAND.appName;
   if (BRAND.colors?.background) $('meta[name=theme-color]').content = BRAND.colors.background;
   else if (BRAND.colors?.primary) $('meta[name=theme-color]').content = BRAND.colors.primary;
+  document.body.classList.add('has-tabnav');
   route();
 })();

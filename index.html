@@ -4,46 +4,87 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Advanced Tree Service</title>
-  <meta name="theme-color" content="#0d0f0e">
+  <meta name="theme-color" content="#F5F7FA">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ATS Estimates">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="brand/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=12">
-  <script src="brand.js?v=12"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=13">
+  <script src="brand.js?v=13"></script>
 </head>
 <body>
-  <header class="appbar">
-    <button type="button" class="icon-btn" id="appbar-back" data-act="home" aria-label="Back to calendar" hidden>‹</button>
-    <img src="brand/logo.svg" alt="" class="appbar-logo" id="appbar-logo">
-    <div class="appbar-title" id="appbar-title">Advanced Tree Service</div>
-    <button type="button" class="icon-btn" data-act="menu" aria-label="Menu">☰</button>
-  </header>
-
-  <div id="setup-banner" class="setup-banner" hidden role="status">
-    <div class="setup-banner-text">
-      <strong>Company profile incomplete</strong>
-      <span>Add your company name and phone so they appear on estimates.</span>
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-brand">
+      <img src="brand/logo.svg" alt="" class="sidebar-logo">
+      <div>
+        <strong>ATS</strong>
+        <span class="muted small">Estimates</span>
+      </div>
     </div>
-    <button type="button" class="btn primary" data-act="profile">Finish company profile</button>
+    <nav class="sidebar-nav">
+      <button type="button" class="nav-item" data-act="calendar" data-nav="calendar">Calendar</button>
+      <button type="button" class="nav-item" data-act="estimates" data-nav="estimates">Estimates</button>
+      <button type="button" class="nav-item" data-act="profile" data-nav="profile">Company profile</button>
+    </nav>
+    <div class="sidebar-section">
+      <h4>Settings</h4>
+      <button type="button" class="nav-item subtle" data-act="schedule" data-nav="jobs">Jobs board</button>
+      <button type="button" class="nav-item subtle" data-act="export">Back up data</button>
+      <button type="button" class="nav-item subtle" data-act="import">Restore backup</button>
+      <button type="button" class="nav-item subtle" data-act="install" id="sidebar-install" hidden>Install app</button>
+      <p class="menu-note muted small">Data stays on this device only.</p>
+    </div>
+  </aside>
+
+  <div class="app-frame">
+    <header class="appbar">
+      <button type="button" class="icon-btn" id="appbar-back" data-act="home" aria-label="Back to calendar" hidden>‹</button>
+      <img src="brand/logo.svg" alt="" class="appbar-logo" id="appbar-logo">
+      <div class="appbar-title" id="appbar-title">Advanced Tree Service</div>
+      <button type="button" class="icon-btn desktop-hide" data-act="menu" aria-label="More">☰</button>
+    </header>
+
+    <div id="setup-banner" class="setup-banner" hidden role="status">
+      <div class="setup-banner-text">
+        <strong>Company profile incomplete</strong>
+        <span>Add your company name and phone so they appear on estimates.</span>
+      </div>
+      <button type="button" class="btn primary" data-act="profile">Finish company profile</button>
+    </div>
+
+    <main id="view"></main>
+
+    <footer class="bottombar" id="bottombar" hidden>
+      <button type="button" class="btn" data-act="prev" id="btn-prev">‹ Back</button>
+      <button type="button" class="btn primary" data-act="next" id="btn-next">Next ›</button>
+    </footer>
+
+    <nav class="tabnav" id="tabnav" aria-label="Primary">
+      <button type="button" class="tab-item" data-act="calendar" data-nav="calendar">
+        <span class="tab-ico" aria-hidden="true">📅</span>
+        <span>Calendar</span>
+      </button>
+      <button type="button" class="tab-item" data-act="estimates" data-nav="estimates">
+        <span class="tab-ico" aria-hidden="true">📋</span>
+        <span>Estimates</span>
+      </button>
+      <button type="button" class="tab-item" data-act="menu" data-nav="more">
+        <span class="tab-ico" aria-hidden="true">⋯</span>
+        <span>More</span>
+      </button>
+    </nav>
   </div>
-
-  <main id="view"></main>
-
-  <footer class="bottombar" id="bottombar" hidden>
-    <button type="button" class="btn" data-act="prev" id="btn-prev">‹ Back</button>
-    <button type="button" class="btn primary" data-act="next" id="btn-next">Next ›</button>
-  </footer>
 
   <!-- Printable estimate, filled in right before printing -->
   <div id="print-doc"></div>
 
-  <!-- Add / edit one tree -->
   <dialog id="tree-dlg" class="sheet" data-scope="tree"></dialog>
 
-  <!-- Simple list picker (previous customers) -->
   <dialog id="pick-dlg" class="sheet small">
     <div class="sheet-head">
       <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
@@ -59,17 +100,15 @@
   <dialog id="menu-dlg" class="sheet small">
     <div class="sheet-head">
       <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
-      <h3>Menu</h3>
+      <h3>More</h3>
       <span></span>
     </div>
     <div class="sheet-body menu">
-      <button type="button" class="menu-item" data-act="calendar">📅 Calendar</button>
-      <button type="button" class="menu-item" data-act="estimates">📋 Estimates</button>
-      <button type="button" class="menu-item" data-act="schedule">🗂️ Jobs board</button>
-      <button type="button" class="menu-item" data-act="profile">🏢 Company profile</button>
-      <button type="button" class="menu-item" data-act="export">⬇️ Back up data</button>
-      <button type="button" class="menu-item" data-act="import">⬆️ Restore from backup</button>
-      <button type="button" class="menu-item" data-act="install" id="menu-install" hidden>📲 Install app on this device</button>
+      <button type="button" class="menu-item" data-act="schedule">Jobs board</button>
+      <button type="button" class="menu-item" data-act="profile">Company profile</button>
+      <button type="button" class="menu-item" data-act="export">Back up data</button>
+      <button type="button" class="menu-item" data-act="import">Restore from backup</button>
+      <button type="button" class="menu-item" data-act="install" id="menu-install" hidden>Install app on this device</button>
       <p class="menu-note muted small">Data stays on this device only. Backups are not synced to the cloud.</p>
     </div>
   </dialog>
@@ -102,6 +141,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
