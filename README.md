@@ -1,6 +1,6 @@
 # Canopy Estimate
 
-A simple, offline-friendly estimate, calendar, and jobs app for arborists and tree-care companies (tuned for northern Michigan work). Fill it out on site from a phone or tablet, get the client's signature on screen, print or save a clean PDF, schedule work on an interactive calendar, and track approved jobs on a Jobs list or Kanban board.
+A simple, offline-friendly estimate, calendar, and jobs app for arborists and tree-care companies (tuned for northern Michigan work). Light workspace UI with a desktop sidebar and mobile bottom nav, field estimates with on-screen signatures, an interactive calendar, and a Jobs list/Kanban for approved work.
 
 ## Use it
 
