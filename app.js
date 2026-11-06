@@ -617,6 +617,727 @@
     scheduleSave();
   }
 
+  // ---------- calendar / events ----------
+
+  const TZ = 'America/Detroit';
+  const EVENT_TYPES = [
+    ['estimate_visit', 'Estimate visit'],
+    ['tree_work', 'Tree work'],
+    ['equipment_rental', 'Equipment rental'],
+    ['dump_run', 'Dump run'],
+    ['time_off', 'Time off'],
+    ['other', 'Other'],
+  ];
+  const EVENT_TYPE_LABEL = Object.fromEntries(EVENT_TYPES);
+  const EVENT_STATUSES = [
+    ['tentative', 'Tentative'],
+    ['confirmed', 'Confirmed'],
+    ['completed', 'Completed'],
+    ['cancelled', 'Cancelled'],
+  ];
+  const EVENT_STATUS_LABEL = Object.fromEntries(EVENT_STATUSES);
+  const SEED_FLAG = 'ats.events.seeded.v1';
+  const DAY_START_HOUR = 6;
+  const DAY_END_HOUR = 20;
+
+  function tzParts(date) {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: TZ,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23',
+    });
+    const map = {};
+    for (const { type, value } of dtf.formatToParts(date)) {
+      if (type !== 'literal') map[type] = value;
+    }
+    return map;
+  }
+
+  function detroitYmd(date = new Date()) {
+    const p = tzParts(date);
+    return `${p.year}-${p.month}-${p.day}`;
+  }
+
+  function detroitHm(date) {
+    const p = tzParts(date);
+    return `${p.hour}:${p.minute}`;
+  }
+
+  function detroitLocalToIso(ymd, hm = '00:00') {
+    const [Y, M, D] = ymd.split('-').map(Number);
+    const [h, m] = (hm || '00:00').split(':').map(Number);
+    let t = Date.UTC(Y, M - 1, D, h, m, 0);
+    for (let i = 0; i < 4; i++) {
+      const p = tzParts(new Date(t));
+      const asIf = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +(p.second || 0));
+      const want = Date.UTC(Y, M - 1, D, h, m, 0);
+      t += want - asIf;
+    }
+    return new Date(t).toISOString();
+  }
+
+  function parseYmd(ymd) {
+    const [Y, M, D] = String(ymd).slice(0, 10).split('-').map(Number);
+    return { Y, M, D };
+  }
+
+  function ymdAddDays(ymd, n) {
+    return addDays(String(ymd).slice(0, 10), n);
+  }
+
+  function startOfWeekYmd(ymd) {
+    // Sunday-start week in Detroit calendar dates
+    const { Y, M, D } = parseYmd(ymd);
+    const utc = new Date(Date.UTC(Y, M - 1, D, 12, 0, 0));
+    // weekday in Detroit
+    const wd = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' }).format(utc);
+    const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    // Use a date that displays as ymd in Detroit, then find Sunday
+    const noonIso = detroitLocalToIso(ymd, '12:00');
+    const d = new Date(noonIso);
+    const parts = tzParts(d);
+    // get day of week via UTC trick on the Y-M-D
+    const tmp = new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day));
+    const dow = tmp.getUTCDay();
+    return ymdAddDays(ymd, -dow);
+  }
+
+  function monthMatrix(ymd) {
+    const { Y, M } = parseYmd(ymd);
+    const first = `${Y}-${String(M).padStart(2, '0')}-01`;
+    const start = startOfWeekYmd(first);
+    const cells = [];
+    for (let i = 0; i < 42; i++) cells.push(ymdAddDays(start, i));
+    return cells;
+  }
+
+  function weekDays(ymd) {
+    const start = startOfWeekYmd(ymd);
+    return Array.from({ length: 7 }, (_, i) => ymdAddDays(start, i));
+  }
+
+  function niceMonthYear(ymd) {
+    const { Y, M } = parseYmd(ymd);
+    return new Date(Date.UTC(Y, M - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  function niceWeekRange(ymd) {
+    const days = weekDays(ymd);
+    const a = niceDate(days[0]);
+    const b = niceDate(days[6]);
+    return `${a} – ${b}`;
+  }
+
+  function eventRangeMs(ev) {
+    if (ev.allDay) {
+      const s = String(ev.start).slice(0, 10);
+      let e = String(ev.end || s).slice(0, 10);
+      // treat stored all-day end as exclusive; if equal/before start, single day
+      if (e <= s) e = ymdAddDays(s, 1);
+      return {
+        start: new Date(detroitLocalToIso(s, '00:00')).getTime(),
+        end: new Date(detroitLocalToIso(e, '00:00')).getTime(),
+      };
+    }
+    return {
+      start: new Date(ev.start).getTime(),
+      end: new Date(ev.end).getTime(),
+    };
+  }
+
+  function eventTouchesDay(ev, ymd) {
+    const dayStart = new Date(detroitLocalToIso(ymd, '00:00')).getTime();
+    const dayEnd = new Date(detroitLocalToIso(ymdAddDays(ymd, 1), '00:00')).getTime();
+    const r = eventRangeMs(ev);
+    return r.start < dayEnd && r.end > dayStart; // half-open overlap with day
+  }
+
+  function eventDaysSpanned(ev) {
+    const r = eventRangeMs(ev);
+    const days = [];
+    let ymd = detroitYmd(new Date(r.start));
+    const endYmd = detroitYmd(new Date(r.end - 1)); // last inclusive day
+    for (let i = 0; i < 60; i++) {
+      days.push(ymd);
+      if (ymd >= endYmd) break;
+      ymd = ymdAddDays(ymd, 1);
+    }
+    return days;
+  }
+
+  function formatEventWhen(ev) {
+    if (ev.allDay) {
+      const s = String(ev.start).slice(0, 10);
+      const eEx = String(ev.end || s).slice(0, 10);
+      const last = eEx > s ? ymdAddDays(eEx, -1) : s;
+      return last === s ? `${niceDate(s)} · All day` : `${niceDate(s)} – ${niceDate(last)} · All day`;
+    }
+    const a = new Date(ev.start);
+    const b = new Date(ev.end);
+    const same = detroitYmd(a) === detroitYmd(b);
+    const t1 = detroitHm(a);
+    const t2 = detroitHm(b);
+    if (same) return `${niceDate(detroitYmd(a))} · ${t1}–${t2}`;
+    return `${niceDate(detroitYmd(a))} ${t1} – ${niceDate(detroitYmd(b))} ${t2}`;
+  }
+
+  function blankEvent(prefill = {}) {
+    const ymd = prefill.date || (cal && cal.cursor) || detroitYmd();
+    const allDay = !!prefill.allDay;
+    const startHm = prefill.startHm || '09:00';
+    const endHm = prefill.endHm || '10:00';
+    return {
+      id: uid(),
+      type: prefill.type || 'other',
+      title: prefill.title || '',
+      start: allDay ? ymd : detroitLocalToIso(ymd, startHm),
+      end: allDay ? ymdAddDays(ymd, 1) : detroitLocalToIso(ymd, endHm),
+      timezone: TZ,
+      allDay,
+      status: prefill.status || 'tentative',
+      estimateId: prefill.estimateId || '',
+      address: prefill.address || '',
+      town: prefill.town || '',
+      notes: prefill.notes || '',
+      crew: prefill.crew || '',
+      equipment: Array.isArray(prefill.equipment) ? prefill.equipment : [],
+      createdAt: new Date().toISOString(),
+      updatedAt: null,
+    };
+  }
+
+  function hydrateEvent(raw) {
+    const b = blankEvent();
+    const e = { ...b, ...raw };
+    e.timezone = e.timezone || TZ;
+    e.equipment = Array.isArray(e.equipment) ? e.equipment : [];
+    e.crew = e.crew || '';
+    e.estimateId = e.estimateId || '';
+    if (!EVENT_TYPE_LABEL[e.type]) e.type = 'other';
+    if (!EVENT_STATUS_LABEL[e.status]) e.status = 'tentative';
+    return e;
+  }
+
+  const saveEvents = (map) => store(KEYS.events, map);
+
+  function upsertEvent(ev) {
+    const all = allEvents();
+    const next = hydrateEvent({ ...ev, updatedAt: new Date().toISOString() });
+    all[next.id] = next;
+    saveEvents(all);
+    return next;
+  }
+
+  function deleteEvent(id) {
+    const all = allEvents();
+    delete all[id];
+    saveEvents(all);
+  }
+
+  function listEvents() {
+    return Object.values(allEvents()).map(hydrateEvent);
+  }
+
+  function equipmentTokens(ev) {
+    if (Array.isArray(ev.equipment)) {
+      return ev.equipment.map((x) => String(x).trim().toLowerCase()).filter(Boolean);
+    }
+    return String(ev.equipment || '').split(/[,;]/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  }
+
+  function rangesOverlap(a, b) {
+    return a.start < b.end && b.start < a.end; // half-open
+  }
+
+  function findConflicts(candidate, { ignoreId } = {}) {
+    const cand = eventRangeMs(candidate);
+    const crew = String(candidate.crew || '').trim().toLowerCase();
+    const equip = new Set(equipmentTokens(candidate));
+    if (!crew && !equip.size) return [];
+    const hits = [];
+    for (const ev of listEvents()) {
+      if (ev.id === ignoreId || ev.id === candidate.id) continue;
+      if (ev.status === 'cancelled') continue;
+      if (!rangesOverlap(cand, eventRangeMs(ev))) continue;
+      const sameCrew = crew && crew === String(ev.crew || '').trim().toLowerCase();
+      const sharedEquip = [...equip].some((t) => equipmentTokens(ev).includes(t));
+      if (sameCrew || sharedEquip) hits.push(ev);
+    }
+    return hits;
+  }
+
+  function estimateApprovedEnough(est) {
+    const st = normalizeStatus(est);
+    return st && st !== 'draft';
+  }
+
+  function seedEventsFromEstimates() {
+    try {
+      if (localStorage.getItem(SEED_FLAG) === '1') return;
+    } catch { /* ignore */ }
+    const dated = Object.values(allEstimates()).map(hydrateEstimate).filter((e) => e.startDate);
+    // Wait until at least one dated estimate exists so an empty first launch
+    // does not permanently skip seeding.
+    if (!dated.length) return;
+    const all = allEvents();
+    let added = 0;
+    for (const e of dated) {
+      const already = Object.values(all).some((ev) => ev && ev.estimateId === e.id);
+      if (already) continue;
+      const end = e.endDate && e.endDate >= e.startDate ? ymdAddDays(e.endDate, 1) : ymdAddDays(e.startDate, 1);
+      const status = ['scheduled', 'in_progress', 'done'].includes(normalizeStatus(e)) ? 'confirmed' : 'tentative';
+      const ev = hydrateEvent({
+        id: uid(),
+        type: 'tree_work',
+        title: `${e.client?.name || e.number} · tree work`,
+        start: e.startDate,
+        end,
+        timezone: TZ,
+        allDay: true,
+        status,
+        estimateId: e.id,
+        address: e.client?.street || '',
+        town: e.client?.town || '',
+        notes: `Seeded from ${e.number}`,
+        crew: '',
+        equipment: (e.equipment || []).map((row) => row.desc).filter(Boolean),
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      });
+      all[ev.id] = ev;
+      added++;
+    }
+    if (added) saveEvents(all);
+    try { localStorage.setItem(SEED_FLAG, '1'); } catch { /* ignore */ }
+  }
+
+  const defaultCalView = () => (isTablet() ? 'month' : 'agenda');
+  let cal = {
+    view: (() => {
+      try { return localStorage.getItem('ats.calView') || defaultCalView(); }
+      catch { return defaultCalView(); }
+    })(),
+    cursor: detroitYmd(),
+    filters: { type: '', crew: '', status: '' },
+  };
+  if (!['month', 'week', 'day', 'agenda'].includes(cal.view)) cal.view = defaultCalView();
+
+  seedEventsFromEstimates();
+
+  function saveCalView(view) {
+    cal.view = view;
+    try { localStorage.setItem('ats.calView', view); } catch { /* ignore */ }
+  }
+
+  let eventDraft = null;
+  let eventOverrideUnapproved = false;
+
+  function filteredCalendarEvents() {
+    const { type, crew, status } = cal.filters;
+    const crewQ = String(crew || '').trim().toLowerCase();
+    return listEvents().filter((ev) => {
+      if (type && ev.type !== type) return false;
+      if (status && ev.status !== status) return false;
+      if (crewQ && !String(ev.crew || '').toLowerCase().includes(crewQ)) return false;
+      return true;
+    });
+  }
+
+  function eventsForDay(ymd) {
+    return filteredCalendarEvents()
+      .filter((ev) => ev.status !== 'cancelled' && eventTouchesDay(ev, ymd))
+      .sort((a, b) => eventRangeMs(a).start - eventRangeMs(b).start);
+  }
+
+  function calHeading() {
+    if (cal.view === 'month') return niceMonthYear(cal.cursor);
+    if (cal.view === 'week') return niceWeekRange(cal.cursor);
+    if (cal.view === 'day') return niceDate(cal.cursor);
+    return niceMonthYear(cal.cursor);
+  }
+
+  function shiftCal(dir) {
+    if (cal.view === 'month') {
+      const { Y, M } = parseYmd(cal.cursor);
+      const d = new Date(Date.UTC(Y, M - 1 + dir, 1));
+      cal.cursor = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    } else if (cal.view === 'week') {
+      cal.cursor = ymdAddDays(cal.cursor, dir * 7);
+    } else if (cal.view === 'day') {
+      cal.cursor = ymdAddDays(cal.cursor, dir);
+    } else {
+      cal.cursor = ymdAddDays(cal.cursor, dir * 7);
+    }
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    setChrome({ title: 'Calendar', back: false, bottombar: false });
+    const views = [
+      ['agenda', 'Agenda'],
+      ['month', 'Month'],
+      ['week', 'Week'],
+      ['day', 'Day'],
+    ];
+    const crews = [...new Set(listEvents().map((e) => String(e.crew || '').trim()).filter(Boolean))].sort();
+    $('#view').innerHTML = `
+      <div class="cal-shell">
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button type="button" class="btn" data-act="cal-today">Today</button>
+            <button type="button" class="icon-btn" data-act="cal-prev" aria-label="Previous">‹</button>
+            <button type="button" class="icon-btn" data-act="cal-next" aria-label="Next">›</button>
+            <h2 class="cal-heading">${esc(calHeading())}</h2>
+          </div>
+          <div class="chips cal-views" role="tablist" aria-label="Calendar view">
+            ${views.map(([id, label]) => `
+              <button type="button" class="chip" data-act="cal-view" data-view="${id}" aria-pressed="${cal.view === id}">${label}</button>`).join('')}
+          </div>
+          <div class="cal-actions">
+            <button type="button" class="btn primary" data-act="cal-new">＋ New event</button>
+            <button type="button" class="btn" data-act="schedule">Jobs board</button>
+          </div>
+        </div>
+        <details class="cal-filters card">
+          <summary>Filters</summary>
+          <div class="cal-filter-grid">
+            <label class="field"><span>Type</span>
+              <select id="cal-filter-type">
+                <option value="">All types</option>
+                ${EVENT_TYPES.map(([id, label]) => `<option value="${id}" ${cal.filters.type === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field"><span>Status</span>
+              <select id="cal-filter-status">
+                <option value="">All statuses</option>
+                ${EVENT_STATUSES.map(([id, label]) => `<option value="${id}" ${cal.filters.status === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field"><span>Crew</span>
+              <input id="cal-filter-crew" list="cal-crew-list" value="${esc(cal.filters.crew)}" placeholder="Any crew">
+              <datalist id="cal-crew-list">${crews.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+            </label>
+            <div class="btn-pair">
+              <button type="button" class="btn" data-act="cal-filter-apply">Apply</button>
+              <button type="button" class="btn" data-act="cal-filter-reset">Reset</button>
+            </div>
+          </div>
+        </details>
+        <div id="cal-body" class="cal-body"></div>
+      </div>`;
+    const body = $('#cal-body');
+    if (cal.view === 'month') body.innerHTML = renderMonthView();
+    else if (cal.view === 'week') body.innerHTML = renderWeekView();
+    else if (cal.view === 'day') body.innerHTML = renderDayView();
+    else body.innerHTML = renderAgendaView();
+  }
+
+  function eventChipHtml(ev, { compact } = {}) {
+    const time = ev.allDay ? 'All day' : detroitHm(new Date(ev.start));
+    return `<button type="button" class="cal-event type-${esc(ev.type)} status-${esc(ev.status)}" data-act="cal-open" data-id="${esc(ev.id)}" title="${esc(ev.title)}">
+      ${compact ? '' : `<span class="cal-event-time">${esc(time)}</span>`}
+      <span class="cal-event-title">${esc(ev.title || EVENT_TYPE_LABEL[ev.type] || 'Event')}</span>
+    </button>`;
+  }
+
+  function renderMonthView() {
+    const cells = monthMatrix(cal.cursor);
+    const { M } = parseYmd(cal.cursor);
+    const today = detroitYmd();
+    const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return `<div class="cal-month">
+      <div class="cal-dow">${labels.map((d) => `<div>${d}</div>`).join('')}</div>
+      <div class="cal-grid">
+        ${cells.map((ymd) => {
+          const inMonth = parseYmd(ymd).M === M;
+          const dayEvents = eventsForDay(ymd);
+          const max = 3;
+          const shown = dayEvents.slice(0, max);
+          const more = dayEvents.length - shown.length;
+          return `<div class="cal-cell ${inMonth ? '' : 'outside'} ${ymd === today ? 'today' : ''} ${ymd === cal.cursor ? 'selected' : ''}" data-act="cal-select-day" data-date="${ymd}">
+            <div class="cal-cell-head"><span>${parseYmd(ymd).D}</span></div>
+            <div class="cal-cell-events">
+              ${shown.map((ev) => eventChipHtml(ev, { compact: true })).join('')}
+              ${more > 0 ? `<button type="button" class="cal-more" data-act="cal-select-day" data-date="${ymd}">+${more} more</button>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="cal-day-agenda">
+        <h3>${esc(niceDate(cal.cursor))}</h3>
+        ${renderDayEventList(cal.cursor)}
+      </div>
+    </div>`;
+  }
+
+  function renderDayEventList(ymd) {
+    const list = eventsForDay(ymd);
+    if (!list.length) {
+      return `<p class="empty">No events. <button type="button" class="link" data-act="cal-new" data-date="${ymd}">Add one</button></p>`;
+    }
+    return `<div class="cal-agenda-list">${list.map((ev) => `
+      <button type="button" class="cal-agenda-item" data-act="cal-open" data-id="${esc(ev.id)}">
+        <div class="row"><b>${esc(ev.title || EVENT_TYPE_LABEL[ev.type])}</b><span class="badge">${esc(EVENT_STATUS_LABEL[ev.status])}</span></div>
+        <div class="muted">${esc(formatEventWhen(ev))} · ${esc(EVENT_TYPE_LABEL[ev.type] || ev.type)}</div>
+        <div class="muted one-line">${esc([ev.town, ev.crew].filter(Boolean).join(' · '))}</div>
+      </button>`).join('')}</div>`;
+  }
+
+  function renderAgendaView() {
+    // Show from cursor through ~21 days
+    const days = Array.from({ length: 21 }, (_, i) => ymdAddDays(cal.cursor, i));
+    const blocks = days.map((ymd) => {
+      const list = eventsForDay(ymd);
+      if (!list.length) return '';
+      return `<section class="cal-agenda-day">
+        <h3>${esc(niceDate(ymd))}</h3>
+        ${renderDayEventList(ymd)}
+      </section>`;
+    }).filter(Boolean);
+    if (!blocks.length) {
+      return `<p class="empty">Nothing scheduled in this stretch. <button type="button" class="link" data-act="cal-new">New event</button></p>`;
+    }
+    return `<div class="cal-agenda">${blocks.join('')}</div>`;
+  }
+
+  function hoursGridHtml(days) {
+    const hours = [];
+    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) hours.push(h);
+    const allDayRow = days.map((ymd) => {
+      const allDay = eventsForDay(ymd).filter((e) => e.allDay);
+      return `<div class="cal-allday-cell" data-act="cal-slot" data-date="${ymd}" data-allday="1">
+        ${allDay.map((ev) => eventChipHtml(ev, { compact: true })).join('') || '<span class="muted small">All day</span>'}
+      </div>`;
+    }).join('');
+    const rows = hours.map((h) => {
+      const label = `${String(h).padStart(2, '0')}:00`;
+      const cells = days.map((ymd) => {
+        const hm = `${String(h).padStart(2, '0')}:00`;
+        const timed = eventsForDay(ymd).filter((e) => {
+          if (e.allDay) return false;
+          const startH = +detroitHm(new Date(e.start)).slice(0, 2);
+          return startH === h;
+        });
+        return `<div class="cal-slot" data-act="cal-slot" data-date="${ymd}" data-time="${hm}">
+          ${timed.map((ev) => eventChipHtml(ev)).join('')}
+        </div>`;
+      }).join('');
+      return `<div class="cal-time-row"><div class="cal-time-label">${label}</div>${cells}</div>`;
+    }).join('');
+    const head = days.map((ymd) => `<div class="cal-time-dayhead ${ymd === detroitYmd() ? 'today' : ''}" data-act="cal-select-day" data-date="${ymd}">${esc(niceDate(ymd))}</div>`).join('');
+    return `<div class="cal-timegrid cols-${days.length}">
+      <div class="cal-time-row head"><div class="cal-time-label"></div>${head}</div>
+      <div class="cal-time-row allday"><div class="cal-time-label">All day</div>${allDayRow}</div>
+      ${rows}
+    </div>`;
+  }
+
+  function renderWeekView() {
+    return hoursGridHtml(weekDays(cal.cursor));
+  }
+
+  function renderDayView() {
+    return hoursGridHtml([cal.cursor]);
+  }
+
+  function estimateOptionsHtml(selected) {
+    const opts = Object.values(allEstimates()).map(hydrateEstimate)
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    return `<option value="">None</option>` + opts.map((e) =>
+      `<option value="${esc(e.id)}" ${selected === e.id ? 'selected' : ''}>${esc(e.number)} · ${esc(e.client?.name || 'No name')}</option>`
+    ).join('');
+  }
+
+  function openEventEditor(ev, { isNew } = {}) {
+    eventDraft = hydrateEvent(ev);
+    eventOverrideUnapproved = false;
+    const d = eventDraft;
+    let startDate; let startTime; let endDate; let endTime;
+    if (d.allDay) {
+      startDate = String(d.start).slice(0, 10);
+      const endEx = String(d.end).slice(0, 10);
+      endDate = endEx > startDate ? ymdAddDays(endEx, -1) : startDate;
+      startTime = '09:00';
+      endTime = '10:00';
+    } else {
+      startDate = detroitYmd(new Date(d.start));
+      endDate = detroitYmd(new Date(d.end));
+      startTime = detroitHm(new Date(d.start));
+      endTime = detroitHm(new Date(d.end));
+    }
+    const equipStr = Array.isArray(d.equipment) ? d.equipment.join(', ') : String(d.equipment || '');
+    $('#event-dlg').innerHTML = `
+      <div class="sheet-head">
+        <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
+        <h3>${isNew ? 'New event' : 'Edit event'}</h3>
+        <span></span>
+      </div>
+      <div class="sheet-body" data-scope="event">
+        <label class="field"><span>Title *</span>
+          <input id="ev-title" value="${esc(d.title)}" required aria-required="true">
+          <span class="field-error" data-error-for="title" hidden></span>
+        </label>
+        <label class="field"><span>Type</span>
+          <select id="ev-type">${EVENT_TYPES.map(([id, label]) =>
+            `<option value="${id}" ${d.type === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
+        </label>
+        <label class="field"><span>Status</span>
+          <select id="ev-status">${EVENT_STATUSES.map(([id, label]) =>
+            `<option value="${id}" ${d.status === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
+        </label>
+        <label class="switch"><input type="checkbox" id="ev-allday" ${d.allDay ? 'checked' : ''}><span>All day</span></label>
+        <div class="two">
+          <label class="field"><span>Start date</span><input type="date" id="ev-start-date" value="${esc(startDate)}"></label>
+          <label class="field" id="ev-start-time-wrap"><span>Start time</span><input type="time" id="ev-start-time" value="${esc(startTime)}"></label>
+        </div>
+        <div class="two">
+          <label class="field"><span>End date</span><input type="date" id="ev-end-date" value="${esc(endDate)}"></label>
+          <label class="field" id="ev-end-time-wrap"><span>End time</span><input type="time" id="ev-end-time" value="${esc(endTime)}"></label>
+        </div>
+        <label class="field"><span>Linked estimate</span>
+          <select id="ev-estimate">${estimateOptionsHtml(d.estimateId)}</select>
+        </label>
+        <div id="ev-unapproved-warn" class="cal-warn" hidden>
+          <p>This estimate is not approved yet. Scheduling tree work needs an explicit override.</p>
+          <label class="switch"><input type="checkbox" id="ev-override"><span>Schedule anyway</span></label>
+        </div>
+        <label class="field"><span>Address</span><input id="ev-address" value="${esc(d.address)}"></label>
+        <label class="field"><span>Town</span><input id="ev-town" value="${esc(d.town)}"></label>
+        <label class="field"><span>Crew</span><input id="ev-crew" value="${esc(d.crew)}" placeholder="e.g. Crew A"></label>
+        <label class="field"><span>Equipment</span><input id="ev-equipment" value="${esc(equipStr)}" placeholder="Comma-separated"></label>
+        <label class="field"><span>Notes</span><textarea id="ev-notes" rows="3">${esc(d.notes)}</textarea></label>
+        <div id="ev-conflict" class="cal-warn" hidden></div>
+        <div class="btn-pair">
+          ${isNew ? '<span></span>' : '<button type="button" class="btn danger" data-act="cal-delete">Delete</button>'}
+          <button type="button" class="btn primary" data-act="cal-save">Save event</button>
+        </div>
+        ${d.estimateId ? `<button type="button" class="btn" data-act="open" data-id="${esc(d.estimateId)}">Open linked estimate</button>` : ''}
+      </div>`;
+    syncEventEditorChrome();
+    $('#ev-allday').addEventListener('change', syncEventEditorChrome);
+    $('#ev-type').addEventListener('change', syncUnapprovedWarn);
+    $('#ev-estimate').addEventListener('change', () => {
+      fillFromEstimate($('#ev-estimate').value);
+      syncUnapprovedWarn();
+    });
+    syncUnapprovedWarn();
+    $('#event-dlg').showModal();
+  }
+
+  function syncEventEditorChrome() {
+    const allDay = $('#ev-allday')?.checked;
+    $('#ev-start-time-wrap').hidden = !!allDay;
+    $('#ev-end-time-wrap').hidden = !!allDay;
+  }
+
+  function fillFromEstimate(id) {
+    if (!id) return;
+    const e = hydrateEstimate(allEstimates()[id] || {});
+    if (!$('#ev-title').value.trim()) {
+      $('#ev-title').value = `${e.client?.name || e.number || 'Job'}`;
+    }
+    if (!$('#ev-address').value.trim()) $('#ev-address').value = e.client?.street || '';
+    if (!$('#ev-town').value.trim()) $('#ev-town').value = e.client?.town || '';
+    if (!$('#ev-equipment').value.trim()) {
+      $('#ev-equipment').value = (e.equipment || []).map((r) => r.desc).filter(Boolean).join(', ');
+    }
+  }
+
+  function syncUnapprovedWarn() {
+    const box = $('#ev-unapproved-warn');
+    if (!box) return;
+    const type = $('#ev-type')?.value;
+    const estId = $('#ev-estimate')?.value;
+    if (type !== 'tree_work' || !estId) {
+      box.hidden = true;
+      return;
+    }
+    const est = allEstimates()[estId];
+    if (!est || estimateApprovedEnough(hydrateEstimate(est))) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+  }
+
+  function readEventForm() {
+    const allDay = $('#ev-allday').checked;
+    const startDate = $('#ev-start-date').value;
+    const endDate = $('#ev-end-date').value || startDate;
+    const startTime = $('#ev-start-time').value || '09:00';
+    const endTime = $('#ev-end-time').value || '10:00';
+    const equipment = $('#ev-equipment').value.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+    const base = hydrateEvent(eventDraft || blankEvent());
+    base.title = $('#ev-title').value.trim();
+    base.type = $('#ev-type').value;
+    base.status = $('#ev-status').value;
+    base.allDay = allDay;
+    base.timezone = TZ;
+    base.estimateId = $('#ev-estimate').value || '';
+    base.address = $('#ev-address').value.trim();
+    base.town = $('#ev-town').value.trim();
+    base.crew = $('#ev-crew').value.trim();
+    base.equipment = equipment;
+    base.notes = $('#ev-notes').value.trim();
+    if (allDay) {
+      base.start = startDate;
+      base.end = ymdAddDays(endDate, 1); // exclusive
+    } else {
+      base.start = detroitLocalToIso(startDate, startTime);
+      base.end = detroitLocalToIso(endDate, endTime);
+    }
+    return base;
+  }
+
+  function saveEventForm() {
+    const root = $('[data-scope="event"]');
+    clearFieldErrors(root);
+    const ev = readEventForm();
+    if (!ev.title) {
+      const el = $('#ev-title');
+      el.setAttribute('aria-invalid', 'true');
+      el.classList.add('is-invalid');
+      const err = $('[data-error-for="title"]');
+      if (err) { err.textContent = 'Title is required'; err.hidden = false; }
+      el.focus();
+      toast('Title is required');
+      return;
+    }
+    const startMs = eventRangeMs(ev).start;
+    const endMs = eventRangeMs(ev).end;
+    if (!(endMs > startMs)) {
+      toast('End must be after start');
+      return;
+    }
+    if (ev.type === 'tree_work' && ev.estimateId) {
+      const est = allEstimates()[ev.estimateId];
+      if (est && !estimateApprovedEnough(hydrateEstimate(est))) {
+        if (!$('#ev-override')?.checked) {
+          $('#ev-unapproved-warn').hidden = false;
+          toast('Override required for unapproved tree work');
+          return;
+        }
+      }
+    }
+    const conflicts = findConflicts(ev, { ignoreId: ev.id });
+    const box = $('#ev-conflict');
+    if (conflicts.length) {
+      box.hidden = false;
+      box.innerHTML = `<p><b>Overlap warning</b> (crew/equipment): ${conflicts.map((c) => esc(c.title || EVENT_TYPE_LABEL[c.type])).join(', ')}. Back-to-back is OK; overlapping times are flagged. Save anyway?</p>
+        <button type="button" class="btn primary" data-act="cal-save-force">Save anyway</button>`;
+      eventDraft = ev;
+      return;
+    }
+    upsertEvent(ev);
+    eventDraft = null;
+    $('#event-dlg').close();
+    toast('Event saved');
+    if (/^#\/?(calendar)?\/?$/.test(location.hash || '#/') || (location.hash || '').includes('calendar')) renderCalendar();
+    else navigate('#/');
+  }
+
+
   // ---------- routing ----------
 
   const go = (hash) => { location.hash = hash; };
@@ -641,9 +1362,11 @@
     closeMenus();
 
     if (parts[0] === 'profile') renderProfile();
-    else if (parts[0] === 'schedule') renderSchedule();
+    else if (parts[0] === 'schedule' || parts[0] === 'jobs') renderSchedule();
+    else if (parts[0] === 'estimates' || parts[0] === 'home') renderHome();
     else if (parts[0] === 'e') renderWizard(parts[1], parts[2]);
-    else renderHome();
+    else if (parts[0] === 'calendar' || !parts[0]) renderCalendar();
+    else renderCalendar();
     updateSetupBanner();
     window.scrollTo(0, 0);
   }
@@ -661,12 +1384,12 @@
   // ---------- home ----------
 
   function renderHome() {
-    setChrome({ title: BRAND.appName || profile.name, back: false, bottombar: false });
+    setChrome({ title: 'Estimates', back: true, bottombar: false });
     $('#view').innerHTML = `
       <img class="brand-hero" src="brand/brand-art.jpg" alt="Advanced Tree Service">
       <div class="btn-pair">
         <button type="button" class="btn primary big-ish" data-act="new">＋ New estimate</button>
-        <button type="button" class="btn big-ish" data-act="schedule">📅 Schedule</button>
+        <button type="button" class="btn big-ish" data-act="calendar">📅 Calendar</button>
       </div>
       <input type="search" id="home-search" class="search" placeholder="Search estimates">
       <div id="est-list" class="est-list"></div>`;
@@ -1251,7 +1974,7 @@
   }
 
   function renderSchedule() {
-    setChrome({ title: 'Schedule', back: true, bottombar: false });
+    setChrome({ title: 'Jobs', back: true, bottombar: false });
     const jobs = scheduleJobs();
     const mode = scheduleMode;
     $('#view').innerHTML = `
@@ -1260,7 +1983,11 @@
           <button type="button" class="chip" data-act="sched-mode" data-mode="list" aria-pressed="${mode === 'list'}">List</button>
           <button type="button" class="chip" data-act="sched-mode" data-mode="kanban" aria-pressed="${mode === 'kanban'}">Kanban</button>
         </div>
-        <p class="hint">Approved jobs land here. Pick a work date to move to Scheduled.</p>
+        <p class="hint">Estimate pipeline (Kanban). Calendar owns dates and times — open it from the menu or Home.</p>
+        <div class="btn-pair" style="margin-bottom:12px">
+          <button type="button" class="btn primary" data-act="calendar">📅 Calendar</button>
+          <button type="button" class="btn" data-act="estimates">📋 Estimates</button>
+        </div>
       </div>
       <div id="sched-body"></div>`;
     const body = $('#sched-body');
@@ -1307,7 +2034,7 @@
     $('#view').innerHTML = `
       <div data-scope="profile">
         ${incomplete
-          ? '<div class="welcome"><h2>Welcome</h2><p>Set up your company information once. It goes on every estimate automatically. You can still open Estimates and Schedule from the menu.</p></div>'
+          ? '<div class="welcome"><h2>Welcome</h2><p>Set up your company information once. It goes on every estimate automatically. You can still open Calendar, Estimates, and Jobs from the menu.</p></div>'
           : '<h2 class="step-title">Company profile</h2>'}
         <section class="card">
           <h3>Company information</h3>
@@ -1635,6 +2362,8 @@
 
   const actions = {
     home: () => navigate('#/'),
+    calendar: () => navigate('#/'),
+    estimates: () => navigate('#/estimates'),
     schedule: () => navigate('#/schedule'),
     menu: () => {
       $('#menu-install').hidden = !installPrompt;
@@ -1676,6 +2405,61 @@
       toast(`${current.number} approved`);
       const hashStep = location.hash.replace(/^#\/?/, '').split('/')[2];
       renderWizard(current.id, hashStep || 'summary');
+    },
+
+    'cal-today': () => { cal.cursor = detroitYmd(); renderCalendar(); },
+    'cal-prev': () => shiftCal(-1),
+    'cal-next': () => shiftCal(1),
+    'cal-view': (el) => { saveCalView(el.dataset.view); renderCalendar(); },
+    'cal-new': (el) => {
+      const date = el.dataset.date || cal.cursor || detroitYmd();
+      openEventEditor(blankEvent({ date }), { isNew: true });
+    },
+    'cal-slot': (el) => {
+      const date = el.dataset.date || cal.cursor;
+      const allDay = el.dataset.allday === '1';
+      const startHm = el.dataset.time || '09:00';
+      const [hh, mm] = startHm.split(':').map(Number);
+      const endHm = `${String(hh + 1).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      openEventEditor(blankEvent({ date, allDay, startHm, endHm }), { isNew: true });
+    },
+    'cal-select-day': (el) => {
+      cal.cursor = el.dataset.date || cal.cursor;
+      if (cal.view === 'month') renderCalendar();
+      else { saveCalView('day'); renderCalendar(); }
+    },
+    'cal-open': (el) => {
+      const ev = allEvents()[el.dataset.id];
+      if (!ev) { toast('Event not found'); return; }
+      openEventEditor(ev, { isNew: false });
+    },
+    'cal-save': () => saveEventForm(),
+    'cal-save-force': () => {
+      if (!eventDraft) return;
+      upsertEvent(eventDraft);
+      eventDraft = null;
+      $('#event-dlg').close();
+      toast('Event saved');
+      renderCalendar();
+    },
+    'cal-delete': () => {
+      if (!eventDraft?.id) return;
+      if (!confirm('Delete this event?')) return;
+      deleteEvent(eventDraft.id);
+      eventDraft = null;
+      $('#event-dlg').close();
+      toast('Event deleted');
+      renderCalendar();
+    },
+    'cal-filter-apply': () => {
+      cal.filters.type = $('#cal-filter-type')?.value || '';
+      cal.filters.status = $('#cal-filter-status')?.value || '';
+      cal.filters.crew = $('#cal-filter-crew')?.value || '';
+      renderCalendar();
+    },
+    'cal-filter-reset': () => {
+      cal.filters = { type: '', crew: '', status: '' };
+      renderCalendar();
     },
 
     'sched-mode': (el) => {
