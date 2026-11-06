@@ -11,12 +11,12 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="brand/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=11">
-  <script src="brand.js?v=11"></script>
+  <link rel="stylesheet" href="styles.css?v=12">
+  <script src="brand.js?v=12"></script>
 </head>
 <body>
   <header class="appbar">
-    <button type="button" class="icon-btn" id="appbar-back" data-act="home" aria-label="Back to estimates" hidden>‹</button>
+    <button type="button" class="icon-btn" id="appbar-back" data-act="home" aria-label="Back to calendar" hidden>‹</button>
     <img src="brand/logo.svg" alt="" class="appbar-logo" id="appbar-logo">
     <div class="appbar-title" id="appbar-title">Advanced Tree Service</div>
     <button type="button" class="icon-btn" data-act="menu" aria-label="Menu">☰</button>
@@ -63,8 +63,9 @@
       <span></span>
     </div>
     <div class="sheet-body menu">
-      <button type="button" class="menu-item" data-act="home">📋 Estimates</button>
-      <button type="button" class="menu-item" data-act="schedule">📅 Schedule</button>
+      <button type="button" class="menu-item" data-act="calendar">📅 Calendar</button>
+      <button type="button" class="menu-item" data-act="estimates">📋 Estimates</button>
+      <button type="button" class="menu-item" data-act="schedule">🗂️ Jobs board</button>
       <button type="button" class="menu-item" data-act="profile">🏢 Company profile</button>
       <button type="button" class="menu-item" data-act="export">⬇️ Back up data</button>
       <button type="button" class="menu-item" data-act="import">⬆️ Restore from backup</button>
@@ -93,12 +94,14 @@
     </div>
   </dialog>
 
+  <dialog id="event-dlg" class="sheet"></dialog>
+
   <input type="file" id="vcf-file" accept=".vcf,text/vcard,text/x-vcard" hidden>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
   <input type="file" id="logo-file" accept="image/*" hidden>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
