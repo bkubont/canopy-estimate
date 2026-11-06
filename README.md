@@ -1,6 +1,6 @@
 # Canopy Estimate
 
-A simple, offline-friendly estimate form for arborists and tree-care companies. Fill it out on site from a phone or tablet, get the client's signature on screen, and print or save a clean PDF.
+A simple, offline-friendly estimate and schedule app for arborists and tree-care companies (tuned for northern Michigan work). Fill it out on site from a phone or tablet, get the client's signature on screen, print or save a clean PDF, then track approved jobs on a Schedule list or Kanban board.
 
 ## Use it
 
@@ -8,31 +8,32 @@ Open `index.html` in any modern browser; there's no build step. Hosted over HTTP
 
 ## How it works
 
-The app follows the paper Tree Service Estimate Form, with tap-to-select choices wherever possible. Pricing is by crew day plus equipment rentals.
+Pricing is **days × day rate** plus equipment rentals. Wood & debris choices are operational only (not priced). Tree size is trunk diameter (DBH).
 
-1. **Company profile (first launch only):** company name, license number, address, phone, email, logo, crew day rate (default $2,000) and crew description, tax, deposit, validity period, and your contractor signature. It fills every estimate automatically and can be changed later from the ☰ menu.
-2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet (about iPad width and up) related sections are combined so there are fewer steps — especially handy in landscape:
-   - **Client** *(tablet: Job = Client + Site):* import from phone contacts (Android), a contact card file (iPhone), or a past client
-   - **Trees:** one line per tree. Each line has its own type of tree, work, location, size and condition, plus **How many** for identical trees. **⧉ Copy** adds a similar tree.
-   - **Site:** site conditions, additional services, notes
-   - **Crew days** *(tablet: Pricing = Crew days + Equipment):* tap ½ / 1 / 1½ / 2… days × the day rate. Tap a start date; the completion date fills in.
-   - **Equipment:** tap rentals (crane, lift, stump grinder…) to add them. Each price is remembered for next time.
-   - **Summary** *(tablet: Review = Summary + Sign):* subtotal, tax, additional costs, total, validity period and deposit
-   - **Sign:** the client signs on screen; your saved contractor signature is added automatically
-   - **Send:** print or save as PDF, share, text, or email a summary, with a preview of the finished form
-3. **Estimates list:** search, reopen, duplicate or delete. Everything saves automatically.
+1. **Company profile (first launch only):** company name, license, address, phone, email, logo, day rate (default $2,000), tax, deposit, validity period, and your contractor signature. Change later from the ☰ menu.
+2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet related sections are combined:
+   - **Client** *(tablet: Job = Client + Site):* contacts / `.vcf` / past client, plus **Town** for the schedule
+   - **Trees:** northern MI species, work (including canopy raise and cabling/bracing), DBH size, condition
+   - **Site:** site conditions, **Wood & debris**, notes
+   - **Job days** *(tablet: Pricing):* ½ / 1 / 1½ / 2… days × day rate, optional start date
+   - **Equipment:** Smith Equipment day-rate defaults (mini skid, boom lifts, grinders, chipper…). Prices are remembered after edit
+   - **Summary** *(tablet: Review):* labor, equipment, tax, **Other costs**, total, terms, **Mark approved**
+   - **Sign:** client signature sets status to Approved; contractor sig from profile
+   - **Send:** print/PDF, share, text, email; Mark approved for verbal / email approvals
+3. **Estimates list:** search, reopen, status badges (Draft / Approved / Scheduled / In Progress / Blocked / Done).
+4. **Schedule** (home button or ☰): List or Kanban of approved jobs — client name, phone, town, days, equipment. Pick a work date → **Scheduled**. Move to In Progress, Blocked (with reason chips), or Done.
 
-Pick lists (tree types, work, locations, equipment and so on) are at the top of `app.js`, so they're easy to edit.
+Pick lists live at the top of `app.js`.
 
 ## Where data lives
 
-Everything is stored in your browser's `localStorage` on the device you're using. Nothing is sent anywhere. Use **Saved → Export all** regularly to back up, or to move estimates to another device.
+Everything is stored in the browser's `localStorage` on this device. Nothing is sent anywhere. Use **Back up estimates** regularly. Legacy estimates migrate automatically (status from signature, ignore old crew, map old height sizes when possible, split town from City/State/ZIP).
 
 ## Files
 
-- `index.html`: the form layout
-- `styles.css`: the screen and print styles
-- `app.js`: calculations, saving, signature pad, and printing
+- `index.html`: the app shell
+- `styles.css`: screen and print styles
+- `app.js`: form, schedule/kanban, saving, signatures, printing
 - `brand.js`, `brand/`, `manifest.webmanifest`: branding and app icons
-- `sw.js`: offline support
+- `sw.js`: offline support (bump `VERSION` when deploying)
 - `.htaccess`: Hostinger settings (HTTPS redirect, caching)

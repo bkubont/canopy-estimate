@@ -3,27 +3,89 @@
 
   // ---------- pick lists (match the paper estimate form) ----------
 
-  // Per-tree choices
-  const SPECIES = ['Oak', 'Maple', 'Pine', 'Ash', 'Elm', 'Spruce', 'Cedar', 'Cottonwood', 'Poplar', 'Birch', 'Walnut',
-    'Locust', 'Willow', 'Hackberry', 'Pear', 'Cherry', 'Mulberry', 'Fruit tree', 'Unknown'];
-  const WORK = ['Removal', 'Removal + stump grinding', 'Trimming / pruning', 'Crown reduction', 'Deadwood removal',
-    'Stump grinding only', 'Emergency / storm work', 'Health assessment', 'Land clearing'];
+  // Per-tree choices — northern Lower / eastern UP species
+  const SPECIES = [
+    'Sugar Maple', 'Red Maple', 'Silver Maple', 'Boxelder', 'Quaking Aspen', 'Bigtooth Aspen',
+    'Paper Birch', 'Yellow Birch', 'American Beech', 'Basswood', 'Ironwood',
+    'Northern Red Oak', 'White Oak', 'Burr Oak', 'White Pine', 'Red Pine', 'Jack Pine',
+    'Eastern Hemlock', 'Balsam Fir', 'White Spruce', 'Black Spruce', 'Tamarack',
+    'Black Cherry', 'Serviceberry', 'Willow', 'Cottonwood', 'Ash', 'Elm', 'Cedar',
+    'Fruit tree', 'Unknown',
+  ];
+  const WORK = [
+    'Removal', 'Removal + stump grinding', 'Canopy raise', 'Trimming / pruning', 'Crown reduction',
+    'Deadwood removal', 'Stump grinding only', 'Cabling / bracing', 'Emergency / storm work', 'Land clearing',
+  ];
   const LOCATIONS = ['Front Yard', 'Backyard', 'Side Yard', 'Near Utility Lines', 'Over Structure', 'Over Fence', 'Driveway', 'Tree Line'];
-  const SIZES = [['Large', 'Large (over 20 ft)'], ['Medium', 'Medium (10–20 ft)'], ['Small', 'Small (under 10 ft)']];
-  const CONDITIONS = ['Healthy', 'Diseased / Decayed', 'Storm-Damaged', 'Dead', 'Leaning'];
+  // Trunk diameter (DBH), not height bands
+  const SIZES = [
+    ['under12', 'Under 12″'],
+    ['12-18', '12–18″'],
+    ['18-24', '18–24″'],
+    ['24-36', '24–36″'],
+    ['over36', 'Over 36″'],
+  ];
+  const SIZE_KEYS = new Set(SIZES.map((s) => s[0]));
+  const LEGACY_SIZE_MAP = { Small: 'under12', Medium: '12-18', Large: '24-36' };
+  const CONDITIONS = [
+    'Healthy', 'Diseased / decayed', 'Storm-damaged', 'Dead', 'Leaning / hazardous',
+    'Pest / EAB', 'Hollow / compromised',
+  ];
 
   // Job-wide choices
-  const SITE = ['Clear Access', 'Restricted Access', 'Uneven Terrain', 'Sloped Terrain'];
-  const EXTRAS = ['Wood Chipping / Hauling', 'Firewood Preparation', 'Cleanup / Debris Removal'];
+  const SITE = [
+    'Clear Access', 'Restricted Access', 'Uneven Terrain', 'Sloped Terrain',
+    'Soft / wet ground', 'Overhead wires', 'Narrow gate / limited access',
+    'Near house or structure', 'Ground protection needed',
+  ];
+  // Wood & debris — operational info only (not priced)
+  const EXTRAS = [
+    'Leave wood on site', 'Cut and stack (firewood)', 'Chip on site',
+    'Haul chips / debris away', 'Haul logs away', 'Client keeps wood',
+  ];
 
-  // Quick-add buttons on the Equipment screen. Prices are remembered after first use.
-  const EQUIPMENT = ['Crane rental', 'Bucket truck / lift rental', 'Spider lift rental', 'Stump grinder rental', 'Mini skid steer rental',
-    'Dump trailer', 'Dump / disposal fee', 'Traffic control', 'Permit fee'];
+  // Quick-add equipment chips with Smith Equipment day-rate defaults.
+  // Prices are remembered in profile.prices after first use / edit.
+  const EQUIPMENT = [
+    ['Mini skid steer', 245],
+    ['Towable boom 55′', 290],
+    ['Boom lift 40′', 410],
+    ['Boom lift 50′', 425],
+    ['Boom lift 60′', 450],
+    ['Stump grinder', 285],
+    ['High-speed stump grinder', 385],
+    ['Wood chipper', 375],
+    ['Dump trailer', 150],
+    ['Grapple (with machine)', 125],
+    ['Log splitter', 75],
+  ];
+  const EQUIPMENT_DEFAULTS = Object.fromEntries(
+    EQUIPMENT.map(([desc, price]) => [desc.toLowerCase(), price])
+  );
 
   const DAYS = [[0.5, '½ day'], [1, '1 day'], [1.5, '1½ days'], [2, '2 days'], [3, '3 days'], [4, '4 days'], [5, '5 days']];
   const ADDITIONAL = [[0, 'None'], [50, '$50'], [100, '$100'], [150, '$150'], [250, '$250']];
   const DEPOSITS = [[0, 'None'], [25, '25%'], [50, '50%']];
   const VALID_DAYS = [[15, '15 days'], [30, '30 days'], [60, '60 days'], [90, '90 days']];
+
+  const STATUSES = ['draft', 'approved', 'scheduled', 'in_progress', 'blocked', 'done'];
+  const SCHEDULE_STATUSES = ['approved', 'scheduled', 'in_progress', 'blocked', 'done'];
+  const KANBAN_COLS = [
+    { id: 'approved', label: 'Approved' },
+    { id: 'scheduled', label: 'Scheduled' },
+    { id: 'in_progress', label: 'In Progress' },
+    { id: 'blocked', label: 'Blocked' },
+    { id: 'done', label: 'Done' },
+  ];
+  const BLOCK_REASONS = ['Weather', 'Equipment rental', 'Access', 'Other'];
+  const STATUS_LABEL = {
+    draft: 'Draft',
+    approved: 'Approved',
+    scheduled: 'Scheduled',
+    in_progress: 'In Progress',
+    blocked: 'Blocked',
+    done: 'Done',
+  };
 
   // Phone keeps one short screen per topic. Tablets combine related screens
   // so there are fewer Next taps across a wider landscape layout.
@@ -42,7 +104,7 @@
     { id: 'client', label: 'Client', parts: ['client'] },
     { id: 'trees', label: 'Trees', parts: ['trees'] },
     { id: 'site', label: 'Site', parts: ['site'] },
-    { id: 'crew', label: 'Crew days', parts: ['crew'] },
+    { id: 'crew', label: 'Job days', parts: ['crew'] },
     { id: 'equipment', label: 'Equipment', parts: ['equipment'] },
     { id: 'summary', label: 'Summary', parts: ['summary'] },
     { id: 'sign', label: 'Sign', parts: ['sign'] },
@@ -155,15 +217,28 @@
 
   const DEFAULT_PROFILE = {
     name: '', license: '', address: '', phone: '', email: '', website: '',
-    dayRate: 2000, crew: '3 regular employees + 1 part-time', taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001,
+    dayRate: 2000, taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001,
     logo: '', signature: '', prices: {},
     ...BRAND.company,
     complete: false,
   };
+  // Drop legacy crew from brand defaults — pricing is days × day rate only.
+  delete DEFAULT_PROFILE.crew;
 
   let profile = { ...DEFAULT_PROFILE, ...load(KEYS.profile, {}) };
   profile.prices = profile.prices || {};
+  const hadCrew = Object.prototype.hasOwnProperty.call(profile, 'crew');
+  delete profile.crew;
+  // Seed Smith Equipment defaults once so chips prefill without a prior edit.
+  let pricesSeeded = false;
+  for (const [k, v] of Object.entries(EQUIPMENT_DEFAULTS)) {
+    if (profile.prices[k] == null) {
+      profile.prices[k] = v;
+      pricesSeeded = true;
+    }
+  }
   const saveProfile = () => store(KEYS.profile, profile);
+  if (pricesSeeded || hadCrew) saveProfile();
 
   const allEstimates = () => load(KEYS.estimates, {});
 
@@ -174,6 +249,14 @@
   let editingTree = null;  // tree open in the tree sheet
   let editingIndex = -1;
   let installPrompt = null;
+  let scheduleMode = (() => {
+    try { return localStorage.getItem('ats.scheduleMode') === 'kanban' ? 'kanban' : 'list'; }
+    catch { return 'list'; }
+  })();
+  const saveScheduleMode = (mode) => {
+    scheduleMode = mode;
+    try { localStorage.setItem('ats.scheduleMode', mode); } catch { /* ignore */ }
+  };
 
   const scopeOf = (el) => el.closest('[data-scope]')?.dataset.scope || 'est';
   const objFor = (scope) => ({ profile: profileDraft, tree: editingTree })[scope] || current;
@@ -183,14 +266,13 @@
       id: uid(),
       number: 'E-' + profile.nextNumber,
       date: today(),
-      client: { name: '', phone: '', email: '', street: '', csz: '' },
+      client: { name: '', phone: '', email: '', street: '', town: '', csz: '' },
       trees: [],
       site: [], siteOther: '',
       extras: [], extrasOther: '',
       notes: '',
       days: 1,
       dayRate: num(profile.dayRate),
-      crew: profile.crew,
       startDate: '', endDate: '',
       equipment: [],
       taxRate: num(profile.taxRate),
@@ -198,6 +280,8 @@
       validDays: num(profile.validDays) || 30,
       depositPct: num(profile.depositPct),
       depositAmt: '',
+      status: 'draft',
+      blockReason: '',
       clientSig: '',
       clientSigDate: '',
       createdAt: new Date().toISOString(),
@@ -207,13 +291,33 @@
 
   const blankTree = () => ({ species: '', work: '', location: '', size: '', condition: '', qty: 1, notes: '' });
 
+  function normalizeStatus(e) {
+    if (e?.status && STATUSES.includes(e.status)) return e.status;
+    return e?.clientSig ? 'approved' : 'draft';
+  }
+
+  function migrateTreeSize(size) {
+    if (!size) return '';
+    if (SIZE_KEYS.has(size)) return size;
+    if (LEGACY_SIZE_MAP[size]) return LEGACY_SIZE_MAP[size];
+    return '';
+  }
+
+  // Infer town from a legacy "City, ST ZIP" csz when town is missing.
+  function townFromCsz(csz) {
+    const s = String(csz || '').trim();
+    if (!s) return '';
+    const beforeComma = s.split(',')[0].trim();
+    return beforeComma || '';
+  }
+
   // True only for a brand-new blank draft. Any client detail, tree, equipment, site
   // choice, notes, date, or signature means we keep it.
   function isEmpty(e) {
     if (!e) return true;
     const c = e.client || {};
     const hasText = (...vals) => vals.some((v) => String(v ?? '').trim());
-    if (hasText(c.name, c.phone, c.email, c.street, c.csz)) return false;
+    if (hasText(c.name, c.phone, c.email, c.street, c.town, c.csz)) return false;
     if ((e.trees || []).length || (e.equipment || []).length) return false;
     if ((e.site || []).length || (e.extras || []).length) return false;
     if (hasText(e.siteOther, e.extrasOther, e.notes, e.startDate, e.clientSig)) return false;
@@ -239,23 +343,61 @@
   function hydrateEstimate(saved) {
     const blank = blankEstimate();
     const clientSrc = saved?.client || saved?.customer || {};
-    return {
+    const client = { ...blank.client, ...clientSrc };
+    if (!String(client.town || '').trim()) client.town = townFromCsz(client.csz);
+    const trees = (Array.isArray(saved?.trees) ? saved.trees : blank.trees).map((t) => ({
+      ...blankTree(),
+      ...t,
+      size: migrateTreeSize(t?.size),
+    }));
+    const est = {
       ...blank,
       ...saved,
       id: saved?.id || blank.id,
-      client: { ...blank.client, ...clientSrc },
-      trees: Array.isArray(saved?.trees) ? saved.trees : blank.trees,
+      client,
+      trees,
       equipment: Array.isArray(saved?.equipment)
         ? saved.equipment
         : (Array.isArray(saved?.materials) ? saved.materials : blank.equipment),
       site: Array.isArray(saved?.site) ? saved.site : blank.site,
       extras: Array.isArray(saved?.extras) ? saved.extras : blank.extras,
+      status: normalizeStatus(saved),
+      blockReason: saved?.blockReason || '',
     };
+    // Ignore legacy crew field — pricing is days × day rate only.
+    delete est.crew;
+    return est;
   }
 
-  const treeCount = (e) => e.trees.reduce((n, t) => n + (num(t.qty) || 1), 0);
+  // One-time field upgrades for estimates already on the device.
+  function migrateEstimateFields() {
+    const all = allEstimates();
+    let changed = false;
+    for (const [id, raw] of Object.entries(all)) {
+      if (!raw || typeof raw !== 'object') continue;
+      const e = hydrateEstimate(raw);
+      const before = JSON.stringify(raw);
+      const after = { ...e };
+      delete after.crew;
+      if (JSON.stringify(after) !== before) {
+        all[id] = after;
+        changed = true;
+      }
+    }
+    if (changed) store(KEYS.estimates, all);
+  }
+  migrateEstimateFields();
+
+  const treeCount = (e) => (e.trees || []).reduce((n, t) => n + (num(t.qty) || 1), 0);
   const treeTitle = (t) => `${num(t.qty) > 1 ? num(t.qty) + ' × ' : ''}${t.species || 'Tree'}${t.work ? ' — ' + t.work : ''}`;
-  const treeDetails = (t) => [t.location, t.size && SIZES.find((s) => s[0] === t.size)?.[1], t.condition].filter(Boolean).join(' · ');
+  const sizeLabel = (size) => SIZES.find((s) => s[0] === size)?.[1] || '';
+  const treeDetails = (t) => [t.location, sizeLabel(t.size), t.condition].filter(Boolean).join(' · ');
+  const statusBadgeClass = (status) => {
+    if (status === 'approved' || status === 'done') return 'ok';
+    if (status === 'scheduled' || status === 'in_progress') return 'info';
+    if (status === 'blocked') return 'warn';
+    return '';
+  };
 
   function totals(e) {
     const equipment = (e.equipment || []).reduce((s, m) => s + num(m.qty) * num(m.price), 0);
@@ -278,11 +420,35 @@
     clearTimeout(saveTimer);
     flushBound('est');
     if (!current || isEmpty(current)) return;
+    current.status = normalizeStatus(current);
+    delete current.crew;
     current.updatedAt = new Date().toISOString();
     current.total = totals(current).total;
     const all = allEstimates();
     all[current.id] = current;
     store(KEYS.estimates, all);
+  }
+
+  function setEstimateStatus(e, status, { blockReason } = {}) {
+    if (!e || !STATUSES.includes(status)) return;
+    e.status = status;
+    if (status === 'blocked') {
+      if (blockReason != null) e.blockReason = blockReason;
+    } else if (status !== 'blocked') {
+      e.blockReason = '';
+    }
+    // Signing / approval path: keep signature as-is; dates drive scheduled.
+    if (status === 'scheduled' && !e.startDate) {
+      e.startDate = today();
+      e.endDate = addDays(e.startDate, Math.max(0, Math.ceil(num(e.days) || 1) - 1));
+    }
+  }
+
+  function maybeScheduleFromDate(e) {
+    if (!e?.startDate) return;
+    if (e.status === 'approved' || e.status === 'draft') {
+      e.status = 'scheduled';
+    }
   }
 
   // Close the open estimate: save it, or throw it away if nothing was entered.
@@ -386,6 +552,7 @@
       }
     }
     if (key === 'days' || key === 'startDate') syncEndDate();
+    if (key === 'startDate') maybeScheduleFromDate(current);
     // A deposit is either a percentage or a fixed amount, not both.
     if (key === 'depositPct') {
       current.depositAmt = '';
@@ -412,6 +579,7 @@
     if (!profile.complete && parts[0] !== 'profile') return location.replace('#/profile');
 
     if (parts[0] === 'profile') renderProfile();
+    else if (parts[0] === 'schedule') renderSchedule();
     else if (parts[0] === 'e') renderWizard(parts[1], parts[2]);
     else renderHome();
     window.scrollTo(0, 0);
@@ -433,7 +601,10 @@
     setChrome({ title: BRAND.appName || profile.name, back: false, bottombar: false });
     $('#view').innerHTML = `
       <img class="brand-hero" src="brand/brand-art.jpg" alt="Advanced Tree Service">
-      <button type="button" class="btn primary big" data-act="new">＋ New estimate</button>
+      <div class="btn-pair">
+        <button type="button" class="btn primary big-ish" data-act="new">＋ New estimate</button>
+        <button type="button" class="btn big-ish" data-act="schedule">📅 Schedule</button>
+      </div>
       <input type="search" id="home-search" class="search" placeholder="Search estimates">
       <div id="est-list" class="est-list"></div>`;
     renderEstimateList();
@@ -443,7 +614,8 @@
   function renderEstimateList() {
     const q = ($('#home-search')?.value || '').trim().toLowerCase();
     const list = Object.values(allEstimates())
-      .filter((e) => !q || [e.number, e.client?.name, e.client?.phone, e.client?.street, e.client?.csz].join(' ').toLowerCase().includes(q))
+      .map(hydrateEstimate)
+      .filter((e) => !q || [e.number, e.client?.name, e.client?.phone, e.client?.street, e.client?.town, e.client?.csz, STATUS_LABEL[e.status]].join(' ').toLowerCase().includes(q))
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
 
     $('#est-list').innerHTML = list.length
@@ -451,8 +623,8 @@
         <button type="button" class="est-card" data-act="open" data-id="${esc(e.id)}">
           <div class="row"><b>${esc(e.client?.name || 'No name')}</b><b>${money(e.total)}</b></div>
           <div class="row muted"><span>${esc(e.number)} · ${niceDate(e.date)}</span>
-            <span class="badge ${e.clientSig ? 'ok' : ''}">${e.clientSig ? 'Signed' : 'Draft'}</span></div>
-          <div class="muted one-line">${esc([e.client?.street, e.client?.csz].filter(Boolean).join(', '))}</div>
+            <span class="badge ${statusBadgeClass(e.status)}">${esc(STATUS_LABEL[e.status] || 'Draft')}</span></div>
+          <div class="muted one-line">${esc([e.client?.town || e.client?.street, e.client?.csz].filter(Boolean).join(', '))}</div>
         </button>`).join('')
       : `<p class="empty">${q ? 'No matches.' : 'No estimates yet. Tap “New estimate” to start.'}</p>`;
   }
@@ -491,6 +663,7 @@
       initSignature($('#sig-client'), () => current.clientSig, (url) => {
         current.clientSig = url;
         if (url && !current.clientSigDate) current.clientSigDate = today();
+        if (url && (current.status === 'draft' || !current.status)) current.status = 'approved';
         syncKey('est', 'clientSigDate');
         scheduleSave();
       });
@@ -518,8 +691,9 @@
         ${field('Name', 'client.name', 'autocomplete="name" autocapitalize="words"')}
         ${field('Phone', 'client.phone', 'type="tel" autocomplete="tel" inputmode="tel"')}
         ${field('Email', 'client.email', 'type="email" autocomplete="email" inputmode="email"')}
-        ${field('City / State / ZIP', 'client.csz', 'autocapitalize="words"')}
         ${field('Address', 'client.street', 'autocomplete="address-line1" autocapitalize="words"')}
+        ${field('Town', 'client.town', 'autocomplete="address-level2" autocapitalize="words"')}
+        ${field('State / ZIP', 'client.csz', 'autocapitalize="characters"')}
       </section>`;
   }
 
@@ -548,7 +722,7 @@
         ${checkGroup('site', SITE)}
       </section>
       <section class="card">
-        <h3>Additional services</h3>
+        <h3>Wood &amp; debris <small>not charged</small></h3>
         ${checkGroup('extras', EXTRAS)}
       </section>
       <section class="card">
@@ -558,7 +732,7 @@
 
   function stepCrew() {
     return `
-      <h2 class="step-title">Crew days</h2>
+      <h2 class="step-title">Job days</h2>
       <section class="card">
         <h3>How many days?</h3>
         ${chips('days', DAYS, { isNum: true })}
@@ -567,8 +741,7 @@
       <section class="card">
         <h3>Day rate</h3>
         ${moneyInput('dayRate')}
-        ${field('Crew', 'crew', 'class="mt"')}
-        <div class="sum-line grand">Crew total <b data-total="labor"></b></div>
+        <div class="sum-line grand">Labor total <b data-total="labor"></b></div>
       </section>
       <section class="card">
         <h3>Schedule</h3>
@@ -600,8 +773,8 @@
     return `
       <h2 class="step-title">Equipment rentals</h2>
       <section class="card">
-        <h3>Tap to add <small>prices are remembered</small></h3>
-        <div class="chips">${EQUIPMENT.map((d) => `<button type="button" class="chip" data-act="add-equip" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
+        <h3>Tap to add <small>Smith rates · remembered after edit</small></h3>
+        <div class="chips">${EQUIPMENT.map(([d]) => `<button type="button" class="chip" data-act="add-equip" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
       </section>
       <div class="line-list">${rows || '<p class="empty">No equipment rentals. Skip this step if none are needed.</p>'}</div>
       <button type="button" class="btn big" data-act="add-equip" data-desc="">＋ Other item</button>
@@ -609,10 +782,11 @@
   }
 
   function stepSummary() {
+    const approved = current.status && current.status !== 'draft';
     return `
       <h2 class="step-title">Estimate summary</h2>
       <section class="card totals">
-        <div class="sum-line">Crew (${num(current.days)} day${num(current.days) === 1 ? '' : 's'} × ${money(num(current.dayRate))}) <span data-total="labor"></span></div>
+        <div class="sum-line">Labor (${num(current.days)} day${num(current.days) === 1 ? '' : 's'} × ${money(num(current.dayRate))}) <span data-total="labor"></span></div>
         <div class="sum-line">Equipment rentals <span data-total="equipment"></span></div>
         <div class="sum-line"><b>Subtotal</b> <b data-total="subtotal"></b></div>
       </section>
@@ -621,7 +795,7 @@
         <div class="row"><label class="mini"><input data-bind="taxRate" type="number" inputmode="decimal" min="0" step="0.001"> %</label><span data-total="tax"></span></div>
       </section>
       <section class="card">
-        <h3>Additional costs <small>travel, etc.</small></h3>
+        <h3>Other costs <small>travel, misc — not wood &amp; debris</small></h3>
         ${chips('additional', ADDITIONAL, { isNum: true })}
         <div class="mt">${moneyInput('additional', 'Other amount')}</div>
       </section>
@@ -635,6 +809,14 @@
         <h4>Deposit required</h4>
         ${chips('depositPct', DEPOSITS, { isNum: true })}
         <div class="row mt">${moneyInput('depositAmt', 'or enter amount')}<b data-total="deposit" class="dep"></b></div>
+      </section>
+      <section class="card">
+        <h3>Approval <small>${esc(STATUS_LABEL[normalizeStatus(current)])}</small></h3>
+        ${approved
+          ? `<p class="muted small">This estimate is marked ${esc(STATUS_LABEL[normalizeStatus(current)])}.${current.clientSig ? ' Client signature on file.' : ''}</p>
+             <button type="button" class="btn" data-act="schedule">📅 Open schedule</button>`
+          : `<p class="muted small">Mark approved for verbal or email approvals, or collect a signature on the next step.</p>
+             <button type="button" class="btn primary big" data-act="mark-approved">✓ Mark approved</button>`}
       </section>`;
   }
 
@@ -658,7 +840,7 @@
         ${chips('work', WORK)}
         <h4>Location</h4>
         ${chips('location', LOCATIONS)}
-        <h4>Size</h4>
+        <h4>Trunk diameter (DBH)</h4>
         ${chips('size', SIZES)}
         <h4>Condition</h4>
         ${chips('condition', CONDITIONS)}
@@ -720,6 +902,8 @@
 
   function stepSend() {
     const share = 'share' in navigator ? '<button type="button" class="btn" data-act="share">📤 Share</button>' : '';
+    const status = normalizeStatus(current);
+    const approved = status !== 'draft';
     return `
       <h2 class="step-title">Send to client</h2>
       <div class="btn-grid">
@@ -728,6 +912,11 @@
         <button type="button" class="btn" data-act="sms" ${current.client.phone ? '' : 'disabled'}>💬 Text</button>
         <button type="button" class="btn" data-act="email" ${current.client.email ? '' : 'disabled'}>✉️ Email</button>
       </div>
+      ${approved
+        ? `<p class="hint">Status: <b>${esc(STATUS_LABEL[status])}</b>. Open Schedule to pick work dates.</p>
+           <button type="button" class="btn big" data-act="schedule">📅 Open schedule</button>`
+        : `<button type="button" class="btn big" data-act="mark-approved">✓ Mark approved</button>
+           <p class="hint">Use Mark approved for verbal or email approvals without a signature.</p>`}
       <p class="hint">For a PDF: tap Print / PDF, then choose “Save as PDF” (Android) or use the Share button in the print screen (iPhone).</p>
       <div class="doc-preview">${renderDoc(current)}</div>
       <div class="btn-pair">
@@ -831,11 +1020,12 @@
     const sec = (title, body) => `<section class="doc-sec"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
     const tr = (label, body) => `<tr><th>${label}</th><td>${body}</td></tr>`;
 
-    const eqRows = e.equipment.map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
-    const treeRows = e.trees.map((t, i) => `<tr>
-        <td>${i + 1}</td><td class="r">${num(t.qty) || 1}</td><td><b>${esc(t.species) || '—'}</b></td><td>${esc(t.work)}</td>
-        <td>${esc(t.location)}</td><td>${esc(t.size)}</td><td>${esc(t.condition)}${t.notes ? `<div class="doc-note">${esc(t.notes)}</div>` : ''}</td></tr>`).join('');
+    const eqRows = (e.equipment || []).map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
+    const treeRows = (e.trees || []).map((trItem, i) => `<tr>
+        <td>${i + 1}</td><td class="r">${num(trItem.qty) || 1}</td><td><b>${esc(trItem.species) || '—'}</b></td><td>${esc(trItem.work)}</td>
+        <td>${esc(trItem.location)}</td><td>${esc(sizeLabel(trItem.size) || trItem.size)}</td><td>${esc(trItem.condition)}${trItem.notes ? `<div class="doc-note">${esc(trItem.notes)}</div>` : ''}</td></tr>`).join('');
     const validUntil = addDays(e.date, num(e.validDays) || 30);
+    const townLine = [e.client.town, e.client.csz].filter(Boolean).join(' · ');
 
     return `
       <article class="doc">
@@ -852,29 +1042,30 @@
 
         ${sec('Client information', `
           <div class="grid2">${kv('Name', e.client.name)}${kv('Email', e.client.email)}</div>
-          <div class="grid2">${kv('Address', e.client.street)}${kv('City / State / ZIP', e.client.csz)}</div>
-          ${e.client.phone ? kv('Phone', e.client.phone) : ''}`)}
+          <div class="grid2">${kv('Address', e.client.street)}${kv('Town', e.client.town)}</div>
+          <div class="grid2">${kv('State / ZIP', e.client.csz)}${e.client.phone ? kv('Phone', e.client.phone) : '<div></div>'}</div>
+          ${townLine && !e.client.town ? kv('City / State / ZIP', e.client.csz) : ''}`)}
 
         ${sec(`Trees (${treeCount(e)})`, `
           <table class="doc-table trees">
-            <thead><tr><th>#</th><th class="r">Qty</th><th>Type of tree</th><th>Work</th><th>Location</th><th>Size</th><th>Condition / notes</th></tr></thead>
+            <thead><tr><th>#</th><th class="r">Qty</th><th>Type of tree</th><th>Work</th><th>Location</th><th>DBH</th><th>Condition / notes</th></tr></thead>
             <tbody>${treeRows || '<tr><td colspan="7" class="none">None</td></tr>'}</tbody>
           </table>`)}
 
         ${sec('Site details', `
           <table class="doc-form">
             ${tr('Site conditions', boxes(SITE, e.site, e.siteOther))}
-            ${tr('Additional services', boxes(EXTRAS, e.extras, e.extrasOther))}
+            ${tr('Wood &amp; debris', boxes(EXTRAS, e.extras, e.extrasOther))}
             ${tr('Estimated dates', `Start: <b>${niceDate(e.startDate) || '—'}</b> &nbsp;&nbsp; Completion: <b>${niceDate(e.endDate) || '—'}</b>`)}
             ${e.notes ? tr('Notes', esc(e.notes).replace(/\n/g, '<br>')) : ''}
           </table>`)}
 
         <div class="doc-cols">
-          ${sec('Crew labor', `
+          ${sec('Job labor', `
             <table class="doc-table">
-              <thead><tr><th>Crew</th><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
-              <tbody><tr><td>${esc(e.crew)}</td><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.labor)}</td></tr></tbody>
-              <tfoot><tr><th colspan="3">Total crew labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
+              <thead><tr><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
+              <tbody><tr><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.labor)}</td></tr></tbody>
+              <tfoot><tr><th colspan="2">Total labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
             </table>`)}
           ${sec('Equipment rentals', `
             <table class="doc-table">
@@ -886,9 +1077,9 @@
 
         ${sec('Estimate summary', `
           <table class="doc-sum">
-            <tr><th>Subtotal (crew labor + equipment)</th><td>${money(t.subtotal)}</td></tr>
+            <tr><th>Subtotal (labor + equipment)</th><td>${money(t.subtotal)}</td></tr>
             <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
-            <tr><th>Additional costs (travel, etc.)</th><td>${money(t.additional)}</td></tr>
+            <tr><th>Other costs (travel, etc.)</th><td>${money(t.additional)}</td></tr>
             <tr class="grand"><th>Total estimate</th><td>${money(t.total)}</td></tr>
           </table>`)}
 
@@ -912,14 +1103,136 @@
     return [
       `Hi${first ? ' ' + first : ''}, here is your tree service estimate ${e.number} from ${profile.name}:`,
       '',
-      ...e.trees.map((t) => `• ${treeTitle(t)}`),
+      ...e.trees.map((trItem) => `• ${treeTitle(trItem)}`),
       '',
-      `Crew: ${num(e.days)} day${num(e.days) === 1 ? '' : 's'}`,
+      `Job: ${num(e.days)} day${num(e.days) === 1 ? '' : 's'}`,
+      e.client.town ? `Town: ${e.client.town}` : '',
       `Total estimate: ${money(t.total)}${t.deposit ? ` (deposit ${money(t.deposit)})` : ''}`,
       `Valid for ${num(e.validDays) || 30} days.`,
       '',
       `Questions? ${[profile.phone, profile.email].filter(Boolean).join(' · ')}`,
     ].filter((l, i, a) => l || (a[i - 1] && a[i + 1])).join('\n');
+  }
+
+  // ---------- schedule ----------
+
+  function scheduleJobs() {
+    return Object.values(allEstimates())
+      .map(hydrateEstimate)
+      .filter((e) => SCHEDULE_STATUSES.includes(normalizeStatus(e)))
+      .sort((a, b) => {
+        const da = a.startDate || '9999';
+        const db = b.startDate || '9999';
+        if (da !== db) return da.localeCompare(db);
+        return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+      });
+  }
+
+  function equipmentSummary(e) {
+    const rows = (e.equipment || []).filter((m) => String(m.desc || '').trim());
+    if (!rows.length) return { yes: false, text: 'None' };
+    const names = rows.map((m) => m.desc.trim());
+    const short = names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3}` : '');
+    return { yes: true, text: short };
+  }
+
+  function daysLabel(days) {
+    const n = num(days);
+    if (n === 0.5) return '½ day';
+    if (n === 1) return '1 day';
+    if (n === 1.5) return '1½ days';
+    return `${n} days`;
+  }
+
+  function jobCardHtml(e, { compact = false } = {}) {
+    const status = normalizeStatus(e);
+    const eq = equipmentSummary(e);
+    const phone = String(e.client?.phone || '').trim();
+    const tel = phone.replace(/[^\d+]/g, '');
+    const reason = status === 'blocked' && e.blockReason
+      ? `<div class="muted small">Blocked: ${esc(e.blockReason)}</div>` : '';
+    const dates = e.startDate
+      ? `<div class="muted small">${niceDate(e.startDate)}${e.endDate && e.endDate !== e.startDate ? ' – ' + niceDate(e.endDate) : ''}</div>`
+      : '<div class="muted small">No work date yet</div>';
+    return `
+      <article class="job-card" data-id="${esc(e.id)}">
+        <div class="row">
+          <b>${esc(e.client?.name || 'No name')}</b>
+          <span class="badge ${statusBadgeClass(status)}">${esc(STATUS_LABEL[status])}</span>
+        </div>
+        <div class="muted">${esc(e.client?.town || 'No town')} · ${esc(daysLabel(e.days))}</div>
+        ${dates}
+        <div class="muted small">Equipment: ${eq.yes ? esc(eq.text) : 'None'}</div>
+        ${reason}
+        <div class="job-actions">
+          ${phone ? `<a class="btn sm" href="tel:${esc(tel)}">📞 Call</a>` : ''}
+          <button type="button" class="btn sm" data-act="open" data-id="${esc(e.id)}">Open</button>
+          <label class="job-date sm-field">
+            <span class="sr-only">Work date</span>
+            <input type="date" data-act="sched-date" data-id="${esc(e.id)}" value="${esc(e.startDate || '')}">
+          </label>
+        </div>
+        ${compact ? '' : `
+        <div class="chips job-status-chips">
+          ${status !== 'in_progress' ? `<button type="button" class="chip" data-act="set-status" data-id="${esc(e.id)}" data-status="in_progress">In progress</button>` : ''}
+          ${status !== 'blocked' ? `<button type="button" class="chip" data-act="set-status" data-id="${esc(e.id)}" data-status="blocked">Blocked</button>` : ''}
+          ${status !== 'done' ? `<button type="button" class="chip" data-act="set-status" data-id="${esc(e.id)}" data-status="done">Done</button>` : ''}
+          ${status === 'blocked' ? `<button type="button" class="chip" data-act="set-status" data-id="${esc(e.id)}" data-status="scheduled">Unblock</button>` : ''}
+          ${status === 'done' ? `<button type="button" class="chip" data-act="set-status" data-id="${esc(e.id)}" data-status="scheduled">Reopen</button>` : ''}
+        </div>
+        ${status === 'blocked' ? `
+        <div class="chips block-reason-chips">
+          ${BLOCK_REASONS.map((r) => `<button type="button" class="chip ${e.blockReason === r ? 'on' : ''}" data-act="set-block-reason" data-id="${esc(e.id)}" data-reason="${esc(r)}" aria-pressed="${e.blockReason === r}">${esc(r)}</button>`).join('')}
+        </div>` : ''}`}
+      </article>`;
+  }
+
+  function renderSchedule() {
+    setChrome({ title: 'Schedule', back: true, bottombar: false });
+    const jobs = scheduleJobs();
+    const mode = scheduleMode;
+    $('#view').innerHTML = `
+      <div class="sched-toolbar">
+        <div class="chips" role="tablist" aria-label="Schedule view">
+          <button type="button" class="chip" data-act="sched-mode" data-mode="list" aria-pressed="${mode === 'list'}">List</button>
+          <button type="button" class="chip" data-act="sched-mode" data-mode="kanban" aria-pressed="${mode === 'kanban'}">Kanban</button>
+        </div>
+        <p class="hint">Approved jobs land here. Pick a work date to move to Scheduled.</p>
+      </div>
+      <div id="sched-body"></div>`;
+    const body = $('#sched-body');
+    if (!jobs.length) {
+      body.innerHTML = `<p class="empty">No approved jobs yet. Mark an estimate approved (or collect a signature), then it appears here.</p>`;
+      return;
+    }
+    if (mode === 'kanban') {
+      body.innerHTML = `<div class="kanban">${KANBAN_COLS.map((col) => {
+        const colJobs = jobs.filter((e) => normalizeStatus(e) === col.id);
+        return `<section class="kanban-col" data-col="${col.id}">
+          <header class="kanban-head"><h3>${esc(col.label)}</h3><span class="muted">${colJobs.length}</span></header>
+          <div class="kanban-list">${colJobs.map((e) => jobCardHtml(e)).join('') || '<p class="empty small-empty">None</p>'}</div>
+        </section>`;
+      }).join('')}</div>`;
+    } else {
+      body.innerHTML = `<div class="est-list sched-list">${jobs.map((e) => jobCardHtml(e)).join('')}</div>`;
+    }
+  }
+
+  function updateStoredEstimate(id, mutator) {
+    const all = allEstimates();
+    const raw = all[id];
+    if (!raw) { toast('Estimate not found'); return null; }
+    const e = hydrateEstimate(raw);
+    mutator(e);
+    e.updatedAt = new Date().toISOString();
+    e.total = totals(e).total;
+    delete e.crew;
+    all[id] = e;
+    store(KEYS.estimates, all);
+    if (current?.id === id) {
+      current = e;
+    }
+    return e;
   }
 
   // ---------- company profile ----------
@@ -958,7 +1271,6 @@
             ${field('Day rate ($/day)', 'dayRate', 'type="number" inputmode="decimal" min="0" step="1"')}
             ${field('Sales tax %', 'taxRate', 'type="number" inputmode="decimal" min="0" step="0.001"')}
           </div>
-          ${field('Crew', 'crew')}
           ${field('Next estimate #', 'nextNumber', 'type="number" inputmode="numeric" min="1"')}
         </section>
         <section class="card">
@@ -988,6 +1300,11 @@
     }
     const wasFirst = !profile.complete;
     profile = { ...profileDraft, nextNumber: Math.max(1, Math.floor(num(profileDraft.nextNumber)) || 1), complete: true };
+    delete profile.crew;
+    profile.prices = profile.prices || {};
+    for (const [k, v] of Object.entries(EQUIPMENT_DEFAULTS)) {
+      if (profile.prices[k] == null) profile.prices[k] = v;
+    }
     saveProfile();
     toast(wasFirst ? 'All set! Start your first estimate.' : 'Company profile saved');
     go('#/');
@@ -995,7 +1312,7 @@
 
   // ---------- contacts ----------
 
-  const cszOf = (city, region, zip) => [[city, region].filter(Boolean).join(', '), zip].filter(Boolean).join(' ');
+  const stateZipOf = (region, zip) => [region, zip].filter(Boolean).join(' ');
 
   async function pickContact() {
     if ('contacts' in navigator && 'select' in navigator.contacts) {
@@ -1009,7 +1326,8 @@
           phone: c.tel?.[0] || '',
           email: c.email?.[0] || '',
           street: a?.addressLine?.join(' ') || '',
-          csz: a ? cszOf(a.city, a.region, a.postalCode) : '',
+          town: a?.city || '',
+          csz: a ? stateZipOf(a.region, a.postalCode) : '',
         });
       } catch (err) {
         console.warn(err);
@@ -1036,7 +1354,8 @@
       if (key === 'ADR' && !out.street) {
         const [, , street, city, region, zip] = raw.replace(/\\;/g, '\u0000').split(';').map((x) => unesc(x.replace(/\u0000/g, ';')));
         out.street = street;
-        out.csz = cszOf(city, region, zip);
+        out.town = city || '';
+        out.csz = stateZipOf(region, zip);
       }
     }
     if (!out.name && out.nParts) out.name = [out.nParts[1], out.nParts[0]].filter(Boolean).join(' ');
@@ -1044,7 +1363,7 @@
   }
 
   function fillClient(c) {
-    for (const k of ['name', 'phone', 'email', 'street', 'csz']) {
+    for (const k of ['name', 'phone', 'email', 'street', 'town', 'csz']) {
       if (c[k]) current.client[k] = c[k];
       syncKey('est', 'client.' + k);
     }
@@ -1057,7 +1376,7 @@
     const seen = new Map();
     const list = Object.values(allEstimates()).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     for (const e of list) {
-      const c = e.client || {};
+      const c = hydrateEstimate(e).client || {};
       const k = (c.name + '|' + c.phone).toLowerCase();
       if (c.name && !seen.has(k) && e.id !== current?.id) seen.set(k, c);
     }
@@ -1066,21 +1385,27 @@
 
   function filteredClients() {
     const q = $('#pick-search').value.trim().toLowerCase();
-    return pastClients().filter((c) => !q || [c.name, c.phone, c.street, c.csz].join(' ').toLowerCase().includes(q));
+    return pastClients().filter((c) => !q || [c.name, c.phone, c.street, c.town, c.csz].join(' ').toLowerCase().includes(q));
   }
 
   function renderPickList() {
     const list = filteredClients();
     $('#pick-list').innerHTML = list.length
       ? list.map((c, i) => `<button type="button" class="pick-item" data-act="choose-client" data-i="${i}">
-          <b>${esc(c.name)}</b><span class="muted">${esc([c.phone, c.street].filter(Boolean).join(' · '))}</span></button>`).join('')
+          <b>${esc(c.name)}</b><span class="muted">${esc([c.phone, c.town || c.street].filter(Boolean).join(' · '))}</span></button>`).join('')
       : `<p class="empty">${$('#pick-search').value ? 'No matches.' : 'No past clients yet.'}</p>`;
   }
 
   // ---------- backup ----------
 
   function exportAll() {
-    const data = { app: 'ats-estimates', version: 3, exportedAt: new Date().toISOString(), profile, estimates: allEstimates() };
+    const estimates = {};
+    for (const [id, raw] of Object.entries(allEstimates())) {
+      const e = hydrateEstimate(raw);
+      delete e.crew;
+      estimates[id] = e;
+    }
+    const data = { app: 'ats-estimates', version: 4, exportedAt: new Date().toISOString(), profile, estimates };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1094,10 +1419,21 @@
       const data = JSON.parse(await file.text());
       const incoming = data.version >= 3 ? data.estimates || {} : {};
       const count = Object.keys(incoming).length;
-      if (count) store(KEYS.estimates, { ...allEstimates(), ...incoming });
+      if (count) {
+        const merged = { ...allEstimates() };
+        for (const [id, raw] of Object.entries(incoming)) {
+          merged[id] = hydrateEstimate(raw);
+          delete merged[id].crew;
+        }
+        store(KEYS.estimates, merged);
+      }
       if (data.profile && confirm('Also restore the company profile from this backup?')) {
         profile = { ...DEFAULT_PROFILE, ...data.profile, complete: true };
         profile.prices = profile.prices || {};
+        delete profile.crew;
+        for (const [k, v] of Object.entries(EQUIPMENT_DEFAULTS)) {
+          if (profile.prices[k] == null) profile.prices[k] = v;
+        }
         saveProfile();
       }
       toast(count ? `Restored ${count} estimate${count === 1 ? '' : 's'}` : 'No estimates found in that file');
@@ -1112,6 +1448,10 @@
 
   const actions = {
     home: () => go('#/'),
+    schedule: () => {
+      for (const d of $$('dialog[open]')) d.close();
+      go('#/schedule');
+    },
     menu: () => {
       $('#menu-install').hidden = !installPrompt;
       $('#menu-dlg').showModal();
@@ -1141,6 +1481,42 @@
       go(el.dataset.to);
     },
 
+    'mark-approved': () => {
+      if (!current) return;
+      flushBound('est');
+      setEstimateStatus(current, 'approved');
+      if (!current.clientSigDate) current.clientSigDate = today();
+      saveNow();
+      toast(`${current.number} approved`);
+      const hashStep = location.hash.replace(/^#\/?/, '').split('/')[2];
+      renderWizard(current.id, hashStep || 'summary');
+    },
+
+    'sched-mode': (el) => {
+      saveScheduleMode(el.dataset.mode === 'kanban' ? 'kanban' : 'list');
+      renderSchedule();
+    },
+
+    'set-status': (el) => {
+      const status = el.dataset.status;
+      const e = updateStoredEstimate(el.dataset.id, (est) => {
+        setEstimateStatus(est, status);
+        if (status === 'blocked' && !est.blockReason) est.blockReason = '';
+      });
+      if (!e) return;
+      toast(`${e.number}: ${STATUS_LABEL[status]}`);
+      renderSchedule();
+    },
+
+    'set-block-reason': (el) => {
+      const reason = el.dataset.reason;
+      const e = updateStoredEstimate(el.dataset.id, (est) => {
+        setEstimateStatus(est, 'blocked', { blockReason: reason });
+      });
+      if (!e) return;
+      renderSchedule();
+    },
+
     'pick-contact': pickContact,
     'pick-previous': () => {
       $('#pick-search').value = '';
@@ -1165,6 +1541,7 @@
       current.startDate = addDays(today(), num(el.dataset.d));
       syncKey('est', 'startDate');
       syncEndDate();
+      maybeScheduleFromDate(current);
       scheduleSave();
     },
 
@@ -1181,15 +1558,18 @@
     },
 
     'add-equip': (el) => {
-      const desc = el.dataset.desc;
-      const price = profile.prices[desc.toLowerCase()];
-      current.equipment.push({ desc, qty: 1, price: price ?? '' });
+      const desc = el.dataset.desc || '';
+      const key = desc.trim().toLowerCase();
+      const price = key
+        ? (profile.prices[key] ?? EQUIPMENT_DEFAULTS[key] ?? '')
+        : '';
+      current.equipment.push({ desc, qty: 1, price });
       saveNow();
       renderWizard(current.id, 'equipment');
       const row = $$('.line-card').pop();
       row?.scrollIntoView({ block: 'center' });
       // Jump straight to whatever still needs typing.
-      const next = !desc ? '.desc' : price == null ? '.price-input input' : null;
+      const next = !desc ? '.desc' : price === '' ? '.price-input input' : null;
       if (next) $(next, row)?.focus({ preventScroll: true });
     },
     'del-row': (el) => {
@@ -1233,9 +1613,14 @@
         id: uid(),
         number: 'E-' + profile.nextNumber,
         date: today(),
+        status: 'draft',
+        blockReason: '',
         clientSig: '', clientSigDate: '',
+        startDate: '', endDate: '',
         createdAt: new Date().toISOString(),
+        updatedAt: null,
       };
+      delete copy.crew;
       profile.nextNumber = num(profile.nextNumber) + 1;
       saveProfile();
       closeCurrent();
@@ -1293,6 +1678,24 @@
   });
 
   document.addEventListener('input', (e) => {
+    const dateEl = e.target.closest('input[data-act="sched-date"]');
+    if (dateEl) {
+      const startDate = dateEl.value;
+      const est = updateStoredEstimate(dateEl.dataset.id, (job) => {
+        job.startDate = startDate;
+        if (startDate) {
+          job.endDate = addDays(startDate, Math.max(0, Math.ceil(num(job.days) || 1) - 1));
+          if (['approved', 'draft', 'scheduled'].includes(normalizeStatus(job))) {
+            job.status = 'scheduled';
+          }
+        }
+      });
+      if (est) {
+        toast(startDate ? `${est.number} scheduled` : 'Date cleared');
+        renderSchedule();
+      }
+      return;
+    }
     const el = e.target.closest('[data-bind]');
     if (!el || el.classList.contains('chips')) return;
     const scope = scopeOf(el);
