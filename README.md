@@ -10,7 +10,7 @@ Open `index.html` in any modern browser; there's no build step. Hosted over HTTP
 
 Pricing is **days × day rate** plus equipment rentals. Wood & debris choices are operational only (not priced). Tree size is trunk diameter (DBH).
 
-1. **Company profile (first launch only):** company name, license, address, phone, email, logo, day rate (default $2,000), tax, deposit, validity period, and your contractor signature. Change later from the ☰ menu.
+1. **Company profile:** company name, license, address, phone, email, logo, day rate (default $2,000), tax, deposit, validity period, and your contractor signature. Incomplete setup shows a banner with a Finish company profile action but does **not** block Estimates or Schedule. Name and phone are required to save.
 2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet related sections are combined:
    - **Client** *(tablet: Job = Client + Site):* contacts / `.vcf` / past client, plus **Town** for the schedule
    - **Trees:** northern MI species, work (including canopy raise and cabling/bracing), DBH size, condition
@@ -27,7 +27,7 @@ Pick lists live at the top of `app.js`.
 
 ## Where data lives
 
-Everything is stored in the browser's `localStorage` on this device. Nothing is sent anywhere. Use **Back up estimates** regularly. Legacy estimates migrate automatically (status from signature, ignore old crew, map old height sizes when possible, split town from City/State/ZIP).
+Everything is stored in the browser's `localStorage` on this device only — there is no cloud sync. Use **Back up data** regularly (profile, estimates, and calendar events when present). Restore can merge or replace; replace snapshots current data on the device first. Legacy estimates migrate automatically (status from signature, ignore old crew, map old height sizes when possible, split town from City/State/ZIP).
 
 ## Files
 

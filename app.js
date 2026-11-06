@@ -172,9 +172,16 @@
 
   // ---------- storage ----------
 
-  const KEYS = { profile: 'ats.profile', estimates: 'ats.estimates.v4' };
+  const KEYS = {
+    profile: 'ats.profile',
+    estimates: 'ats.estimates.v4',
+    events: 'ats.events.v1',
+    restoreSnapshot: 'ats.restore-snapshot',
+  };
   // Older app versions wrote these keys; bring them forward so estimates don't vanish after an update.
   const LEGACY_ESTIMATE_KEYS = ['ats.estimates.v3', 'ats.estimates', 'canopy.estimates'];
+  const BACKUP_SCHEMA_VERSION = 5;
+  const BACKUP_MIN_SCHEMA = 3;
 
   function load(key, fallback) {
     try {
@@ -241,6 +248,24 @@
   if (pricesSeeded || hadCrew) saveProfile();
 
   const allEstimates = () => load(KEYS.estimates, {});
+  const allEvents = () => {
+    const events = load(KEYS.events, {});
+    return events && typeof events === 'object' && !Array.isArray(events) ? events : {};
+  };
+
+  function isProfileIncomplete() {
+    return !profile.complete
+      || !String(profile.name || '').trim()
+      || !String(profile.phone || '').trim();
+  }
+
+  function updateSetupBanner() {
+    const banner = $('#setup-banner');
+    if (!banner) return;
+    const incomplete = isProfileIncomplete();
+    const onProfile = /^#\/?profile(?:\/|$)/.test(location.hash || '');
+    banner.hidden = !incomplete || onProfile;
+  }
 
   // ---------- state ----------
 
@@ -249,6 +274,7 @@
   let editingTree = null;  // tree open in the tree sheet
   let editingIndex = -1;
   let installPrompt = null;
+  let pendingRestore = null; // parsed backup waiting for merge/replace choice
   let scheduleMode = (() => {
     try { return localStorage.getItem('ats.scheduleMode') === 'kanban' ? 'kanban' : 'list'; }
     catch { return 'list'; }
@@ -490,7 +516,32 @@
     const control = textarea
       ? `<textarea data-bind="${key}" ${attrs}></textarea>`
       : `<input data-bind="${key}" ${attrs}>`;
-    return `<label class="field"><span>${label}</span>${control}</label>`;
+    return `<label class="field"><span>${label}</span>${control}<span class="field-error" data-error-for="${key}" hidden></span></label>`;
+  }
+
+  function clearFieldErrors(root = document) {
+    for (const el of $$('[data-bind]', root)) {
+      el.removeAttribute('aria-invalid');
+      el.classList.remove('is-invalid');
+    }
+    for (const err of $$('[data-error-for]', root)) {
+      err.textContent = '';
+      err.hidden = true;
+    }
+  }
+
+  function setFieldError(key, message, root = document) {
+    const input = $(`[data-bind="${key}"]`, root);
+    const err = $(`[data-error-for="${key}"]`, root);
+    if (input) {
+      input.setAttribute('aria-invalid', 'true');
+      input.classList.add('is-invalid');
+    }
+    if (err) {
+      err.textContent = message;
+      err.hidden = false;
+    }
+    return input;
   }
 
   function stepper(key, { step = 1, min = 0 } = {}) {
@@ -571,17 +622,29 @@
   const go = (hash) => { location.hash = hash; };
   const stepHash = (id, step) => `#/e/${id}/${step}`;
 
+  function closeMenus() {
+    for (const d of $$('dialog[open]')) d.close();
+  }
+
+  function navigate(hash) {
+    closeMenus();
+    if ((location.hash || '#/') === hash) {
+      route();
+      return;
+    }
+    go(hash);
+  }
+
   function route() {
     const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
     if (current && (parts[0] !== 'e' || parts[1] !== current.id)) closeCurrent();
-    for (const d of $$('dialog[open]')) d.close();
-
-    if (!profile.complete && parts[0] !== 'profile') return location.replace('#/profile');
+    closeMenus();
 
     if (parts[0] === 'profile') renderProfile();
     else if (parts[0] === 'schedule') renderSchedule();
     else if (parts[0] === 'e') renderWizard(parts[1], parts[2]);
     else renderHome();
+    updateSetupBanner();
     window.scrollTo(0, 0);
   }
 
@@ -1238,13 +1301,13 @@
   // ---------- company profile ----------
 
   function renderProfile() {
-    const first = !profile.complete;
+    const incomplete = isProfileIncomplete();
     profileDraft = clone(profile);
-    setChrome({ title: 'Company profile', back: !first, bottombar: false });
+    setChrome({ title: 'Company profile', back: true, bottombar: false });
     $('#view').innerHTML = `
       <div data-scope="profile">
-        ${first
-          ? '<div class="welcome"><h2>Welcome! 👋</h2><p>Set up your company information once. It goes on every estimate automatically.</p></div>'
+        ${incomplete
+          ? '<div class="welcome"><h2>Welcome</h2><p>Set up your company information once. It goes on every estimate automatically. You can still open Estimates and Schedule from the menu.</p></div>'
           : '<h2 class="step-title">Company profile</h2>'}
         <section class="card">
           <h3>Company information</h3>
@@ -1255,10 +1318,10 @@
               <button type="button" class="btn" data-act="logo-remove">Remove</button>
             </div>
           </div>
-          ${field('Company name *', 'name', 'autocapitalize="words"')}
+          ${field('Company name *', 'name', 'autocapitalize="words" required aria-required="true"')}
           ${field('License number', 'license')}
           ${field('Address', 'address', 'rows="2"', true)}
-          ${field('Phone *', 'phone', 'type="tel" inputmode="tel"')}
+          ${field('Phone *', 'phone', 'type="tel" inputmode="tel" required aria-required="true"')}
           ${field('Email', 'email', 'type="email" inputmode="email"')}
         </section>
         <section class="card">
@@ -1294,12 +1357,23 @@
   }
 
   function saveProfileForm() {
-    if (!String(profileDraft.name).trim() || !String(profileDraft.phone).trim()) {
+    const root = $('[data-scope="profile"]');
+    clearFieldErrors(root);
+    const name = String(profileDraft.name || '').trim();
+    const phone = String(profileDraft.phone || '').trim();
+    let firstInvalid = null;
+    if (!name) firstInvalid = setFieldError('name', 'Company name is required', root) || firstInvalid;
+    if (!phone) {
+      const phoneEl = setFieldError('phone', 'Phone is required', root);
+      firstInvalid = firstInvalid || phoneEl;
+    }
+    if (firstInvalid) {
+      firstInvalid.focus();
       toast('Company name and phone are required');
       return;
     }
-    const wasFirst = !profile.complete;
-    profile = { ...profileDraft, nextNumber: Math.max(1, Math.floor(num(profileDraft.nextNumber)) || 1), complete: true };
+    const wasFirst = isProfileIncomplete();
+    profile = { ...profileDraft, name, phone, nextNumber: Math.max(1, Math.floor(num(profileDraft.nextNumber)) || 1), complete: true };
     delete profile.crew;
     profile.prices = profile.prices || {};
     for (const [k, v] of Object.entries(EQUIPMENT_DEFAULTS)) {
@@ -1307,7 +1381,7 @@
     }
     saveProfile();
     toast(wasFirst ? 'All set! Start your first estimate.' : 'Company profile saved');
-    go('#/');
+    navigate('#/');
   }
 
   // ---------- contacts ----------
@@ -1398,6 +1472,16 @@
 
   // ---------- backup ----------
 
+  function backupSchemaVersion(data) {
+    const v = Number(data?.schemaVersion ?? data?.version);
+    return Number.isFinite(v) ? v : 0;
+  }
+
+  function normalizeBackupMap(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value;
+  }
+
   function exportAll() {
     const estimates = {};
     for (const [id, raw] of Object.entries(allEstimates())) {
@@ -1405,39 +1489,142 @@
       delete e.crew;
       estimates[id] = e;
     }
-    const data = { app: 'ats-estimates', version: 4, exportedAt: new Date().toISOString(), profile, estimates };
+    const data = {
+      app: 'ats-estimates',
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      version: BACKUP_SCHEMA_VERSION, // legacy readers
+      exportedAt: new Date().toISOString(),
+      profile,
+      estimates,
+      events: allEvents(),
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `estimates-backup-${today()}.json`;
+    a.download = `ats-backup-${today()}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Backup downloaded — stays on this device');
+  }
+
+  function applyProfileFromBackup(incoming) {
+    if (!incoming || typeof incoming !== 'object') return;
+    profile = { ...DEFAULT_PROFILE, ...incoming, complete: true };
+    profile.prices = profile.prices || {};
+    delete profile.crew;
+    for (const [k, v] of Object.entries(EQUIPMENT_DEFAULTS)) {
+      if (profile.prices[k] == null) profile.prices[k] = v;
+    }
+    // Mark complete only when required fields are present.
+    profile.complete = !!(String(profile.name || '').trim() && String(profile.phone || '').trim());
+    saveProfile();
+  }
+
+  function hydrateEstimateMap(rawMap) {
+    const out = {};
+    for (const [id, raw] of Object.entries(normalizeBackupMap(rawMap))) {
+      if (!raw || typeof raw !== 'object') continue;
+      const e = hydrateEstimate(raw);
+      delete e.crew;
+      out[id] = e;
+    }
+    return out;
+  }
+
+  function snapshotBeforeReplace() {
+    const snap = {
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      reason: 'pre-replace',
+      profile,
+      estimates: allEstimates(),
+      events: allEvents(),
+    };
+    store(KEYS.restoreSnapshot, snap);
+  }
+
+  function showRestoreDialog(data) {
+    pendingRestore = data;
+    const estimates = normalizeBackupMap(data.estimates);
+    const events = normalizeBackupMap(data.events);
+    const estCount = Object.keys(estimates).length;
+    const eventCount = Object.keys(events).length;
+    const hasProfile = !!(data.profile && typeof data.profile === 'object');
+    const when = data.exportedAt ? niceDate(String(data.exportedAt).slice(0, 10)) : 'unknown date';
+    $('#restore-summary').innerHTML = `
+      <strong>Import summary</strong><br>
+      Exported: ${esc(when)} · schema ${esc(backupSchemaVersion(data))}<br>
+      ${estCount} estimate${estCount === 1 ? '' : 's'},
+      ${eventCount} calendar event${eventCount === 1 ? '' : 's'},
+      company profile: ${hasProfile ? 'yes' : 'no'}.`;
+    const opt = $('#restore-include-profile');
+    opt.checked = hasProfile;
+    opt.disabled = !hasProfile;
+    $('#restore-profile-opt').hidden = !hasProfile;
+    $('#restore-dlg').showModal();
+  }
+
+  function applyRestore(mode) {
+    if (!pendingRestore) return;
+    const data = pendingRestore;
+    const includeProfile = $('#restore-include-profile')?.checked && data.profile;
+    const incomingEstimates = hydrateEstimateMap(data.estimates);
+    const incomingEvents = normalizeBackupMap(data.events);
+    const estCount = Object.keys(incomingEstimates).length;
+    const eventCount = Object.keys(incomingEvents).length;
+
+    if (mode === 'replace') {
+      snapshotBeforeReplace();
+      // Replace only the maps present in the backup. Never wipe estimates
+      // when the file has none — leave the current estimate list alone.
+      if (estCount) store(KEYS.estimates, incomingEstimates);
+      if (data.events != null) store(KEYS.events, incomingEvents);
+      if (includeProfile) applyProfileFromBackup(data.profile);
+    } else {
+      if (estCount) {
+        const merged = { ...allEstimates() };
+        for (const [id, est] of Object.entries(incomingEstimates)) merged[id] = est;
+        store(KEYS.estimates, merged);
+      }
+      if (eventCount || data.events != null) {
+        const mergedEvents = { ...allEvents(), ...incomingEvents };
+        store(KEYS.events, mergedEvents);
+      }
+      if (includeProfile) applyProfileFromBackup(data.profile);
+    }
+
+    pendingRestore = null;
+    $('#restore-dlg').close();
+    const parts = [];
+    if (estCount) parts.push(`${estCount} estimate${estCount === 1 ? '' : 's'}`);
+    if (eventCount) parts.push(`${eventCount} event${eventCount === 1 ? '' : 's'}`);
+    if (includeProfile) parts.push('profile');
+    toast(parts.length
+      ? `${mode === 'replace' ? 'Replaced' : 'Merged'}: ${parts.join(', ')}`
+      : 'Nothing to restore from that file');
+    route();
   }
 
   async function importFile(file) {
     try {
       const data = JSON.parse(await file.text());
-      const incoming = data.version >= 3 ? data.estimates || {} : {};
-      const count = Object.keys(incoming).length;
-      if (count) {
-        const merged = { ...allEstimates() };
-        for (const [id, raw] of Object.entries(incoming)) {
-          merged[id] = hydrateEstimate(raw);
-          delete merged[id].crew;
-        }
-        store(KEYS.estimates, merged);
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        toast('That file is not a valid backup');
+        return;
       }
-      if (data.profile && confirm('Also restore the company profile from this backup?')) {
-        profile = { ...DEFAULT_PROFILE, ...data.profile, complete: true };
-        profile.prices = profile.prices || {};
-        delete profile.crew;
-        for (const [k, v] of Object.entries(EQUIPMENT_DEFAULTS)) {
-          if (profile.prices[k] == null) profile.prices[k] = v;
-        }
-        saveProfile();
+      const schema = backupSchemaVersion(data);
+      if (schema < BACKUP_MIN_SCHEMA) {
+        toast('Backup schema is too old or missing');
+        return;
       }
-      toast(count ? `Restored ${count} estimate${count === 1 ? '' : 's'}` : 'No estimates found in that file');
-      route();
+      if (!data.estimates && !data.profile && data.events == null) {
+        toast('That file has no profile, estimates, or events');
+        return;
+      }
+      // Accept legacy backups that used `version` without schemaVersion / events.
+      if (data.events == null) data.events = {};
+      if (data.estimates == null) data.estimates = {};
+      showRestoreDialog(data);
     } catch (err) {
       console.error(err);
       toast('That file could not be read');
@@ -1447,21 +1634,20 @@
   // ---------- actions ----------
 
   const actions = {
-    home: () => go('#/'),
-    schedule: () => {
-      for (const d of $$('dialog[open]')) d.close();
-      go('#/schedule');
-    },
+    home: () => navigate('#/'),
+    schedule: () => navigate('#/schedule'),
     menu: () => {
       $('#menu-install').hidden = !installPrompt;
       $('#menu-dlg').showModal();
     },
     'close-dlg': (el) => el.closest('dialog').close(),
-    profile: () => go('#/profile'),
-    export: () => { $('#menu-dlg').close(); exportAll(); },
-    import: () => $('#import-file').click(),
+    profile: () => navigate('#/profile'),
+    export: () => { closeMenus(); exportAll(); },
+    import: () => { closeMenus(); $('#import-file').click(); },
+    'restore-merge': () => applyRestore('merge'),
+    'restore-replace': () => applyRestore('replace'),
     install: async () => {
-      $('#menu-dlg').close();
+      closeMenus();
       if (!installPrompt) return;
       installPrompt.prompt();
       await installPrompt.userChoice;
@@ -1701,6 +1887,12 @@
     const scope = scopeOf(el);
     const obj = objFor(scope);
     if (!obj) return;
+    if (el.getAttribute('aria-invalid') === 'true') {
+      el.removeAttribute('aria-invalid');
+      el.classList.remove('is-invalid');
+      const err = el.parentElement?.querySelector(`[data-error-for="${el.dataset.bind}"]`);
+      if (err) { err.textContent = ''; err.hidden = true; }
+    }
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.type === 'number') v = el.value === '' ? '' : num(el.value);
     setPath(obj, el.dataset.bind, v);
@@ -1712,6 +1904,7 @@
   for (const dlg of $$('dialog')) {
     dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
   }
+  $('#restore-dlg')?.addEventListener('close', () => { pendingRestore = null; });
   $('#pick-search').addEventListener('input', renderPickList);
 
   $('#vcf-file').addEventListener('change', async (e) => {
