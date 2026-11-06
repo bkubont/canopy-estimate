@@ -23,8 +23,7 @@ window.BRAND = {
     phone: '',
     email: '',
     website: 'advanced-treeservice.com',
-    dayRate: 2000,   // crew price per day
-    crew: '3 regular employees + 1 part-time',
+    dayRate: 2000,   // price per crew day
     taxRate: 0,
     depositPct: 0,
     validDays: 30,
