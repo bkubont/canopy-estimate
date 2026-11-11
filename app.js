@@ -318,6 +318,7 @@
   let editingTree = null;  // tree open in the tree sheet
   let editingIndex = -1;
   let changeDraft = null;  // change order being drafted after approval
+  let sigCaptureDraft = null; // provisional signature until Save
   let treeTarget = 'est'; // 'est' | 'change' — where saveTree writes
   let installPrompt = null;
   let pendingRestore = null; // parsed backup waiting for merge/replace choice
@@ -669,7 +670,14 @@
     if (!estId) return;
     updateStoredEstimate(estId, (est) => {
       if (!est.clientSig) return;
-      const day = String(startIso || '').slice(0, 10);
+      const st = normalizeStatus(est);
+      // Don't reopen In Progress / Blocked / Done from a calendar edit.
+      if (st !== 'approved' && st !== 'scheduled') return;
+      const raw = String(startIso || '');
+      // All-day events are date-only; timed events are UTC ISO — use Detroit calendar day.
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+        ? raw
+        : (raw ? detroitYmd(new Date(raw)) : '');
       if (day) {
         est.startDate = day;
         est.endDate = addDays(day, Math.max(0, Math.ceil(num(est.days) || 1) - 1));
@@ -2251,39 +2259,51 @@
     flushBound('est');
     const dlg = $('#sig-dlg');
     if (!dlg) return;
+    // Keep ink provisional until Save so Cancel / Escape doesn't approve.
+    sigCaptureDraft = { sig: '', date: today() };
     dlg.innerHTML = `
       <div class="sheet-head">
         <button type="button" class="icon-btn" data-act="close-sig" aria-label="Cancel">✕</button>
         <h3>Client signature</h3>
         <button type="button" class="btn primary sm" data-act="save-sig">Save</button>
       </div>
-      <div class="sheet-body" data-scope="est">
+      <div class="sheet-body">
         <p class="hint">Sign below to approve ${esc(current.number)}. Unsigned estimates stay Pending.</p>
         <canvas id="sig-capture" class="sig" aria-label="Client signs here"></canvas>
         <div class="sig-foot"><span>Client signs above</span><button type="button" class="link" data-act="clear-capture-sig">Clear</button></div>
-        ${field('Date', 'clientSigDate', 'type="date"')}
+        <label class="field"><span>Date</span><input id="sig-capture-date" type="date" value="${esc(sigCaptureDraft.date)}"></label>
         <button type="button" class="btn primary big" data-act="save-sig">Save signature</button>
       </div>`;
-    syncKey('est', 'clientSigDate');
+    const onClose = () => { sigCaptureDraft = null; dlg.removeEventListener('close', onClose); };
+    dlg.addEventListener('close', onClose);
     if (!dlg.open) dlg.showModal();
-    initSignature($('#sig-capture'), () => current.clientSig, (url) => {
-      current.clientSig = url;
-      if (url && !current.clientSigDate) {
-        current.clientSigDate = today();
-        syncKey('est', 'clientSigDate');
+    initSignature($('#sig-capture'), () => sigCaptureDraft?.sig || '', (url) => {
+      if (!sigCaptureDraft) return;
+      sigCaptureDraft.sig = url;
+      if (url && !sigCaptureDraft.date) {
+        sigCaptureDraft.date = today();
+        const dateEl = $('#sig-capture-date');
+        if (dateEl && !dateEl.value) dateEl.value = sigCaptureDraft.date;
       }
     });
   }
 
+  function closeSignatureCapture() {
+    sigCaptureDraft = null;
+    $('#sig-dlg')?.close();
+  }
+
   function saveSignatureCapture() {
-    if (!current) return;
-    flushBound('est');
-    if (!current.clientSig) {
+    if (!current || !sigCaptureDraft) return;
+    if (!sigCaptureDraft.sig) {
       toast('Signature required');
       return;
     }
-    if (!current.clientSigDate) current.clientSigDate = today();
+    const dateEl = $('#sig-capture-date');
+    current.clientSig = sigCaptureDraft.sig;
+    current.clientSigDate = (dateEl?.value || sigCaptureDraft.date || today());
     current.status = 'approved';
+    sigCaptureDraft = null;
     saveNow();
     $('#sig-dlg')?.close();
     toast(`${current.number} approved`);
@@ -2947,18 +2967,20 @@
     },
 
     'open-sig': () => openSignatureCapture(),
-    'close-sig': () => $('#sig-dlg')?.close(),
+    'close-sig': () => closeSignatureCapture(),
     'save-sig': () => saveSignatureCapture(),
     'clear-capture-sig': () => {
-      if (!current) return;
-      current.clientSig = '';
-      current.clientSigDate = '';
+      if (sigCaptureDraft) {
+        sigCaptureDraft.sig = '';
+        sigCaptureDraft.date = today();
+      }
       const canvas = $('#sig-capture');
       if (canvas) {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
-      syncKey('est', 'clientSigDate');
+      const dateEl = $('#sig-capture-date');
+      if (dateEl) dateEl.value = sigCaptureDraft?.date || today();
     },
     'add-change': () => openChangeOrder(),
     'close-change': () => {
