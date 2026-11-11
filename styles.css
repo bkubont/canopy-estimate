@@ -572,30 +572,14 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
 .doc-contact { font-weight: 700; color: var(--doc-ink); }
 .doc-no { text-align: right; font-size: .95em; white-space: nowrap; }
 .doc-client-site { align-items: stretch; }
-.doc-site-notes > h3 {
-  background: color-mix(in srgb, var(--doc-ink) 78%, #fff);
-  color: #fff;
-  font-size: .78em;
+.doc-pricing {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 14px;
+  align-items: start;
 }
-.doc-site-notes .doc-sec-body {
-  font-size: .86em;
-  color: var(--doc-muted);
-  padding: 12px 10px 8px;
-  background: color-mix(in srgb, var(--doc-line) 45%, #fff);
-}
-.doc-note-line { display: grid; grid-template-columns: 5.5em 1fr; gap: 6px; padding: 3px 0; }
-.doc-note-line + .doc-note-line { border-top: 1px solid var(--doc-line); }
-.doc-note-label { font-weight: 700; color: var(--doc-ink); }
-.doc-note-body .doc-checks { padding-left: 1em; margin: 0; }
-.doc-pricing-label {
-  margin: 10px 0 4px;
-  font-size: .8em;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--doc-muted);
-}
-.doc-pricing-label:first-child { margin-top: 0; }
-.doc-sum { margin-top: 10px; }
+.doc-pricing .doc-sum { margin: 0; }
+.doc-pricing .doc-sum th { font-size: .95em; }
 .doc-terms {
   margin-top: 14px;
   padding-top: 8px;
@@ -658,7 +642,7 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
   .doc-head h1 { font-size: 1.35em; }
   .doc-cols, .grid2 { grid-template-columns: 1fr; }
   .doc-form th { white-space: normal; width: 30%; }
-  .doc-note-line { grid-template-columns: 1fr; gap: 2px; }
+  .doc-pricing { grid-template-columns: 1fr; }
 }
 
 /* ---------- tablet: wider canvas, fewer empty gutters ---------- */
@@ -964,4 +948,5 @@ body.wizard-open .tabnav { display: none; }
   .doc-head, .doc-head::after, .doc-brand-name, .doc-sum .grand td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .doc-cols { grid-template-columns: 1fr 1fr; }
   .grid2 { grid-template-columns: 1fr 1fr; }
+  .doc-pricing { grid-template-columns: 1.4fr 0.9fr; }
 }
