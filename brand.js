@@ -19,6 +19,7 @@ window.BRAND = {
 
   company: {
     name: 'Advanced Tree Service',
+    contactName: 'Joey Beairl',
     license: '',
     address: '',
     phone: '',

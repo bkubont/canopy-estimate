@@ -267,7 +267,7 @@
   migrateEstimates();
 
   const DEFAULT_PROFILE = {
-    name: '', license: '', address: '', phone: '', email: '', website: '',
+    name: '', contactName: '', license: '', address: '', phone: '', email: '', website: '',
     dayRate: 2000, taxRate: 0, depositPct: 0, validDays: 30, nextNumber: 1001,
     logo: '', signature: '', prices: {},
     ...BRAND.company,
@@ -2146,19 +2146,25 @@
   function renderDoc(e) {
     const t = totals(e);
     const p = profile;
-    const kv = (label, value) => `<div class="kv"><b>${label}:</b><span>${esc(value) || '&nbsp;'}</span></div>`;
-    const sec = (title, body) => `<section class="doc-sec"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
-    const tr = (label, body) => `<tr><th>${label}</th><td>${body}</td></tr>`;
+    const kv = (label, value) => value
+      ? `<div class="kv"><b>${label}:</b><span>${esc(value)}</span></div>`
+      : '';
+    const sec = (title, body, extraClass = '') =>
+      `<section class="doc-sec ${extraClass}"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
+    const noteLine = (label, body) =>
+      `<div class="doc-note-line"><span class="doc-note-label">${label}</span><span class="doc-note-body">${body}</span></div>`;
 
     const eqRows = (e.equipment || []).map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
     const validUntil = addDays(e.date, num(e.validDays) || 30);
     const clientName = clientDisplayName(e.client);
-    const siteRows = [
-      (e.site || []).length || e.siteOther ? tr('Site conditions', checkedList(e.site, e.siteOther)) : '',
-      e.parking ? tr('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
-      e.extras || e.extrasOther ? tr('Wood &amp; debris', checkedList(e.extras ? [e.extras] : [], e.extrasOther)) : '',
-      (e.startDate || e.endDate) ? tr('Estimated dates', `Start: <b>${niceDate(e.startDate) || '—'}</b> &nbsp;&nbsp; Completion: <b>${niceDate(e.endDate) || '—'}</b>`) : '',
-      e.notes ? tr('Notes', esc(e.notes).replace(/\n/g, '<br>')) : '',
+    // Honor an explicitly cleared contact name; only fall back when unset.
+    const contactName = String(p.contactName ?? BRAND.company?.contactName ?? '').trim();
+    const siteNotes = [
+      (e.site || []).length || e.siteOther ? noteLine('Site', checkedList(e.site, e.siteOther)) : '',
+      e.parking ? noteLine('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
+      e.extras || e.extrasOther ? noteLine('Wood &amp; debris', checkedList(e.extras ? [e.extras] : [], e.extrasOther)) : '',
+      (e.startDate || e.endDate) ? noteLine('Dates', `Start ${niceDate(e.startDate) || '—'} · Done ${niceDate(e.endDate) || '—'}`) : '',
+      e.notes ? noteLine('Notes', esc(e.notes).replace(/\n/g, '<br>')) : '',
     ].filter(Boolean).join('');
 
     const laborRows = [
@@ -2168,6 +2174,11 @@
     ].join('');
 
     const changeDocs = (e.changeOrders || []).map((co, i) => renderChangeOrderDoc(co, i, e.dayRate)).join('');
+    const headerBits = [
+      contactName ? `<div class="doc-contact">${esc(contactName)}</div>` : '',
+      p.address ? `<div>${esc(p.address).replace(/\n/g, '<br>')}</div>` : '',
+      [p.phone, p.email, p.license ? `Lic. ${p.license}` : ''].filter(Boolean).map(esc).join(' · '),
+    ].filter(Boolean).join('');
 
     return `
       <article class="doc">
@@ -2176,61 +2187,61 @@
           <div class="doc-brand">
             <div class="doc-brand-name">${esc(p.name || BRAND.appName || 'Estimate')}</div>
             <h1>Tree Service Estimate</h1>
+            <div class="doc-company">${headerBits}</div>
           </div>
           <div class="doc-no"><b>${esc(e.number)}</b><br>${niceDate(e.date)}</div>
         </header>
 
-        ${sec('Company information', `
-          <div class="grid2">${kv('Company name', p.name)}${kv('License number', p.license)}</div>
-          ${kv('Address', p.address)}
-          <div class="grid2">${kv('Phone', p.phone)}${kv('Email', p.email)}</div>`)}
-
-        ${sec('Client information', `
-          <div class="grid2">${kv('Name', clientName)}${kv('Company', e.client.company)}</div>
-          <div class="grid2">${kv('Email', e.client.email)}${kv('Phone', e.client.phone)}</div>
-          ${kv('Address', e.client.street)}
-          <div class="grid2">${kv('Town', e.client.town)}${kv('State', e.client.state)}</div>
-          ${kv('ZIP', e.client.zip)}
-          ${siteRows ? `<h4 class="doc-sub">Site details</h4><table class="doc-form">${siteRows}</table>` : ''}`)}
+        <div class="doc-cols doc-client-site">
+          ${sec('Client', `
+            ${kv('Name', clientName)}
+            ${kv('Company', e.client.company)}
+            ${kv('Phone', e.client.phone)}
+            ${kv('Email', e.client.email)}
+            ${kv('Address', e.client.street)}
+            ${kv('Town', e.client.town)}
+            ${kv('State / ZIP', [e.client.state, e.client.zip].filter(Boolean).join(' '))}
+          `)}
+          ${sec('Site details', siteNotes || '<span class="doc-muted">No site notes</span>', 'doc-site-notes')}
+        </div>
 
         ${sec(`Trees (${treeCount(e)})`, renderTreeTable(e.trees))}
 
-        <div class="doc-cols">
-          ${sec('Job labor', `
-            <table class="doc-table">
-              <thead><tr><th></th><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
-              <tbody>${laborRows}</tbody>
-              <tfoot><tr><th colspan="3">Total labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
-            </table>`)}
-          ${sec('Equipment rentals', `
-            <table class="doc-table">
-              <thead><tr><th>Description</th><th class="r">Qty / days</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
-              <tbody>${eqRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
-              <tfoot><tr><th colspan="3">Total equipment</th><td class="r">${money(t.equipment)}</td></tr></tfoot>
-            </table>`)}
-        </div>
-
-        ${sec('Estimate summary', `
+        ${sec('Pricing', `
+          <h4 class="doc-pricing-label">Job labor</h4>
+          <table class="doc-table">
+            <thead><tr><th></th><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
+            <tbody>${laborRows}</tbody>
+            <tfoot><tr><th colspan="3">Total labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
+          </table>
+          <h4 class="doc-pricing-label">Equipment rentals</h4>
+          <table class="doc-table">
+            <thead><tr><th>Description</th><th class="r">Qty / days</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
+            <tbody>${eqRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
+            <tfoot><tr><th colspan="3">Total equipment</th><td class="r">${money(t.equipment)}</td></tr></tfoot>
+          </table>
           <table class="doc-sum">
             <tr><th>Subtotal (labor + equipment)</th><td>${money(t.subtotal)}</td></tr>
             <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
             <tr><th>Other costs (travel, etc.)</th><td>${money(t.additional)}</td></tr>
             <tr class="grand"><th>Total estimate</th><td>${money(t.total)}</td></tr>
-          </table>`)}
+          </table>
+        `)}
 
-        <div class="doc-cols">
-          ${sec('Signatures', `
-            <div class="sig-line"><div class="sig-box">${p.signature ? `<img src="${p.signature}" alt="">` : ''}</div><span>${niceDate(e.date)}</span></div>
-            <div class="sig-cap"><span>Contractor signature</span><span>Date</span></div>
-            <div class="sig-line"><div class="sig-box">${e.clientSig ? `<img src="${e.clientSig}" alt="">` : ''}</div><span>${niceDate(e.clientSigDate)}</span></div>
-            <div class="sig-cap"><span>Client acceptance signature</span><span>Date</span></div>`)}
-          ${sec('Terms', `
-            <p>This estimate is valid for <b>${num(e.validDays) || 30}</b> days from the date of issue (until ${niceDate(validUntil)}).</p>
-            <p>Final costs may vary depending on site conditions and additional work.</p>
-            <p>Deposit required: <b>${money(t.deposit)}</b></p>`)}
-        </div>
+        ${sec('Signatures', `
+          <div class="sig-line"><div class="sig-box">${p.signature ? `<img src="${p.signature}" alt="">` : ''}</div><span>${niceDate(e.date)}</span></div>
+          <div class="sig-cap"><span>Contractor signature</span><span>Date</span></div>
+          <div class="sig-line"><div class="sig-box">${e.clientSig ? `<img src="${e.clientSig}" alt="">` : ''}</div><span>${niceDate(e.clientSigDate)}</span></div>
+          <div class="sig-cap"><span>Client acceptance signature</span><span>Date</span></div>
+        `)}
 
         ${changeDocs}
+
+        <footer class="doc-terms">
+          This estimate is valid for ${num(e.validDays) || 30} days from the date of issue (until ${niceDate(validUntil)}).
+          Final costs may vary depending on site conditions and additional work.
+          Deposit required: ${money(t.deposit)}.
+        </footer>
       </article>`;
   }
 
@@ -2599,6 +2610,7 @@
             </div>
           </div>
           ${field('Company name *', 'name', 'autocapitalize="words" required aria-required="true"')}
+          ${field('Contact name', 'contactName', 'autocapitalize="words" placeholder="Joey Beairl"')}
           ${field('License number', 'license')}
           ${field('Address', 'address', 'rows="2"', true)}
           ${field('Phone *', 'phone', 'type="tel" inputmode="tel" required aria-required="true"')}
