@@ -1107,6 +1107,18 @@
     };
   }
 
+  function looksLikeInstant(value) {
+    const s = String(value || '');
+    return s.includes('T') || /Z$/i.test(s) || /[+-]\d{2}:\d{2}$/.test(s);
+  }
+
+  function toDetroitYmd(value) {
+    const s = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (!s) return detroitYmd();
+    return detroitYmd(new Date(s));
+  }
+
   function hydrateEvent(raw) {
     const b = blankEvent({ type: raw?.type || 'other', unscheduled: false, date: detroitYmd() });
     const e = { ...b, ...raw };
@@ -1116,13 +1128,23 @@
     e.estimateId = e.estimateId || '';
     if (!EVENT_TYPE_LABEL[e.type]) e.type = 'other';
     if (!EVENT_STATUS_LABEL[e.status]) e.status = 'tentative';
-    // Day tasks never carry a clock time; jobs are always all-day.
-    if (isDayTaskType(e.type) || isJobType(e.type)) e.allDay = true;
     const missingStart = e.start == null || e.start === '';
     e.unscheduled = !!(e.unscheduled || (isDayTaskType(e.type) && missingStart));
     if (e.unscheduled) {
       e.start = '';
       e.end = '';
+      e.allDay = true;
+      return e;
+    }
+    // Day tasks + jobs are all-day. Convert legacy ISO timestamps to Detroit YMD
+    // before flipping allDay, so late-evening events don't shift a calendar day.
+    if (isDayTaskType(e.type) || isJobType(e.type)) {
+      const needsDateNormalize = !e.allDay || looksLikeInstant(e.start) || looksLikeInstant(e.end);
+      if (needsDateNormalize && e.start) {
+        const ymd = toDetroitYmd(e.start);
+        e.start = ymd;
+        e.end = ymdAddDays(ymd, 1);
+      }
       e.allDay = true;
     }
     return e;
@@ -1265,6 +1287,8 @@
 
   seedEventsFromEstimates();
   // One-time: convert legacy timed dump/rental rows into all-day day tasks.
+  // Inspect raw fields first — hydrateEvent also normalizes, but migration must
+  // see the original ISO timestamps to pick the Detroit calendar day.
   (function migrateDayTaskEvents() {
     const FLAG = 'ats.events.daytasks.v1';
     try { if (localStorage.getItem(FLAG) === '1') return; } catch { /* ignore */ }
@@ -1272,22 +1296,23 @@
     let changed = false;
     for (const [id, raw] of Object.entries(all)) {
       if (!raw || !isDayTaskType(raw.type)) continue;
-      const ev = hydrateEvent(raw);
-      if (ev.unscheduled) {
-        all[id] = ev;
+      const missingStart = raw.start == null || raw.start === '';
+      if (raw.unscheduled || missingStart) {
+        all[id] = hydrateEvent({ ...raw, unscheduled: true, start: '', end: '', allDay: true });
         changed = true;
         continue;
       }
-      if (!ev.allDay && ev.start) {
-        const ymd = detroitYmd(new Date(ev.start));
-        ev.allDay = true;
-        ev.start = ymd;
-        ev.end = ymdAddDays(ymd, 1);
-        ev.unscheduled = false;
-        all[id] = ev;
+      const needsConvert = !raw.allDay || looksLikeInstant(raw.start) || looksLikeInstant(raw.end);
+      if (needsConvert) {
+        const ymd = toDetroitYmd(raw.start);
+        all[id] = hydrateEvent({
+          ...raw,
+          allDay: true,
+          unscheduled: false,
+          start: ymd,
+          end: ymdAddDays(ymd, 1),
+        });
         changed = true;
-      } else if (ev.allDay) {
-        all[id] = ev;
       }
     }
     if (changed) saveEvents(all);
@@ -3216,40 +3241,56 @@
       : `<p class="empty">${$('#pick-search').value ? 'No matches.' : 'No contacts yet. Import a .vcf from Contacts in More.'}</p>`;
   }
 
-  function filteredLibraryContacts() {
-    const q = ($('#contacts-search')?.value || '').trim().toLowerCase();
-    return listContacts().filter((c) => !q || [
+  function filteredLibraryContacts(q = '') {
+    const query = String(q || '').trim().toLowerCase();
+    return listContacts().filter((c) => !query || [
       clientDisplayName(c), c.company, c.phone, c.email, c.street, c.town, c.state, c.zip,
-    ].join(' ').toLowerCase().includes(q));
+    ].join(' ').toLowerCase().includes(query));
+  }
+
+  function contactsListHtml(list, total) {
+    return list.length ? list.map((c) => `
+      <article class="contact-card">
+        <div>
+          <b>${esc(clientDisplayName(c) || 'Unnamed')}</b>
+          <div class="muted">${esc([c.company, c.phone, c.email, [c.town, c.state].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</div>
+          ${c.street ? `<div class="muted small">${esc(c.street)}</div>` : ''}
+        </div>
+        <button type="button" class="link danger" data-act="contact-delete" data-id="${esc(c.id)}">Remove</button>
+      </article>`).join('')
+      : `<p class="empty">${total ? 'No matches.' : 'No contacts yet. Import a .vcf to get started.'}</p>`;
+  }
+
+  function refreshContactsList() {
+    const q = $('#contacts-search')?.value || '';
+    const list = filteredLibraryContacts(q);
+    const total = listContacts().length;
+    const countEl = $('#contacts-count');
+    if (countEl) countEl.textContent = String(total);
+    const root = $('#contacts-list');
+    if (root) root.innerHTML = contactsListHtml(list, total);
   }
 
   function renderContacts() {
     setChrome({ title: 'Contacts', back: false, bottombar: false });
-    const list = filteredLibraryContacts();
+    const q = $('#contacts-search')?.value || '';
+    const list = filteredLibraryContacts(q);
     const total = listContacts().length;
     $('#view').innerHTML = `
       <div class="page-head">
-        <h2>Contacts <small class="muted">${total}</small></h2>
+        <h2>Contacts <small class="muted" id="contacts-count">${total}</small></h2>
         <div class="btn-pair">
           <button type="button" class="btn primary" data-act="contacts-import-vcf">Import .vcf</button>
           <button type="button" class="btn" data-act="contacts-from-estimates">Add from estimates</button>
         </div>
       </div>
       <p class="hint">Upload your full Apple/Google contact export (.vcf). Contacts stay on this device and appear when you pick a client on an estimate.</p>
-      <input type="search" id="contacts-search" class="search" placeholder="Search contacts" value="${esc($('#contacts-search')?.value || '')}">
-      <div class="contacts-list">
-        ${list.length ? list.map((c) => `
-          <article class="contact-card">
-            <div>
-              <b>${esc(clientDisplayName(c) || 'Unnamed')}</b>
-              <div class="muted">${esc([c.company, c.phone, c.email, [c.town, c.state].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</div>
-              ${c.street ? `<div class="muted small">${esc(c.street)}</div>` : ''}
-            </div>
-            <button type="button" class="link danger" data-act="contact-delete" data-id="${esc(c.id)}">Remove</button>
-          </article>`).join('')
-          : `<p class="empty">${total ? 'No matches.' : 'No contacts yet. Import a .vcf to get started.'}</p>`}
+      <input type="search" id="contacts-search" class="search" placeholder="Search contacts" value="${esc(q)}">
+      <div class="contacts-list" id="contacts-list">
+        ${contactsListHtml(list, total)}
       </div>`;
-    $('#contacts-search')?.addEventListener('input', () => renderContacts());
+    // Only refresh the list so the search field keeps focus / mobile keyboard.
+    $('#contacts-search')?.addEventListener('input', () => refreshContactsList());
   }
 
   function importContactsFromEstimates() {
@@ -3436,9 +3477,10 @@
         return;
       }
       // Accept legacy backups that used `version` without schemaVersion / events.
+      // Do NOT invent an empty contacts map — Replace must leave the current
+      // library alone when the backup predates contacts.
       if (data.events == null) data.events = {};
       if (data.estimates == null) data.estimates = {};
-      if (data.contacts == null) data.contacts = {};
       showRestoreDialog(data);
     } catch (err) {
       console.error(err);
