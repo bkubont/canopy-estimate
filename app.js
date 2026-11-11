@@ -500,17 +500,22 @@
   function hydrateEstimate(saved) {
     const blank = blankEstimate();
     const clientSrc = saved?.client || saved?.customer || {};
+    // Decide migration from the saved payload only — blank defaults (e.g. MI)
+    // must not mask a legacy csz like "WI 53703".
+    const srcState = String(clientSrc.state || '').trim();
+    const srcZip = String(clientSrc.zip || '').trim();
+    const srcCsz = String(clientSrc.csz || '').trim();
     const client = { ...blank.client, ...clientSrc };
     if (!String(client.firstName || '').trim() && !String(client.lastName || '').trim() && client.name) {
       Object.assign(client, splitLegacyName(client.name));
     }
-    if (!String(client.state || '').trim() && !String(client.zip || '').trim() && client.csz) {
-      const parts = splitLegacyCsz(client.csz);
-      if (parts.state) client.state = parts.state;
-      if (parts.zip) client.zip = parts.zip;
+    if (!srcState && !srcZip && srcCsz) {
+      const parts = splitLegacyCsz(srcCsz);
+      client.state = parts.state || '';
+      client.zip = parts.zip || '';
     }
     if (!String(client.state || '').trim()) client.state = 'MI';
-    if (!String(client.town || '').trim()) client.town = townFromCsz(client.csz);
+    if (!String(client.town || '').trim()) client.town = townFromCsz(srcCsz || client.csz);
     syncClientDerived(client);
 
     const trees = (Array.isArray(saved?.trees) ? saved.trees : blank.trees).map((t) => ({
@@ -1721,16 +1726,12 @@
     syncAll($('#view'), 'est');
     $('.step.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
     if (step.parts.includes('sign')) {
+      // Keep the pad open across strokes. Status flips to approved on first ink,
+      // but the PDF view opens only when leaving this step (Next / Done).
       initSignature($('#sig-client'), () => current.clientSig, (url) => {
         current.clientSig = url;
         if (url && !current.clientSigDate) current.clientSigDate = today();
-        if (url && (current.status === 'draft' || !current.status)) {
-          current.status = 'approved';
-          syncKey('est', 'clientSigDate');
-          saveNow();
-          renderApprovedDoc(current.id);
-          return;
-        }
+        if (url && (current.status === 'draft' || !current.status)) current.status = 'approved';
         syncKey('est', 'clientSigDate');
         scheduleSave();
       });
