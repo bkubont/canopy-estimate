@@ -87,8 +87,9 @@
   ];
 
   // Quick-add equipment chips with Smith Equipment day-rate defaults (cost).
-  // Customer totals add RENTAL_MARKUP on top. Costs are remembered in profile.prices.
-  const RENTAL_MARKUP = 1.2; // 20% markup on rentals
+  // New estimates add RENTAL_MARKUP on top. Legacy estimates (no equipmentMarkup
+  // field) keep markup 1 so signed totals stay unchanged. Costs live in profile.prices.
+  const RENTAL_MARKUP = 1.2; // 20% markup on rentals for new estimates
   const EQUIPMENT = [
     ['Mini skid steer', 245],
     ['Towable boom 55′', 290],
@@ -105,8 +106,10 @@
   const EQUIPMENT_DEFAULTS = Object.fromEntries(
     EQUIPMENT.map(([desc, price]) => [desc.toLowerCase(), price])
   );
-  const rentalUnitPrice = (m) => num(m?.price) * RENTAL_MARKUP;
-  const rentalLineTotal = (m) => num(m?.qty) * rentalUnitPrice(m);
+  // Missing equipmentMarkup = legacy estimate → no markup (preserve signed totals).
+  const equipmentMarkupOf = (e) => (e?.equipmentMarkup == null || e.equipmentMarkup === '' ? 1 : num(e.equipmentMarkup) || 1);
+  const rentalUnitPrice = (m, e) => num(m?.price) * equipmentMarkupOf(e);
+  const rentalLineTotal = (m, e) => num(m?.qty) * rentalUnitPrice(m, e);
 
   const DAYS = [[0.5, '½ day'], [1, '1 day'], [1.5, '1½ days'], [2, '2 days'], [3, '3 days'], [4, '4 days'], [5, '5 days']];
   const ADDITIONAL = [[0, 'None'], [50, '$50'], [100, '$100'], [150, '$150'], [250, '$250']];
@@ -389,6 +392,7 @@
       dayRate: num(profile.dayRate),
       startDate: '', endDate: '',
       equipment: [],
+      equipmentMarkup: RENTAL_MARKUP,
       taxRate: num(profile.taxRate),
       additional: 0,
       validDays: num(profile.validDays) || 30,
@@ -566,6 +570,10 @@
       })),
     }));
 
+    // Legacy estimates (no equipmentMarkup field) keep 1× so signed totals don't change.
+    const equipmentMarkup = Object.prototype.hasOwnProperty.call(saved || {}, 'equipmentMarkup')
+      ? (num(saved.equipmentMarkup) || 1)
+      : 1;
     const est = {
       ...blank,
       ...saved,
@@ -573,6 +581,7 @@
       client,
       trees,
       equipment,
+      equipmentMarkup,
       site: siteMig.site,
       siteOther,
       parking: saved?.parking || '',
@@ -622,7 +631,7 @@
   }
 
   function totals(e) {
-    const equipment = (e.equipment || []).reduce((s, m) => s + rentalLineTotal(m), 0);
+    const equipment = (e.equipment || []).reduce((s, m) => s + rentalLineTotal(m, e), 0);
     const baseLabor = num(e.days) * num(e.dayRate);
     const changeLabor = changeOrderDays(e) * num(e.dayRate);
     const labor = baseLabor + changeLabor;
@@ -1980,7 +1989,7 @@
       const [list, i] = el.dataset.line.split('.');
       const r = current[list][i];
       if (!r) continue;
-      el.textContent = list === 'equipment' ? money(rentalLineTotal(r)) : money(num(r.qty) * num(r.price));
+      el.textContent = list === 'equipment' ? money(rentalLineTotal(r, current)) : money(num(r.qty) * num(r.price));
     }
   }
 
@@ -2181,7 +2190,7 @@
       ...(e.changeOrders || []).map((co, i) =>
         `<tr><td>Change order ${i + 1}</td><td class="r">${num(co.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(num(co.days) * num(e.dayRate))}</td></tr>`),
       ...(e.equipment || []).map((m) =>
-        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(rentalUnitPrice(m))}</td><td class="r">${money(rentalLineTotal(m))}</td></tr>`),
+        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(rentalUnitPrice(m, e))}</td><td class="r">${money(rentalLineTotal(m, e))}</td></tr>`),
     ].join('');
 
     const changeDocs = (e.changeOrders || []).map((co, i) => renderChangeOrderDoc(co, i, e.dayRate)).join('');
