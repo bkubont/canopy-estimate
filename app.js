@@ -110,7 +110,8 @@
   const DEPOSITS = [[0, 'None'], [25, '25%'], [50, '50%']];
   const VALID_DAYS = [[15, '15 days'], [30, '30 days'], [60, '60 days'], [90, '90 days']];
 
-  const STATUSES = ['draft', 'approved', 'scheduled', 'in_progress', 'blocked', 'done'];
+  // pending = unsigned; approved = signed; scheduled = on the calendar
+  const STATUSES = ['pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done'];
   const SCHEDULE_STATUSES = ['approved', 'scheduled', 'in_progress', 'blocked', 'done'];
   const KANBAN_COLS = [
     { id: 'approved', label: 'Approved' },
@@ -121,7 +122,8 @@
   ];
   const BLOCK_REASONS = ['Weather', 'Equipment rental', 'Access', 'Other'];
   const STATUS_LABEL = {
-    draft: 'Draft',
+    pending: 'Pending',
+    draft: 'Pending', // legacy
     approved: 'Approved',
     scheduled: 'Scheduled',
     in_progress: 'In Progress',
@@ -388,7 +390,7 @@
       validDays: num(profile.validDays) || 30,
       depositPct: num(profile.depositPct),
       depositAmt: '',
-      status: 'draft',
+      status: 'pending',
       blockReason: '',
       clientSig: '',
       clientSigDate: '',
@@ -411,9 +413,14 @@
   });
 
   function normalizeStatus(e) {
-    if (e?.status && STATUSES.includes(e.status)) return e.status;
-    return e?.clientSig ? 'approved' : 'draft';
+    // Signature is the gate: unsigned stays pending; signed is at least approved.
+    if (!e?.clientSig) return 'pending';
+    let st = e.status === 'draft' ? 'approved' : e.status;
+    if (!st || st === 'pending' || st === 'draft' || !STATUSES.includes(st)) return 'approved';
+    return st;
   }
+
+  const isPendingEstimate = (e) => normalizeStatus(e) === 'pending';
 
   function migrateTreeSize(size) {
     if (!size) return '';
@@ -602,7 +609,7 @@
   const statusBadgeClass = (status) => {
     if (status === 'approved' || status === 'done') return 'ok';
     if (status === 'scheduled' || status === 'in_progress') return 'info';
-    if (status === 'blocked') return 'warn';
+    if (status === 'blocked' || status === 'pending' || status === 'draft') return 'warn';
     return '';
   };
 
@@ -658,11 +665,17 @@
     }
   }
 
-  function maybeScheduleFromDate(e) {
-    if (!e?.startDate) return;
-    if (e.status === 'approved' || e.status === 'draft') {
-      e.status = 'scheduled';
-    }
+  function markEstimateScheduled(estId, startIso) {
+    if (!estId) return;
+    updateStoredEstimate(estId, (est) => {
+      if (!est.clientSig) return;
+      const day = String(startIso || '').slice(0, 10);
+      if (day) {
+        est.startDate = day;
+        est.endDate = addDays(day, Math.max(0, Math.ceil(num(est.days) || 1) - 1));
+      }
+      setEstimateStatus(est, 'scheduled');
+    });
   }
 
   // Close the open estimate: save it, or throw it away if nothing was entered.
@@ -818,10 +831,7 @@
         syncEquipmentQtyToDays();
         syncEndDate();
       }
-      if (key === 'startDate') {
-        syncEndDate();
-        maybeScheduleFromDate(current);
-      }
+      if (key === 'startDate') syncEndDate();
       // A deposit is either a percentage or a fixed amount, not both.
       if (key === 'depositPct') {
         current.depositAmt = '';
@@ -1087,8 +1097,7 @@
   }
 
   function estimateApprovedEnough(est) {
-    const st = normalizeStatus(est);
-    return st && st !== 'draft';
+    return !!est?.clientSig && normalizeStatus(est) !== 'pending';
   }
 
   function seedEventsFromEstimates() {
@@ -1549,6 +1558,9 @@
       return;
     }
     upsertEvent(ev);
+    if (ev.estimateId && ev.type === 'tree_work') {
+      markEstimateScheduled(ev.estimateId, ev.start);
+    }
     eventDraft = null;
     $('#event-dlg').close();
     toast('Event saved');
@@ -1679,7 +1691,7 @@
         <button type="button" class="est-card" data-act="open" data-id="${esc(e.id)}">
           <div class="row"><b>${esc(clientDisplayName(e.client) || 'No name')}</b><b>${money(e.total)}</b></div>
           <div class="row muted"><span>${esc(e.number)}</span>
-            <span class="badge ${statusBadgeClass(e.status)}">${esc(STATUS_LABEL[e.status] || 'Draft')}</span></div>
+            <span class="badge ${statusBadgeClass(normalizeStatus(e))}">${esc(STATUS_LABEL[normalizeStatus(e)] || 'Pending')}</span></div>
           <div class="meta">${esc(e.client?.town || 'No town')}${appt ? ` · Next: ${esc(appt)}` : ''}</div>
         </button>`;
       }).join('')
@@ -1694,8 +1706,8 @@
       if (!saved) return location.replace('#/');
       current = hydrateEstimate(saved);
     }
-    // Once signed/approved, show the full PDF view instead of the wizard sections.
-    if (normalizeStatus(current) !== 'draft') {
+    // Unsigned (pending) stays in the wizard. Once signed, open the PDF view.
+    if (!isPendingEstimate(current)) {
       if (stepId === 'change') {
         openChangeOrder();
         return;
@@ -1731,7 +1743,7 @@
       initSignature($('#sig-client'), () => current.clientSig, (url) => {
         current.clientSig = url;
         if (url && !current.clientSigDate) current.clientSigDate = today();
-        if (url && (current.status === 'draft' || !current.status)) current.status = 'approved';
+        if (url) current.status = 'approved';
         syncKey('est', 'clientSigDate');
         scheduleSave();
       });
@@ -1822,18 +1834,7 @@
         ${moneyInput('dayRate')}
         <div class="sum-line grand">Labor total <b data-total="labor"></b></div>
       </section>
-      <section class="card">
-        <h3>Schedule</h3>
-        <div class="chips">
-          <button type="button" class="chip" data-act="start-in" data-d="7">Next week</button>
-          <button type="button" class="chip" data-act="start-in" data-d="14">In 2 weeks</button>
-          <button type="button" class="chip" data-act="start-in" data-d="21">In 3 weeks</button>
-        </div>
-        <div class="two mt">
-          ${field('Estimated start', 'startDate', 'type="date"')}
-          ${field('Estimated completion', 'endDate', 'type="date"')}
-        </div>
-      </section>`;
+      <p class="hint">Work dates are set on the calendar or Jobs board after the estimate is signed.</p>`;
   }
 
   function stepEquipment() {
@@ -1861,7 +1862,7 @@
   }
 
   function stepSummary() {
-    const approved = current.status && current.status !== 'draft';
+    const status = normalizeStatus(current);
     return `
       <h2 class="step-title">Estimate summary</h2>
       <section class="card totals">
@@ -1890,12 +1891,10 @@
         <div class="row mt">${moneyInput('depositAmt', 'or enter amount')}<b data-total="deposit" class="dep"></b></div>
       </section>
       <section class="card">
-        <h3>Approval <small>${esc(STATUS_LABEL[normalizeStatus(current)])}</small></h3>
-        ${approved
-          ? `<p class="muted small">This estimate is marked ${esc(STATUS_LABEL[normalizeStatus(current)])}.${current.clientSig ? ' Client signature on file.' : ''}</p>
-             <button type="button" class="btn" data-act="schedule">📅 Open schedule</button>`
-          : `<p class="muted small">Mark approved for verbal or email approvals, or collect a signature on the next step.</p>
-             <button type="button" class="btn primary big" data-act="mark-approved">✓ Mark approved</button>`}
+        <h3>Signature <small>${esc(STATUS_LABEL[status])}</small></h3>
+        <p class="muted small">Unsigned estimates stay <b>Pending</b>. A client signature marks them <b>Approved</b>.</p>
+        <button type="button" class="btn primary big" data-act="open-sig">✍ Add signature</button>
+        <p class="hint">Use this when the customer isn’t here for the full Sign step — it opens a signature pad only.</p>
       </section>`;
   }
 
@@ -1999,7 +1998,6 @@
   function stepSend() {
     const share = 'share' in navigator ? '<button type="button" class="btn" data-act="share">📤 Share</button>' : '';
     const status = normalizeStatus(current);
-    const approved = status !== 'draft';
     return `
       <h2 class="step-title">Send to client</h2>
       <div class="btn-grid">
@@ -2008,11 +2006,8 @@
         <button type="button" class="btn" data-act="sms" ${current.client.phone ? '' : 'disabled'}>💬 Text</button>
         <button type="button" class="btn" data-act="email" ${current.client.email ? '' : 'disabled'}>✉️ Email</button>
       </div>
-      ${approved
-        ? `<p class="hint">Status: <b>${esc(STATUS_LABEL[status])}</b>. Open Schedule to pick work dates.</p>
-           <button type="button" class="btn big" data-act="schedule">📅 Open schedule</button>`
-        : `<button type="button" class="btn big" data-act="mark-approved">✓ Mark approved</button>
-           <p class="hint">Use Mark approved for verbal or email approvals without a signature.</p>`}
+      <p class="hint">Status: <b>${esc(STATUS_LABEL[status])}</b>. Add a signature to approve, then schedule on the calendar.</p>
+      <button type="button" class="btn primary big" data-act="open-sig">✍ Add signature</button>
       <p class="hint">For a PDF: tap Print / PDF, then choose “Save as PDF” (Android) or use the Share button in the print screen (iPhone).</p>
       <div class="doc-preview">${renderDoc(current)}</div>
       <div class="btn-pair">
@@ -2247,6 +2242,52 @@
       '',
       `Questions? ${[profile.phone, profile.email].filter(Boolean).join(' · ')}`,
     ].filter((l, i, a) => l || (a[i - 1] && a[i + 1])).join('\n');
+  }
+
+  // ---------- signature capture (customer not present for full Sign step) ----------
+
+  function openSignatureCapture() {
+    if (!current) return;
+    flushBound('est');
+    const dlg = $('#sig-dlg');
+    if (!dlg) return;
+    dlg.innerHTML = `
+      <div class="sheet-head">
+        <button type="button" class="icon-btn" data-act="close-sig" aria-label="Cancel">✕</button>
+        <h3>Client signature</h3>
+        <button type="button" class="btn primary sm" data-act="save-sig">Save</button>
+      </div>
+      <div class="sheet-body" data-scope="est">
+        <p class="hint">Sign below to approve ${esc(current.number)}. Unsigned estimates stay Pending.</p>
+        <canvas id="sig-capture" class="sig" aria-label="Client signs here"></canvas>
+        <div class="sig-foot"><span>Client signs above</span><button type="button" class="link" data-act="clear-capture-sig">Clear</button></div>
+        ${field('Date', 'clientSigDate', 'type="date"')}
+        <button type="button" class="btn primary big" data-act="save-sig">Save signature</button>
+      </div>`;
+    syncKey('est', 'clientSigDate');
+    if (!dlg.open) dlg.showModal();
+    initSignature($('#sig-capture'), () => current.clientSig, (url) => {
+      current.clientSig = url;
+      if (url && !current.clientSigDate) {
+        current.clientSigDate = today();
+        syncKey('est', 'clientSigDate');
+      }
+    });
+  }
+
+  function saveSignatureCapture() {
+    if (!current) return;
+    flushBound('est');
+    if (!current.clientSig) {
+      toast('Signature required');
+      return;
+    }
+    if (!current.clientSigDate) current.clientSigDate = today();
+    current.status = 'approved';
+    saveNow();
+    $('#sig-dlg')?.close();
+    toast(`${current.number} approved`);
+    renderApprovedDoc(current.id);
   }
 
   // ---------- approved estimate (PDF view + change orders) ----------
@@ -2905,14 +2946,19 @@
       go(el.dataset.to);
     },
 
-    'mark-approved': () => {
+    'open-sig': () => openSignatureCapture(),
+    'close-sig': () => $('#sig-dlg')?.close(),
+    'save-sig': () => saveSignatureCapture(),
+    'clear-capture-sig': () => {
       if (!current) return;
-      flushBound('est');
-      setEstimateStatus(current, 'approved');
-      if (!current.clientSigDate) current.clientSigDate = today();
-      saveNow();
-      toast(`${current.number} approved`);
-      renderApprovedDoc(current.id);
+      current.clientSig = '';
+      current.clientSigDate = '';
+      const canvas = $('#sig-capture');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      syncKey('est', 'clientSigDate');
     },
     'add-change': () => openChangeOrder(),
     'close-change': () => {
@@ -2960,6 +3006,9 @@
     'cal-save-force': () => {
       if (!eventDraft) return;
       upsertEvent(eventDraft);
+      if (eventDraft.estimateId && eventDraft.type === 'tree_work') {
+        markEstimateScheduled(eventDraft.estimateId, eventDraft.start);
+      }
       eventDraft = null;
       $('#event-dlg').close();
       toast('Event saved');
@@ -3036,14 +3085,6 @@
       onChange(scope, key);
       if (scope === 'change' && key === 'days') renderChangeOrderForm();
     },
-    'start-in': (el) => {
-      current.startDate = addDays(today(), num(el.dataset.d));
-      syncKey('est', 'startDate');
-      syncEndDate();
-      maybeScheduleFromDate(current);
-      scheduleSave();
-    },
-
     'add-tree': () => openTree(-1, current.trees[current.trees.length - 1] ? { ...blankTree(), species: '', work: current.trees[current.trees.length - 1].work } : null),
     'edit-tree': (el) => openTree(num(el.dataset.i)),
     'copy-tree': (el) => openTree(-1, current.trees[num(el.dataset.i)]),
@@ -3123,7 +3164,7 @@
         id: uid(),
         number: 'E-' + profile.nextNumber,
         date: today(),
-        status: 'draft',
+        status: 'pending',
         blockReason: '',
         clientSig: '', clientSigDate: '',
         startDate: '', endDate: '',
@@ -3197,7 +3238,7 @@
         job.startDate = startDate;
         if (startDate) {
           job.endDate = addDays(startDate, Math.max(0, Math.ceil(num(job.days) || 1) - 1));
-          if (['approved', 'draft', 'scheduled'].includes(normalizeStatus(job))) {
+          if (job.clientSig && ['approved', 'scheduled'].includes(normalizeStatus(job))) {
             job.status = 'scheduled';
           }
         }
