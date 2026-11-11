@@ -2154,7 +2154,8 @@
     const eqRows = (e.equipment || []).map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
     const validUntil = addDays(e.date, num(e.validDays) || 30);
     const clientName = clientDisplayName(e.client);
-    const contactName = String(p.contactName || BRAND.company?.contactName || 'Joey Beairl').trim();
+    // Honor an explicitly cleared contact name; only fall back when unset.
+    const contactName = String(p.contactName ?? BRAND.company?.contactName ?? '').trim();
     const siteNotes = [
       (e.site || []).length || e.siteOther ? noteLine('Site', checkedList(e.site, e.siteOther)) : '',
       e.parking ? noteLine('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
