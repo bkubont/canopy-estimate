@@ -2149,28 +2149,34 @@
     const kv = (label, value) => value
       ? `<div class="kv"><b>${label}:</b><span>${esc(value)}</span></div>`
       : '';
+    const kvHtml = (label, html) => html
+      ? `<div class="kv"><b>${label}:</b><span>${html}</span></div>`
+      : '';
     const sec = (title, body, extraClass = '') =>
       `<section class="doc-sec ${extraClass}"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
-    const noteLine = (label, body) =>
-      `<div class="doc-note-line"><span class="doc-note-label">${label}</span><span class="doc-note-body">${body}</span></div>`;
 
-    const eqRows = (e.equipment || []).map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
     const validUntil = addDays(e.date, num(e.validDays) || 30);
     const clientName = clientDisplayName(e.client);
     // Honor an explicitly cleared contact name; only fall back when unset.
     const contactName = String(p.contactName ?? BRAND.company?.contactName ?? '').trim();
-    const siteNotes = [
-      (e.site || []).length || e.siteOther ? noteLine('Site', checkedList(e.site, e.siteOther)) : '',
-      e.parking ? noteLine('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
-      e.extras || e.extrasOther ? noteLine('Wood &amp; debris', checkedList(e.extras ? [e.extras] : [], e.extrasOther)) : '',
-      (e.startDate || e.endDate) ? noteLine('Dates', `Start ${niceDate(e.startDate) || '—'} · Done ${niceDate(e.endDate) || '—'}`) : '',
-      e.notes ? noteLine('Notes', esc(e.notes).replace(/\n/g, '<br>')) : '',
-    ].filter(Boolean).join('');
+    const siteDates = (e.startDate || e.endDate)
+      ? `Start ${niceDate(e.startDate) || '—'} · Done ${niceDate(e.endDate) || '—'}`
+      : '';
+    const siteBody = [
+      (e.site || []).length || e.siteOther ? kvHtml('Site', checkedList(e.site, e.siteOther)) : '',
+      e.parking ? kvHtml('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
+      e.extras || e.extrasOther ? kvHtml('Wood & debris', checkedList(e.extras ? [e.extras] : [], e.extrasOther)) : '',
+      kv('Dates', siteDates),
+      e.notes ? kvHtml('Notes', esc(e.notes).replace(/\n/g, '<br>')) : '',
+    ].filter(Boolean).join('') || '<span class="doc-muted">None selected</span>';
 
-    const laborRows = [
-      `<tr><td>Original job</td><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.baseLabor)}</td></tr>`,
+    // One flat list: labor + rentals as line items (no section subheadings).
+    const lineRows = [
+      `<tr><td>Total labor</td><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.baseLabor)}</td></tr>`,
       ...(e.changeOrders || []).map((co, i) =>
         `<tr><td>Change order ${i + 1}</td><td class="r">${num(co.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(num(co.days) * num(e.dayRate))}</td></tr>`),
+      ...(e.equipment || []).map((m) =>
+        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`),
     ].join('');
 
     const changeDocs = (e.changeOrders || []).map((co, i) => renderChangeOrderDoc(co, i, e.dayRate)).join('');
@@ -2186,7 +2192,7 @@
           ${p.logo ? `<img src="${esc(p.logo)}" alt="" class="doc-logo">` : ''}
           <div class="doc-brand">
             <div class="doc-brand-name">${esc(p.name || BRAND.appName || 'Estimate')}</div>
-            <h1>Tree Service Estimate</h1>
+            <h1>Estimate</h1>
             <div class="doc-company">${headerBits}</div>
           </div>
           <div class="doc-no"><b>${esc(e.number)}</b><br>${niceDate(e.date)}</div>
@@ -2202,30 +2208,26 @@
             ${kv('Town', e.client.town)}
             ${kv('State / ZIP', [e.client.state, e.client.zip].filter(Boolean).join(' '))}
           `)}
-          ${sec('Site details', siteNotes || '<span class="doc-muted">No site notes</span>', 'doc-site-notes')}
+          ${sec('Site details', siteBody)}
         </div>
 
         ${sec(`Trees (${treeCount(e)})`, renderTreeTable(e.trees))}
 
         ${sec('Pricing', `
-          <h4 class="doc-pricing-label">Job labor</h4>
-          <table class="doc-table">
-            <thead><tr><th></th><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
-            <tbody>${laborRows}</tbody>
-            <tfoot><tr><th colspan="3">Total labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
-          </table>
-          <h4 class="doc-pricing-label">Equipment rentals</h4>
-          <table class="doc-table">
-            <thead><tr><th>Description</th><th class="r">Qty / days</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
-            <tbody>${eqRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
-            <tfoot><tr><th colspan="3">Total equipment</th><td class="r">${money(t.equipment)}</td></tr></tfoot>
-          </table>
-          <table class="doc-sum">
-            <tr><th>Subtotal (labor + equipment)</th><td>${money(t.subtotal)}</td></tr>
-            <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
-            <tr><th>Other costs (travel, etc.)</th><td>${money(t.additional)}</td></tr>
-            <tr class="grand"><th>Total estimate</th><td>${money(t.total)}</td></tr>
-          </table>
+          <div class="doc-pricing">
+            <table class="doc-table">
+              <thead><tr><th>Description</th><th class="r">Qty / days</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+              <tbody>${lineRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
+            </table>
+            <table class="doc-sum">
+              <tr><th>Labor total</th><td>${money(t.labor)}</td></tr>
+              <tr><th>Equipment total</th><td>${money(t.equipment)}</td></tr>
+              <tr><th>Subtotal</th><td>${money(t.subtotal)}</td></tr>
+              <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
+              <tr><th>Other costs</th><td>${money(t.additional)}</td></tr>
+              <tr class="grand"><th>Total estimate</th><td>${money(t.total)}</td></tr>
+            </table>
+          </div>
         `)}
 
         ${sec('Signatures', `
