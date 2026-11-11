@@ -86,8 +86,10 @@
     'Other',
   ];
 
-  // Quick-add equipment chips with Smith Equipment day-rate defaults.
-  // Prices are remembered in profile.prices after first use / edit.
+  // Quick-add equipment chips with Smith Equipment day-rate defaults (cost).
+  // New estimates add RENTAL_MARKUP on top. Legacy estimates (no equipmentMarkup
+  // field) keep markup 1 so signed totals stay unchanged. Costs live in profile.prices.
+  const RENTAL_MARKUP = 1.2; // 20% markup on rentals for new estimates
   const EQUIPMENT = [
     ['Mini skid steer', 245],
     ['Towable boom 55′', 290],
@@ -104,6 +106,10 @@
   const EQUIPMENT_DEFAULTS = Object.fromEntries(
     EQUIPMENT.map(([desc, price]) => [desc.toLowerCase(), price])
   );
+  // Missing equipmentMarkup = legacy estimate → no markup (preserve signed totals).
+  const equipmentMarkupOf = (e) => (e?.equipmentMarkup == null || e.equipmentMarkup === '' ? 1 : num(e.equipmentMarkup) || 1);
+  const rentalUnitPrice = (m, e) => num(m?.price) * equipmentMarkupOf(e);
+  const rentalLineTotal = (m, e) => num(m?.qty) * rentalUnitPrice(m, e);
 
   const DAYS = [[0.5, '½ day'], [1, '1 day'], [1.5, '1½ days'], [2, '2 days'], [3, '3 days'], [4, '4 days'], [5, '5 days']];
   const ADDITIONAL = [[0, 'None'], [50, '$50'], [100, '$100'], [150, '$150'], [250, '$250']];
@@ -386,6 +392,7 @@
       dayRate: num(profile.dayRate),
       startDate: '', endDate: '',
       equipment: [],
+      equipmentMarkup: RENTAL_MARKUP,
       taxRate: num(profile.taxRate),
       additional: 0,
       validDays: num(profile.validDays) || 30,
@@ -563,6 +570,10 @@
       })),
     }));
 
+    // Legacy estimates (no equipmentMarkup field) keep 1× so signed totals don't change.
+    const equipmentMarkup = Object.prototype.hasOwnProperty.call(saved || {}, 'equipmentMarkup')
+      ? (num(saved.equipmentMarkup) || 1)
+      : 1;
     const est = {
       ...blank,
       ...saved,
@@ -570,6 +581,7 @@
       client,
       trees,
       equipment,
+      equipmentMarkup,
       site: siteMig.site,
       siteOther,
       parking: saved?.parking || '',
@@ -619,7 +631,7 @@
   }
 
   function totals(e) {
-    const equipment = (e.equipment || []).reduce((s, m) => s + num(m.qty) * num(m.price), 0);
+    const equipment = (e.equipment || []).reduce((s, m) => s + rentalLineTotal(m, e), 0);
     const baseLabor = num(e.days) * num(e.dayRate);
     const changeLabor = changeOrderDays(e) * num(e.dayRate);
     const labor = baseLabor + changeLabor;
@@ -1854,16 +1866,20 @@
         </div>
         <div class="qty-price">
           <div><h4>Qty / days</h4>${stepper(`equipment.${i}.qty`, { step: 0.5, min: 0.5 })}</div>
-          <div><h4>Price each</h4>${moneyInput(`equipment.${i}.price`)}</div>
+          <div><h4>Rental cost each</h4>${moneyInput(`equipment.${i}.price`)}</div>
         </div>
-        <div class="sum-line">Line total <b data-line="equipment.${i}"></b></div>
+        <div class="sum-line">Line total ${equipmentMarkupOf(current) > 1 ? '<small class="muted">+20%</small> ' : ''}<b data-line="equipment.${i}"></b></div>
       </div>`).join('');
+    const markupHint = equipmentMarkupOf(current) > 1
+      ? '<p class="hint">Enter the rental cost. A 20% markup is added automatically for the customer total.</p>'
+      : '';
     return `
       <h2 class="step-title">Equipment rentals</h2>
       <section class="card">
-        <h3>Tap to add <small>Smith rates · remembered after edit</small></h3>
+        <h3>Tap to add <small>Smith cost rates${equipmentMarkupOf(current) > 1 ? ' · 20% markup on totals' : ''}</small></h3>
         <div class="chips">${EQUIPMENT.map(([d]) => `<button type="button" class="chip" data-act="add-equip" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
       </section>
+      ${markupHint}
       <div class="line-list">${rows || '<p class="empty">No equipment rentals. Skip this step if none are needed.</p>'}</div>
       <button type="button" class="btn big" data-act="add-equip" data-desc="">＋ Other item</button>
       <section class="card"><div class="sum-line grand">Total equipment <b data-total="equipment"></b></div></section>`;
@@ -1975,7 +1991,8 @@
     for (const el of $$('[data-line]')) {
       const [list, i] = el.dataset.line.split('.');
       const r = current[list][i];
-      if (r) el.textContent = money(num(r.qty) * num(r.price));
+      if (!r) continue;
+      el.textContent = list === 'equipment' ? money(rentalLineTotal(r, current)) : money(num(r.qty) * num(r.price));
     }
   }
 
@@ -2176,7 +2193,7 @@
       ...(e.changeOrders || []).map((co, i) =>
         `<tr><td>Change order ${i + 1}</td><td class="r">${num(co.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(num(co.days) * num(e.dayRate))}</td></tr>`),
       ...(e.equipment || []).map((m) =>
-        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`),
+        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(rentalUnitPrice(m, e))}</td><td class="r">${money(rentalLineTotal(m, e))}</td></tr>`),
     ].join('');
 
     const changeDocs = (e.changeOrders || []).map((co, i) => renderChangeOrderDoc(co, i, e.dayRate)).join('');

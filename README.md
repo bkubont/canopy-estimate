@@ -8,7 +8,7 @@ Open `index.html` in any modern browser; there's no build step. Hosted over HTTP
 
 ## How it works
 
-Pricing is **days × day rate** plus equipment rentals. Wood & debris choices are operational only (not priced). Tree size is trunk diameter (DBH).
+Pricing is **days × day rate** plus equipment rentals (Smith cost rates with a **20% markup**). Wood & debris choices are operational only (not priced). Tree size is trunk diameter (DBH).
 
 1. **Company profile:** company name, license, address, phone, email, logo, day rate (default $2,000), tax, deposit, validity period, and your contractor signature. Incomplete setup shows a banner with a Finish company profile action but does **not** block Calendar, Estimates, or Jobs. Name and phone are required to save. After setup, the app lands on **Calendar**.
 2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet related sections are combined:
@@ -16,7 +16,7 @@ Pricing is **days × day rate** plus equipment rentals. Wood & debris choices ar
    - **Trees:** northern MI species in hardwood/softwood groups, work, DBH size, condition
    - **Site:** site conditions, **Parking**, **Wood & debris** (leave all / leave wood / haul all / cut and stack / hide it), notes
    - **Job days** *(tablet: Pricing):* ½ / 1 / 1½ / 2… days × day rate (work dates set later on calendar/Jobs)
-   - **Equipment:** Smith Equipment day-rate defaults; rental days auto-match job days until edited
+   - **Equipment:** Smith Equipment cost defaults; rental days auto-match job days; **20% markup** on rental totals
    - **Summary** *(tablet: Review):* labor, equipment, tax, **Other costs**, total, terms, **Add signature**
    - **Sign:** client signature sets status to Approved; contractor sig from profile
    - **Approved:** full estimate PDF once signed; **Add** opens a signed change order (extra days, reason, optional trees)
