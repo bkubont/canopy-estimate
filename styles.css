@@ -817,37 +817,96 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
 }
 .cal-agenda-item .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 
-.cal-timegrid { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
-.cal-time-row {
+/* Week / day planner: job cards + task pool (no hour grid) */
+.cal-planner {
   display: grid;
-  grid-template-columns: 52px repeat(7, minmax(72px, 1fr));
-  gap: 4px;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.cal-task-pool {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  min-height: 220px;
+  position: sticky;
+  top: 8px;
+}
+.cal-pool-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
+.cal-pool-head h3 { margin: 0; font-size: 15px; }
+.cal-pool-hint { margin: 0 0 10px; }
+.cal-pool-list { display: flex; flex-direction: column; gap: 6px; min-height: 48px; }
+.cal-plan-board {
+  display: grid;
+  gap: 8px;
+  overflow-x: auto;
   min-width: 0;
 }
-.cal-timegrid.cols-1 .cal-time-row { grid-template-columns: 52px minmax(0, 1fr); }
-.cal-time-row.head .cal-time-dayhead,
-.cal-time-label {
-  font-size: 12px; color: var(--muted); font-weight: 600;
-  padding: 6px 2px;
+.cal-plan-board.cols-7 { grid-template-columns: repeat(7, minmax(120px, 1fr)); }
+.cal-plan-board.cols-1 { grid-template-columns: minmax(0, 1fr); }
+.cal-plan-day {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 8px;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.cal-time-dayhead { text-align: center; cursor: pointer; border-radius: 8px; }
-.cal-time-dayhead.today { color: var(--green); }
-.cal-slot, .cal-allday-cell {
-  min-height: 44px;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--card) 80%, transparent);
-  padding: 2px;
-  cursor: pointer;
+.cal-plan-day.today { border-color: var(--green); }
+.cal-plan-day.is-drop-target,
+.cal-task-pool.is-drop-target {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+  background: color-mix(in srgb, var(--green) 10%, var(--card));
 }
-.cal-allday-cell { min-height: 36px; }
+.cal-plan-dayhead {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.cal-plan-dayhead.today { color: var(--green); }
+.cal-plan-dow { font-size: 11px; color: var(--muted); font-weight: 600; }
+.cal-plan-dom { font-size: 18px; line-height: 1; }
+.cal-plan-section { display: flex; flex-direction: column; gap: 4px; }
+.cal-plan-label {
+  font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+}
+.cal-plan-add { align-self: flex-start; font-size: 12px; margin-top: auto; }
+.cal-event.cal-draggable { cursor: grab; }
+.cal-event.is-dragging { opacity: .45; }
+.cal-event.type-dump_run,
+.cal-event.type-equipment_rental,
+.cal-event.type-maintenance {
+  background: color-mix(in srgb, var(--bark, #8B5E3C) 18%, var(--card));
+}
+.btn.sm { padding: 6px 10px; min-height: 32px; font-size: 13px; }
+
+.contacts-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.contact-card {
+  display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px;
+}
+.contact-card .danger { color: #b42318; }
+
+@media (max-width: 900px) {
+  .cal-planner { grid-template-columns: 1fr; }
+  .cal-task-pool { position: static; }
+  .cal-plan-board.cols-7 { grid-auto-flow: column; grid-template-columns: repeat(7, minmax(140px, 1fr)); }
+}
 
 @media (min-width: 768px) {
   .cal-toolbar { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-  .cal-actions { width: auto; display: flex; }
+  .cal-actions { width: auto; display: flex; flex-wrap: wrap; }
   .cal-cell { min-height: 96px; }
   .cal-filter-grid { grid-template-columns: 1fr 1fr 1fr auto; align-items: end; }
-  #view:has(.cal-shell) { max-width: 1100px; }
+  #view:has(.cal-shell) { max-width: 1280px; }
 }
 
 

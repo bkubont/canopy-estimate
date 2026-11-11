@@ -12,7 +12,7 @@ Pricing is **days × day rate** plus equipment rentals (Smith cost rates with a 
 
 1. **Company profile:** company name, license, address, phone, email, logo, day rate (default $2,000), tax, deposit, validity period, and your contractor signature. Incomplete setup shows a banner with a Finish company profile action but does **not** block Calendar, Estimates, or Jobs. Name and phone are required to save. After setup, the app lands on **Calendar**.
 2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet related sections are combined:
-   - **Client** *(tablet: Job = Client + Site):* first/last name, company, state (MI) + ZIP, contacts / `.vcf` / past client, plus **Town** for the schedule
+   - **Client** *(tablet: Job = Client + Site):* first/last name, company, state (MI) + ZIP, contact library / `.vcf` / device contacts, plus **Town** for the schedule
    - **Trees:** northern MI species in hardwood/softwood groups, work, DBH size, condition
    - **Site:** site conditions, **Parking**, **Wood & debris** (leave all / leave wood / haul all / cut and stack / hide it), notes
    - **Job days** *(tablet: Pricing):* ½ / 1 / 1½ / 2… days × day rate (work dates set later on calendar/Jobs)
@@ -22,14 +22,15 @@ Pricing is **days × day rate** plus equipment rentals (Smith cost rates with a 
    - **Approved:** full estimate PDF once signed; **Add** opens a signed change order (extra days, reason, optional trees)
    - **Send** (pending): print/PDF, share, text, email; **Add signature** opens a signature pad when the customer isn’t present
 3. **Estimates list** (☰): search, reopen, status badges (**Pending** unsigned / **Approved** signed / **Scheduled** on calendar / In Progress / Blocked / Done).
-4. **Calendar** (landing / ☰): Month, Week, Day, and Agenda views (phone defaults to Agenda). Create and edit events (estimate visit, tree work, rentals, etc.) in America/Detroit time. Linking a signed estimate to a tree-work event marks it **Scheduled**. Tree work on an unsigned estimate requires an override.
-5. **Jobs board** (☰): List or Kanban of the estimate pipeline — client name, phone, town, days, equipment. Pick a work date on a signed estimate → **Scheduled**. Move to In Progress, Blocked (with reason chips), or Done.
+4. **Calendar** (landing): Week planner by default — day columns for **tree-work jobs** (all day) and **bids** (2-hour timed visits), plus a **task pool** for dump runs, equipment rentals, and maintenance. Drag tasks onto a day (no clock time). Month/Day/Agenda still available. Linking a signed estimate to tree work marks it **Scheduled**.
+5. **Contacts**: Import a full `.vcf` library (Apple/Google export). Contacts stay on-device and appear in the estimate client picker. You can also pull names from past estimates.
+6. **Jobs board** (☰): List or Kanban of the estimate pipeline — client name, phone, town, days, equipment. Pick a work date on a signed estimate → **Scheduled**. Move to In Progress, Blocked (with reason chips), or Done.
 
 Pick lists live at the top of `app.js`.
 
 ## Where data lives
 
-Everything is stored in the browser's `localStorage` on this device only — there is no cloud sync. Use **Back up data** regularly (profile, estimates, and calendar events when present). Restore can merge or replace; replace snapshots current data on the device first. Legacy estimates migrate automatically (status from signature, ignore old crew, map old height sizes when possible, split town from City/State/ZIP).
+Everything is stored in the browser's `localStorage` on this device only — there is no cloud sync. Use **Back up data** regularly (profile, estimates, calendar events, and contacts when present). Restore can merge or replace; replace snapshots current data on the device first. Legacy estimates migrate automatically (status from signature, ignore old crew, map old height sizes when possible, split town from City/State/ZIP).
 
 ## Files
 
