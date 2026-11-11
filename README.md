@@ -12,14 +12,15 @@ Pricing is **days × day rate** plus equipment rentals. Wood & debris choices ar
 
 1. **Company profile:** company name, license, address, phone, email, logo, day rate (default $2,000), tax, deposit, validity period, and your contractor signature. Incomplete setup shows a banner with a Finish company profile action but does **not** block Calendar, Estimates, or Jobs. Name and phone are required to save. After setup, the app lands on **Calendar**.
 2. **New estimate**, with big Back / Next buttons. On a phone it’s one section per screen; on a tablet related sections are combined:
-   - **Client** *(tablet: Job = Client + Site):* contacts / `.vcf` / past client, plus **Town** for the schedule
-   - **Trees:** northern MI species, work (including canopy raise and cabling/bracing), DBH size, condition
-   - **Site:** site conditions, **Wood & debris**, notes
+   - **Client** *(tablet: Job = Client + Site):* first/last name, company, state (MI) + ZIP, contacts / `.vcf` / past client, plus **Town** for the schedule
+   - **Trees:** northern MI species in hardwood/softwood groups, work, DBH size, condition
+   - **Site:** site conditions, **Parking**, **Wood & debris** (leave all / leave wood / haul all / cut and stack / hide it), notes
    - **Job days** *(tablet: Pricing):* ½ / 1 / 1½ / 2… days × day rate, optional start date
-   - **Equipment:** Smith Equipment day-rate defaults (mini skid, boom lifts, grinders, chipper…). Prices are remembered after edit
+   - **Equipment:** Smith Equipment day-rate defaults; rental days auto-match job days until edited
    - **Summary** *(tablet: Review):* labor, equipment, tax, **Other costs**, total, terms, **Mark approved**
-   - **Sign:** client signature sets status to Approved; contractor sig from profile
-   - **Send:** print/PDF, share, text, email; Mark approved for verbal / email approvals
+   - **Sign:** client signature sets status to Approved and opens the full PDF view; contractor sig from profile
+   - **Approved:** full estimate PDF with branding; **Add** opens a signed change order (extra days, reason, optional trees) appended to the PDF
+   - **Send** (drafts): print/PDF, share, text, email; Mark approved for verbal / email approvals
 3. **Estimates list** (☰): search, reopen, status badges (Draft / Approved / Scheduled / In Progress / Blocked / Done).
 4. **Calendar** (landing / ☰): Month, Week, Day, and Agenda views (phone defaults to Agenda). Create and edit events (estimate visit, tree work, rentals, etc.) in America/Detroit time. Filters by type, crew, and status; overlap warnings for shared crew/equipment; tree work on an unapproved estimate requires an override. Estimates that already have work dates can seed calendar events once.
 5. **Jobs board** (☰): List or Kanban of the estimate pipeline — client name, phone, town, days, equipment. Pick a work date → **Scheduled**. Move to In Progress, Blocked (with reason chips), or Done.

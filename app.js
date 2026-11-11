@@ -4,19 +4,36 @@
   // ---------- pick lists (match the paper estimate form) ----------
 
   // Per-tree choices — northern Lower / eastern UP species
-  const SPECIES = [
-    'Sugar Maple', 'Red Maple', 'Silver Maple', 'Boxelder', 'Quaking Aspen', 'Bigtooth Aspen',
-    'Paper Birch', 'Yellow Birch', 'American Beech', 'Basswood', 'Ironwood',
-    'Northern Red Oak', 'White Oak', 'Burr Oak', 'White Pine', 'Red Pine', 'Jack Pine',
-    'Eastern Hemlock', 'Balsam Fir', 'White Spruce', 'Black Spruce', 'Tamarack',
-    'Black Cherry', 'Serviceberry', 'Willow', 'Cottonwood', 'Ash', 'Elm', 'Cedar',
-    'Fruit tree', 'Unknown',
+  // Grouped hardwoods / softwoods, ordered by typical field popularity within each group.
+  // Less-common subtypes are collapsed (e.g. Paper/Yellow Birch → Birch).
+  const SPECIES_GROUPS = [
+    {
+      label: 'Hardwoods',
+      options: [
+        'Sugar Maple', 'Red Maple', 'Silver Maple', 'Ash', 'Northern Red Oak', 'White Oak', 'Burr Oak',
+        'American Beech', 'Basswood', 'Birch', 'Aspen', 'Black Cherry', 'Elm', 'Cottonwood', 'Willow',
+        'Boxelder', 'Ironwood', 'Serviceberry', 'Fruit tree',
+      ],
+    },
+    {
+      label: 'Softwoods',
+      options: [
+        'White Pine', 'Red Pine', 'Cedar', 'Eastern Hemlock', 'Balsam Fir', 'Spruce', 'Jack Pine', 'Tamarack',
+      ],
+    },
+    { label: 'Other', options: ['Unknown'] },
   ];
+  const SPECIES = SPECIES_GROUPS.flatMap((g) => g.options);
+  const LEGACY_SPECIES = {
+    'Paper Birch': 'Birch', 'Yellow Birch': 'Birch',
+    'Quaking Aspen': 'Aspen', 'Bigtooth Aspen': 'Aspen',
+    'White Spruce': 'Spruce', 'Black Spruce': 'Spruce',
+  };
   const WORK = [
     'Removal', 'Removal + stump grinding', 'Canopy raise', 'Trimming / pruning', 'Crown reduction',
     'Deadwood removal', 'Stump grinding only', 'Cabling / bracing', 'Emergency / storm work', 'Land clearing',
   ];
-  const LOCATIONS = ['Front Yard', 'Backyard', 'Side Yard', 'Near Utility Lines', 'Over Structure', 'Over Fence', 'Driveway', 'Tree Line'];
+  const LOCATIONS = ['Front Yard', 'Backyard', 'Side Yard', 'Near Utility Lines', 'Over Structure', 'Driveway', 'Tree Line'];
   // Trunk diameter (DBH), not height bands
   const SIZES = [
     ['under12', 'Under 12″'],
@@ -28,20 +45,45 @@
   const SIZE_KEYS = new Set(SIZES.map((s) => s[0]));
   const LEGACY_SIZE_MAP = { Small: 'under12', Medium: '12-18', Large: '24-36' };
   const CONDITIONS = [
-    'Healthy', 'Diseased / decayed', 'Storm-damaged', 'Dead', 'Leaning / hazardous',
-    'Pest / EAB', 'Hollow / compromised',
+    'Healthy', 'Diseased', 'Storm-damaged', 'Dead', 'Leaning', 'Pest', 'Hollow',
   ];
+  const LEGACY_CONDITIONS = {
+    'Diseased / decayed': 'Diseased',
+    'Leaning / hazardous': 'Leaning',
+    'Pest / EAB': 'Pest',
+    'Hollow / compromised': 'Hollow',
+  };
 
   // Job-wide choices
   const SITE = [
-    'Clear Access', 'Restricted Access', 'Uneven Terrain', 'Sloped Terrain',
-    'Soft / wet ground', 'Overhead wires', 'Narrow gate / limited access',
-    'Near house or structure', 'Ground protection needed',
+    'Clear Access', 'Restricted Access', 'Uneven Terrain', 'Hillside',
+    'Overhead wires', 'Ground protection needed',
   ];
-  // Wood & debris — operational info only (not priced)
+  const LEGACY_SITE = {
+    'Sloped Terrain': 'Hillside',
+  };
+  const REMOVED_SITE = new Set([
+    'Soft / wet ground', 'Narrow gate / limited access', 'Near house or structure',
+  ]);
+  // Wood & debris — single choice (not priced)
   const EXTRAS = [
-    'Leave wood on site', 'Cut and stack (firewood)', 'Chip on site',
-    'Haul chips / debris away', 'Haul logs away', 'Client keeps wood',
+    'Leave all', 'Leave wood (haul brush)', 'Haul all', 'Cut and stack', 'Hide it',
+  ];
+  const LEGACY_EXTRAS = {
+    'Leave wood on site': 'Leave wood (haul brush)',
+    'Client keeps wood': 'Leave wood (haul brush)',
+    'Cut and stack (firewood)': 'Cut and stack',
+    'Haul chips / debris away': 'Haul all',
+    'Haul logs away': 'Haul all',
+    'Chip on site': 'Leave all',
+  };
+  const CHANGE_REASONS = [
+    'Unforeseen circumstances / hazards',
+    'Access worse than expected',
+    'Weather delay',
+    'Equipment needed',
+    'Client request',
+    'Other',
   ];
 
   // Quick-add equipment chips with Smith Equipment day-rate defaults.
@@ -273,6 +315,8 @@
   let profileDraft = null; // profile being edited
   let editingTree = null;  // tree open in the tree sheet
   let editingIndex = -1;
+  let changeDraft = null;  // change order being drafted after approval
+  let treeTarget = 'est'; // 'est' | 'change' — where saveTree writes
   let installPrompt = null;
   let pendingRestore = null; // parsed backup waiting for merge/replace choice
   let estStatusFilter = 'all';
@@ -286,17 +330,54 @@
   };
 
   const scopeOf = (el) => el.closest('[data-scope]')?.dataset.scope || 'est';
-  const objFor = (scope) => ({ profile: profileDraft, tree: editingTree })[scope] || current;
+  const objFor = (scope) => ({ profile: profileDraft, tree: editingTree, change: changeDraft })[scope] || current;
+
+  function blankClient() {
+    return {
+      firstName: '', lastName: '', name: '', company: '',
+      phone: '', email: '', street: '', town: '', state: 'MI', zip: '', csz: 'MI',
+    };
+  }
+
+  function clientDisplayName(c = {}) {
+    const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
+    return full || String(c.name || '').trim();
+  }
+
+  function syncClientDerived(client) {
+    if (!client || typeof client !== 'object') return client;
+    client.name = clientDisplayName(client);
+    const state = String(client.state || '').trim();
+    const zip = String(client.zip || '').trim();
+    client.csz = [state, zip].filter(Boolean).join(' ');
+    return client;
+  }
+
+  function splitLegacyName(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return { firstName: '', lastName: '' };
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+  }
+
+  function splitLegacyCsz(csz) {
+    const s = String(csz || '').trim();
+    if (!s) return { state: '', zip: '' };
+    const m = s.match(/^([A-Za-z]{2})(?:[,\s]+(.+))?$/);
+    if (m) return { state: m[1].toUpperCase(), zip: (m[2] || '').trim() };
+    if (/^\d/.test(s)) return { state: '', zip: s };
+    return { state: s, zip: '' };
+  }
 
   function blankEstimate() {
     return {
       id: uid(),
       number: 'E-' + profile.nextNumber,
       date: today(),
-      client: { name: '', phone: '', email: '', street: '', town: '', csz: '' },
+      client: blankClient(),
       trees: [],
       site: [], siteOther: '',
-      extras: [], extrasOther: '',
+      parking: '',
+      extras: '', extrasOther: '',
       notes: '',
       days: 1,
       dayRate: num(profile.dayRate),
@@ -311,12 +392,23 @@
       blockReason: '',
       clientSig: '',
       clientSigDate: '',
+      changeOrders: [],
       createdAt: new Date().toISOString(),
       updatedAt: null,
     };
   }
 
   const blankTree = () => ({ species: '', work: '', location: '', size: '', condition: '', qty: 1, notes: '' });
+  const blankChangeOrder = () => ({
+    id: uid(),
+    date: today(),
+    days: 1,
+    reason: '',
+    reasonOther: '',
+    trees: [],
+    clientSig: '',
+    clientSigDate: '',
+  });
 
   function normalizeStatus(e) {
     if (e?.status && STATUSES.includes(e.status)) return e.status;
@@ -344,12 +436,48 @@
     if (!e) return true;
     const c = e.client || {};
     const hasText = (...vals) => vals.some((v) => String(v ?? '').trim());
-    if (hasText(c.name, c.phone, c.email, c.street, c.town, c.csz)) return false;
+    if (hasText(c.firstName, c.lastName, c.name, c.company, c.phone, c.email, c.street, c.town, c.zip)) return false;
+    if (hasText(c.state) && String(c.state).trim().toUpperCase() !== 'MI') return false;
     if ((e.trees || []).length || (e.equipment || []).length) return false;
-    if ((e.site || []).length || (e.extras || []).length) return false;
-    if (hasText(e.siteOther, e.extrasOther, e.notes, e.startDate, e.clientSig)) return false;
+    if ((e.site || []).length || String(e.extras || '').trim()) return false;
+    if (hasText(e.siteOther, e.extrasOther, e.parking, e.notes, e.startDate, e.clientSig)) return false;
+    if ((e.changeOrders || []).length) return false;
     if (num(e.additional) > 0) return false;
     return true;
+  }
+
+  function migrateSpecies(species) {
+    const s = String(species || '').trim();
+    return LEGACY_SPECIES[s] || s;
+  }
+
+  function migrateCondition(condition) {
+    const c = String(condition || '').trim();
+    return LEGACY_CONDITIONS[c] || c;
+  }
+
+  function migrateSiteList(list) {
+    const out = [];
+    const otherBits = [];
+    for (const raw of list || []) {
+      const v = LEGACY_SITE[raw] || raw;
+      if (REMOVED_SITE.has(v)) otherBits.push(v);
+      else if (SITE.includes(v) && !out.includes(v)) out.push(v);
+      else if (v && !SITE.includes(v)) otherBits.push(v);
+    }
+    return { site: out, dropped: otherBits };
+  }
+
+  function migrateExtras(raw) {
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        const mapped = LEGACY_EXTRAS[item] || item;
+        if (EXTRAS.includes(mapped)) return mapped;
+      }
+      return raw.length ? LEGACY_EXTRAS[raw[0]] || raw[0] : '';
+    }
+    const s = String(raw || '').trim();
+    return LEGACY_EXTRAS[s] || s;
   }
 
   // Pull the latest typed values out of the DOM. Safari autofill and fast
@@ -357,7 +485,9 @@
   function flushBound(scope = 'est') {
     const obj = objFor(scope);
     if (!obj) return;
-    const root = scope === 'tree' ? $('#tree-dlg') : $('#view');
+    const root = scope === 'tree' ? $('#tree-dlg')
+      : scope === 'change' ? $('#change-dlg')
+      : $('#view');
     if (!root) return;
     for (const el of $$('[data-bind]', root)) {
       if (scopeOf(el) !== scope || el.classList.contains('chips')) continue;
@@ -370,24 +500,74 @@
   function hydrateEstimate(saved) {
     const blank = blankEstimate();
     const clientSrc = saved?.client || saved?.customer || {};
+    // Decide migration from the saved payload only — blank defaults (e.g. MI)
+    // must not mask a legacy csz like "WI 53703".
+    const srcState = String(clientSrc.state || '').trim();
+    const srcZip = String(clientSrc.zip || '').trim();
+    const srcCsz = String(clientSrc.csz || '').trim();
     const client = { ...blank.client, ...clientSrc };
-    if (!String(client.town || '').trim()) client.town = townFromCsz(client.csz);
+    if (!String(client.firstName || '').trim() && !String(client.lastName || '').trim() && client.name) {
+      Object.assign(client, splitLegacyName(client.name));
+    }
+    if (!srcState && !srcZip && srcCsz) {
+      const parts = splitLegacyCsz(srcCsz);
+      client.state = parts.state || '';
+      client.zip = parts.zip || '';
+    }
+    if (!String(client.state || '').trim()) client.state = 'MI';
+    if (!String(client.town || '').trim()) client.town = townFromCsz(srcCsz || client.csz);
+    syncClientDerived(client);
+
     const trees = (Array.isArray(saved?.trees) ? saved.trees : blank.trees).map((t) => ({
       ...blankTree(),
       ...t,
+      species: migrateSpecies(t?.species),
+      condition: migrateCondition(t?.condition),
       size: migrateTreeSize(t?.size),
     }));
+
+    const siteMig = migrateSiteList(Array.isArray(saved?.site) ? saved.site : blank.site);
+    let siteOther = saved?.siteOther || '';
+    if (siteMig.dropped.length) {
+      const extra = siteMig.dropped.join(', ');
+      siteOther = siteOther ? `${siteOther}; ${extra}` : extra;
+    }
+
+    const equipment = (Array.isArray(saved?.equipment)
+      ? saved.equipment
+      : (Array.isArray(saved?.materials) ? saved.materials : blank.equipment)
+    ).map((row) => ({
+      desc: row?.desc || '',
+      qty: row?.qty ?? 1,
+      price: row?.price ?? '',
+      qtyManual: !!row?.qtyManual,
+    }));
+
+    const changeOrders = (Array.isArray(saved?.changeOrders) ? saved.changeOrders : []).map((co) => ({
+      ...blankChangeOrder(),
+      ...co,
+      trees: (Array.isArray(co?.trees) ? co.trees : []).map((t) => ({
+        ...blankTree(),
+        ...t,
+        species: migrateSpecies(t?.species),
+        condition: migrateCondition(t?.condition),
+        size: migrateTreeSize(t?.size),
+      })),
+    }));
+
     const est = {
       ...blank,
       ...saved,
       id: saved?.id || blank.id,
       client,
       trees,
-      equipment: Array.isArray(saved?.equipment)
-        ? saved.equipment
-        : (Array.isArray(saved?.materials) ? saved.materials : blank.equipment),
-      site: Array.isArray(saved?.site) ? saved.site : blank.site,
-      extras: Array.isArray(saved?.extras) ? saved.extras : blank.extras,
+      equipment,
+      site: siteMig.site,
+      siteOther,
+      parking: saved?.parking || '',
+      extras: migrateExtras(saved?.extras),
+      extrasOther: saved?.extrasOther || '',
+      changeOrders,
       status: normalizeStatus(saved),
       blockReason: saved?.blockReason || '',
     };
@@ -426,15 +606,21 @@
     return '';
   };
 
+  function changeOrderDays(e) {
+    return (e.changeOrders || []).reduce((s, co) => s + num(co.days), 0);
+  }
+
   function totals(e) {
     const equipment = (e.equipment || []).reduce((s, m) => s + num(m.qty) * num(m.price), 0);
-    const labor = num(e.days) * num(e.dayRate);
+    const baseLabor = num(e.days) * num(e.dayRate);
+    const changeLabor = changeOrderDays(e) * num(e.dayRate);
+    const labor = baseLabor + changeLabor;
     const subtotal = equipment + labor;
     const tax = (subtotal * num(e.taxRate)) / 100;
     const additional = num(e.additional);
     const total = subtotal + tax + additional;
     const deposit = e.depositAmt !== '' && e.depositAmt != null ? num(e.depositAmt) : (total * Math.min(100, num(e.depositPct))) / 100;
-    return { equipment, labor, subtotal, tax, additional, total, deposit };
+    return { equipment, labor, baseLabor, changeLabor, subtotal, tax, additional, total, deposit };
   }
 
   let saveTimer;
@@ -447,6 +633,7 @@
     clearTimeout(saveTimer);
     flushBound('est');
     if (!current || isEmpty(current)) return;
+    syncClientDerived(current.client);
     current.status = normalizeStatus(current);
     delete current.crew;
     current.updatedAt = new Date().toISOString();
@@ -592,30 +779,61 @@
     syncKey('est', 'endDate');
   }
 
+  function syncEquipmentQtyToDays() {
+    if (!current) return;
+    const d = num(current.days) || 1;
+    for (const row of current.equipment || []) {
+      if (!row.qtyManual) row.qty = d;
+    }
+    for (let i = 0; i < (current.equipment || []).length; i += 1) {
+      syncKey('est', `equipment.${i}.qty`);
+    }
+  }
+
   function onChange(scope, key) {
-    if (scope !== 'est') return;
-    // Remember equipment prices so they fill in automatically next time.
-    const m = key.match(/^equipment\.(\d+)\.(price|desc)$/);
-    if (m) {
-      const row = current.equipment[m[1]];
-      if (row?.desc && row.price !== '') {
-        profile.prices[row.desc.trim().toLowerCase()] = num(row.price);
-        saveProfile();
+    if (scope === 'est') {
+      const nameKeys = ['client.firstName', 'client.lastName'];
+      if (nameKeys.includes(key) || key === 'client.state' || key === 'client.zip') {
+        syncClientDerived(current.client);
+        if (nameKeys.includes(key)) {
+          syncKey('est', 'client.name');
+          $('#appbar-title').textContent = wizardTitle();
+        }
       }
+      // Remember equipment prices so they fill in automatically next time.
+      const m = key.match(/^equipment\.(\d+)\.(price|desc)$/);
+      if (m) {
+        const row = current.equipment[m[1]];
+        if (row?.desc && row.price !== '') {
+          profile.prices[row.desc.trim().toLowerCase()] = num(row.price);
+          saveProfile();
+        }
+      }
+      const qtyMatch = key.match(/^equipment\.(\d+)\.qty$/);
+      if (qtyMatch) {
+        const row = current.equipment[qtyMatch[1]];
+        if (row) row.qtyManual = true;
+      }
+      if (key === 'days') {
+        syncEquipmentQtyToDays();
+        syncEndDate();
+      }
+      if (key === 'startDate') {
+        syncEndDate();
+        maybeScheduleFromDate(current);
+      }
+      // A deposit is either a percentage or a fixed amount, not both.
+      if (key === 'depositPct') {
+        current.depositAmt = '';
+        syncKey('est', 'depositAmt');
+      }
+      if (key === 'depositAmt' && current.depositAmt !== '') {
+        current.depositPct = '';
+        syncKey('est', 'depositPct');
+      }
+      updateTotals();
+      scheduleSave();
     }
-    if (key === 'days' || key === 'startDate') syncEndDate();
-    if (key === 'startDate') maybeScheduleFromDate(current);
-    // A deposit is either a percentage or a fixed amount, not both.
-    if (key === 'depositPct') {
-      current.depositAmt = '';
-      syncKey('est', 'depositAmt');
-    }
-    if (key === 'depositAmt' && current.depositAmt !== '') {
-      current.depositPct = '';
-      syncKey('est', 'depositPct');
-    }
-    updateTotals();
-    scheduleSave();
   }
 
   // ---------- calendar / events ----------
@@ -891,7 +1109,7 @@
       const ev = hydrateEvent({
         id: uid(),
         type: 'tree_work',
-        title: `${e.client?.name || e.number} · tree work`,
+        title: `${clientDisplayName(e.client) || e.number} · tree work`,
         start: e.startDate,
         end,
         timezone: TZ,
@@ -1146,7 +1364,7 @@
     const opts = Object.values(allEstimates()).map(hydrateEstimate)
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     return `<option value="">None</option>` + opts.map((e) =>
-      `<option value="${esc(e.id)}" ${selected === e.id ? 'selected' : ''}>${esc(e.number)} · ${esc(e.client?.name || 'No name')}</option>`
+      `<option value="${esc(e.id)}" ${selected === e.id ? 'selected' : ''}>${esc(e.number)} · ${esc(clientDisplayName(e.client) || 'No name')}</option>`
     ).join('');
   }
 
@@ -1236,7 +1454,7 @@
     if (!id) return;
     const e = hydrateEstimate(allEstimates()[id] || {});
     if (!$('#ev-title').value.trim()) {
-      $('#ev-title').value = `${e.client?.name || e.number || 'Job'}`;
+      $('#ev-title').value = `${clientDisplayName(e.client) || e.number || 'Job'}`;
     }
     if (!$('#ev-address').value.trim()) $('#ev-address').value = e.client?.street || '';
     if (!$('#ev-town').value.trim()) $('#ev-town').value = e.client?.town || '';
@@ -1342,7 +1560,7 @@
   // ---------- routing ----------
 
   const go = (hash) => { location.hash = hash; };
-  const stepHash = (id, step) => `#/e/${id}/${step}`;
+  const stepHash = (id, step) => (step ? `#/e/${id}/${step}` : `#/e/${id}`);
 
   function closeMenus() {
     for (const d of $$('dialog[open]')) d.close();
@@ -1409,7 +1627,10 @@
     if (si) si.hidden = install;
   }
 
-  const wizardTitle = () => `${current.number}${current.client.name ? ' · ' + current.client.name : ''}`;
+  const wizardTitle = () => {
+    const name = clientDisplayName(current?.client);
+    return `${current.number}${name ? ' · ' + name : ''}`;
+  };
 
   // ---------- home ----------
 
@@ -1448,7 +1669,7 @@
     const list = Object.values(allEstimates())
       .map(hydrateEstimate)
       .filter((e) => estStatusFilter === 'all' || normalizeStatus(e) === estStatusFilter)
-      .filter((e) => !q || [e.number, e.client?.name, e.client?.phone, e.client?.street, e.client?.town, e.client?.csz, STATUS_LABEL[e.status]].join(' ').toLowerCase().includes(q))
+      .filter((e) => !q || [e.number, clientDisplayName(e.client), e.client?.company, e.client?.phone, e.client?.street, e.client?.town, e.client?.state, e.client?.zip, e.client?.csz, STATUS_LABEL[e.status]].join(' ').toLowerCase().includes(q))
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
 
     $('#est-list').innerHTML = list.length
@@ -1456,7 +1677,7 @@
         const appt = nextAppointmentLabel(e);
         return `
         <button type="button" class="est-card" data-act="open" data-id="${esc(e.id)}">
-          <div class="row"><b>${esc(e.client?.name || 'No name')}</b><b>${money(e.total)}</b></div>
+          <div class="row"><b>${esc(clientDisplayName(e.client) || 'No name')}</b><b>${money(e.total)}</b></div>
           <div class="row muted"><span>${esc(e.number)}</span>
             <span class="badge ${statusBadgeClass(e.status)}">${esc(STATUS_LABEL[e.status] || 'Draft')}</span></div>
           <div class="meta">${esc(e.client?.town || 'No town')}${appt ? ` · Next: ${esc(appt)}` : ''}</div>
@@ -1472,6 +1693,15 @@
       const saved = allEstimates()[id];
       if (!saved) return location.replace('#/');
       current = hydrateEstimate(saved);
+    }
+    // Once signed/approved, show the full PDF view instead of the wizard sections.
+    if (normalizeStatus(current) !== 'draft') {
+      if (stepId === 'change') {
+        openChangeOrder();
+        return;
+      }
+      renderApprovedDoc(id);
+      return;
     }
     const steps = activeSteps();
     const i = findStepIndex(stepId);
@@ -1496,6 +1726,8 @@
     syncAll($('#view'), 'est');
     $('.step.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
     if (step.parts.includes('sign')) {
+      // Keep the pad open across strokes. Status flips to approved on first ink,
+      // but the PDF view opens only when leaving this step (Next / Done).
       initSignature($('#sig-client'), () => current.clientSig, (url) => {
         current.clientSig = url;
         if (url && !current.clientSigDate) current.clientSigDate = today();
@@ -1524,12 +1756,19 @@
       </div>
       ${canPick ? '' : '<p class="hint">On iPhone: in Contacts, open the person → Share Contact → Save to Files, then tap “From contacts” and pick the file.</p>'}
       <section class="card field-grid">
-        ${field('Name', 'client.name', 'autocomplete="name" autocapitalize="words"')}
+        <div class="two">
+          ${field('First name', 'client.firstName', 'autocomplete="given-name" autocapitalize="words"')}
+          ${field('Last name', 'client.lastName', 'autocomplete="family-name" autocapitalize="words"')}
+        </div>
+        ${field('Company', 'client.company', 'autocomplete="organization" autocapitalize="words"')}
         ${field('Phone', 'client.phone', 'type="tel" autocomplete="tel" inputmode="tel"')}
         ${field('Email', 'client.email', 'type="email" autocomplete="email" inputmode="email"')}
         ${field('Address', 'client.street', 'autocomplete="address-line1" autocapitalize="words"')}
         ${field('Town', 'client.town', 'autocomplete="address-level2" autocapitalize="words"')}
-        ${field('State / ZIP', 'client.csz', 'autocapitalize="characters"')}
+        <div class="two">
+          ${field('State', 'client.state', 'autocomplete="address-level1" autocapitalize="characters" maxlength="2"')}
+          ${field('ZIP', 'client.zip', 'autocomplete="postal-code" inputmode="numeric"')}
+        </div>
       </section>`;
   }
 
@@ -1558,8 +1797,12 @@
         ${checkGroup('site', SITE)}
       </section>
       <section class="card">
-        <h3>Wood &amp; debris <small>not charged</small></h3>
-        ${checkGroup('extras', EXTRAS)}
+        <h3>Parking</h3>
+        ${field('Where should vehicles and trailers park?', 'parking', 'rows="2" placeholder="Street, driveway, yard, etc."', true)}
+      </section>
+      <section class="card">
+        <h3>Wood &amp; debris</h3>
+        ${chips('extras', EXTRAS)}
       </section>
       <section class="card">
         ${field('Notes for the client', 'notes', 'rows="3" placeholder="Optional"', true)}
@@ -1601,7 +1844,7 @@
           <button type="button" class="icon-btn del" data-act="del-row" data-list="equipment" data-i="${i}" aria-label="Remove">✕</button>
         </div>
         <div class="qty-price">
-          <div><h4>Qty / days</h4>${stepper(`equipment.${i}.qty`, { min: 1 })}</div>
+          <div><h4>Qty / days</h4>${stepper(`equipment.${i}.qty`, { step: 0.5, min: 0.5 })}</div>
           <div><h4>Price each</h4>${moneyInput(`equipment.${i}.price`)}</div>
         </div>
         <div class="sum-line">Line total <b data-line="equipment.${i}"></b></div>
@@ -1658,9 +1901,18 @@
 
   // ---------- tree sheet ----------
 
-  function openTree(i, from) {
+  function speciesChips() {
+    return SPECIES_GROUPS.map((g) => `
+      <h4 class="chip-group-label">${esc(g.label)}</h4>
+      ${chips('species', g.options)}
+    `).join('');
+  }
+
+  function openTree(i, from, target = 'est') {
+    treeTarget = target === 'change' ? 'change' : 'est';
+    const list = treeTarget === 'change' ? (changeDraft?.trees || []) : current.trees;
     editingIndex = i;
-    editingTree = i >= 0 ? clone(current.trees[i]) : from ? { ...clone(from), notes: '' } : blankTree();
+    editingTree = i >= 0 ? clone(list[i]) : from ? { ...clone(from), notes: '' } : blankTree();
     const dlg = $('#tree-dlg');
     dlg.innerHTML = `
       <div class="sheet-head">
@@ -1670,7 +1922,7 @@
       </div>
       <div class="sheet-body">
         <h4>Type of tree</h4>
-        ${chips('species', SPECIES)}
+        ${speciesChips()}
         <input data-bind="species" placeholder="Other type…" class="mt" autocapitalize="words">
         <h4>Work</h4>
         ${chips('work', WORK)}
@@ -1694,6 +1946,14 @@
 
   function saveTree() {
     editingTree.qty = Math.max(1, num(editingTree.qty) || 1);
+    if (treeTarget === 'change') {
+      if (!changeDraft) return;
+      if (editingIndex >= 0) changeDraft.trees[editingIndex] = editingTree;
+      else changeDraft.trees.push(editingTree);
+      $('#tree-dlg').close();
+      renderChangeOrderForm();
+      return;
+    }
     if (editingIndex >= 0) current.trees[editingIndex] = editingTree;
     else current.trees.push(editingTree);
     $('#tree-dlg').close();
@@ -1846,28 +2106,74 @@
 
   // ---------- printable estimate (mirrors the paper form) ----------
 
+  function checkedList(items = [], other = '') {
+    const list = [...(items || [])];
+    if (other) list.push(`Other: ${other}`);
+    if (!list.length) return '<span class="doc-muted">None selected</span>';
+    return `<ul class="doc-checks">${list.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  }
+
+  function renderTreeTable(trees) {
+    const rows = (trees || []).map((trItem, i) => `<tr>
+        <td>${i + 1}</td><td class="r">${num(trItem.qty) || 1}</td><td><b>${esc(trItem.species) || '—'}</b></td><td>${esc(trItem.work)}</td>
+        <td>${esc(trItem.location)}</td><td>${esc(sizeLabel(trItem.size) || trItem.size)}</td><td>${esc(trItem.condition)}${trItem.notes ? `<div class="doc-note">${esc(trItem.notes)}</div>` : ''}</td></tr>`).join('');
+    return `<table class="doc-table trees">
+      <thead><tr><th>#</th><th class="r">Qty</th><th>Type of tree</th><th>Work</th><th>Location</th><th>DBH</th><th>Condition / notes</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" class="none">None</td></tr>'}</tbody>
+    </table>`;
+  }
+
+  function renderChangeOrderDoc(co, index, dayRate) {
+    const amount = num(co.days) * num(dayRate);
+    const reason = co.reason === 'Other' && co.reasonOther
+      ? `Other: ${co.reasonOther}`
+      : (co.reason || '—');
+    const kv = (label, value) => `<div class="kv"><b>${label}:</b><span>${esc(value) || '&nbsp;'}</span></div>`;
+    const sec = (title, body) => `<section class="doc-sec doc-change"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
+    return sec(`Change order ${index + 1}`, `
+      <div class="grid2">${kv('Date', niceDate(co.date))}${kv('Additional days', String(num(co.days)))}</div>
+      ${kv('Reason', reason)}
+      ${kv('Amount', money(amount))}
+      ${(co.trees || []).length ? `<h4 class="doc-sub">Added trees</h4>${renderTreeTable(co.trees)}` : ''}
+      <div class="sig-line"><div class="sig-box">${co.clientSig ? `<img src="${co.clientSig}" alt="">` : ''}</div><span>${niceDate(co.clientSigDate)}</span></div>
+      <div class="sig-cap"><span>Client signature</span><span>Date</span></div>
+    `);
+  }
+
   function renderDoc(e) {
     const t = totals(e);
     const p = profile;
-    const box = (on, label) => `<span class="cb"><i class="${on ? 'on' : ''}">${on ? '✓' : ''}</i>${label}</span>`;
-    const boxes = (opts, sel = [], other = '') =>
-      opts.map((o) => box(sel.includes(o), esc(o))).join('') + box(!!other, `Other${other ? ': ' + esc(other) : ''}`);
     const kv = (label, value) => `<div class="kv"><b>${label}:</b><span>${esc(value) || '&nbsp;'}</span></div>`;
     const sec = (title, body) => `<section class="doc-sec"><h3>${title}</h3><div class="doc-sec-body">${body}</div></section>`;
     const tr = (label, body) => `<tr><th>${label}</th><td>${body}</td></tr>`;
 
     const eqRows = (e.equipment || []).map((m) => `<tr><td>${esc(m.desc)}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`).join('');
-    const treeRows = (e.trees || []).map((trItem, i) => `<tr>
-        <td>${i + 1}</td><td class="r">${num(trItem.qty) || 1}</td><td><b>${esc(trItem.species) || '—'}</b></td><td>${esc(trItem.work)}</td>
-        <td>${esc(trItem.location)}</td><td>${esc(sizeLabel(trItem.size) || trItem.size)}</td><td>${esc(trItem.condition)}${trItem.notes ? `<div class="doc-note">${esc(trItem.notes)}</div>` : ''}</td></tr>`).join('');
     const validUntil = addDays(e.date, num(e.validDays) || 30);
-    const townLine = [e.client.town, e.client.csz].filter(Boolean).join(' · ');
+    const clientName = clientDisplayName(e.client);
+    const siteRows = [
+      (e.site || []).length || e.siteOther ? tr('Site conditions', checkedList(e.site, e.siteOther)) : '',
+      e.parking ? tr('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
+      e.extras || e.extrasOther ? tr('Wood &amp; debris', checkedList(e.extras ? [e.extras] : [], e.extrasOther)) : '',
+      (e.startDate || e.endDate) ? tr('Estimated dates', `Start: <b>${niceDate(e.startDate) || '—'}</b> &nbsp;&nbsp; Completion: <b>${niceDate(e.endDate) || '—'}</b>`) : '',
+      e.notes ? tr('Notes', esc(e.notes).replace(/\n/g, '<br>')) : '',
+    ].filter(Boolean).join('');
+
+    const laborRows = [
+      `<tr><td>Original job</td><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.baseLabor)}</td></tr>`,
+      ...(e.changeOrders || []).map((co, i) =>
+        `<tr><td>Change order ${i + 1}</td><td class="r">${num(co.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(num(co.days) * num(e.dayRate))}</td></tr>`),
+    ].join('');
+
+    const changeDocs = (e.changeOrders || []).map((co, i) => renderChangeOrderDoc(co, i, e.dayRate)).join('');
 
     return `
       <article class="doc">
         <header class="doc-head">
           ${p.logo ? `<img src="${esc(p.logo)}" alt="" class="doc-logo">` : ''}
-          <h1>Tree Service Estimate</h1>
+          <div class="doc-brand">
+            <div class="doc-brand-name">${esc(p.name || BRAND.appName || 'Estimate')}</div>
+            <h1>Tree Service Estimate</h1>
+          </div>
           <div class="doc-no"><b>${esc(e.number)}</b><br>${niceDate(e.date)}</div>
         </header>
 
@@ -1877,35 +2183,25 @@
           <div class="grid2">${kv('Phone', p.phone)}${kv('Email', p.email)}</div>`)}
 
         ${sec('Client information', `
-          <div class="grid2">${kv('Name', e.client.name)}${kv('Email', e.client.email)}</div>
-          <div class="grid2">${kv('Address', e.client.street)}${kv('Town', e.client.town)}</div>
-          <div class="grid2">${kv('State / ZIP', e.client.csz)}${e.client.phone ? kv('Phone', e.client.phone) : '<div></div>'}</div>
-          ${townLine && !e.client.town ? kv('City / State / ZIP', e.client.csz) : ''}`)}
+          <div class="grid2">${kv('Name', clientName)}${kv('Company', e.client.company)}</div>
+          <div class="grid2">${kv('Email', e.client.email)}${kv('Phone', e.client.phone)}</div>
+          ${kv('Address', e.client.street)}
+          <div class="grid2">${kv('Town', e.client.town)}${kv('State', e.client.state)}</div>
+          ${kv('ZIP', e.client.zip)}
+          ${siteRows ? `<h4 class="doc-sub">Site details</h4><table class="doc-form">${siteRows}</table>` : ''}`)}
 
-        ${sec(`Trees (${treeCount(e)})`, `
-          <table class="doc-table trees">
-            <thead><tr><th>#</th><th class="r">Qty</th><th>Type of tree</th><th>Work</th><th>Location</th><th>DBH</th><th>Condition / notes</th></tr></thead>
-            <tbody>${treeRows || '<tr><td colspan="7" class="none">None</td></tr>'}</tbody>
-          </table>`)}
-
-        ${sec('Site details', `
-          <table class="doc-form">
-            ${tr('Site conditions', boxes(SITE, e.site, e.siteOther))}
-            ${tr('Wood &amp; debris', boxes(EXTRAS, e.extras, e.extrasOther))}
-            ${tr('Estimated dates', `Start: <b>${niceDate(e.startDate) || '—'}</b> &nbsp;&nbsp; Completion: <b>${niceDate(e.endDate) || '—'}</b>`)}
-            ${e.notes ? tr('Notes', esc(e.notes).replace(/\n/g, '<br>')) : ''}
-          </table>`)}
+        ${sec(`Trees (${treeCount(e)})`, renderTreeTable(e.trees))}
 
         <div class="doc-cols">
           ${sec('Job labor', `
             <table class="doc-table">
-              <thead><tr><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
-              <tbody><tr><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.labor)}</td></tr></tbody>
-              <tfoot><tr><th colspan="2">Total labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
+              <thead><tr><th></th><th class="r">Days</th><th class="r">Day rate</th><th class="r">Amount</th></tr></thead>
+              <tbody>${laborRows}</tbody>
+              <tfoot><tr><th colspan="3">Total labor</th><td class="r">${money(t.labor)}</td></tr></tfoot>
             </table>`)}
           ${sec('Equipment rentals', `
             <table class="doc-table">
-              <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
+              <thead><tr><th>Description</th><th class="r">Qty / days</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
               <tbody>${eqRows || '<tr><td colspan="4" class="none">None</td></tr>'}</tbody>
               <tfoot><tr><th colspan="3">Total equipment</th><td class="r">${money(t.equipment)}</td></tr></tfoot>
             </table>`)}
@@ -1930,24 +2226,154 @@
             <p>Final costs may vary depending on site conditions and additional work.</p>
             <p>Deposit required: <b>${money(t.deposit)}</b></p>`)}
         </div>
+
+        ${changeDocs}
       </article>`;
   }
 
   function summaryText(e) {
     const t = totals(e);
-    const first = e.client.name.split(' ')[0];
+    const first = e.client.firstName || clientDisplayName(e.client).split(' ')[0];
+    const coDays = changeOrderDays(e);
     return [
       `Hi${first ? ' ' + first : ''}, here is your tree service estimate ${e.number} from ${profile.name}:`,
       '',
       ...e.trees.map((trItem) => `• ${treeTitle(trItem)}`),
       '',
-      `Job: ${num(e.days)} day${num(e.days) === 1 ? '' : 's'}`,
+      `Job: ${num(e.days)} day${num(e.days) === 1 ? '' : 's'}${coDays ? ` (+${coDays} change-order day${coDays === 1 ? '' : 's'})` : ''}`,
       e.client.town ? `Town: ${e.client.town}` : '',
       `Total estimate: ${money(t.total)}${t.deposit ? ` (deposit ${money(t.deposit)})` : ''}`,
       `Valid for ${num(e.validDays) || 30} days.`,
       '',
       `Questions? ${[profile.phone, profile.email].filter(Boolean).join(' · ')}`,
     ].filter((l, i, a) => l || (a[i - 1] && a[i + 1])).join('\n');
+  }
+
+  // ---------- approved estimate (PDF view + change orders) ----------
+
+  function renderApprovedDoc(id) {
+    if (!current || current.id !== id) {
+      const saved = allEstimates()[id];
+      if (!saved) return location.replace('#/');
+      current = hydrateEstimate(saved);
+    }
+    const status = normalizeStatus(current);
+    const share = 'share' in navigator ? '<button type="button" class="btn" data-act="share">📤 Share</button>' : '';
+    setChrome({ title: wizardTitle(), back: true, bottombar: false });
+    history.replaceState(null, '', stepHash(current.id));
+    $('#view').innerHTML = `
+      <div class="approved-view">
+        <div class="approved-bar">
+          <div>
+            <h2 class="step-title" style="margin:0">${esc(current.number)}</h2>
+            <p class="muted small" style="margin:4px 0 0">Status: <b>${esc(STATUS_LABEL[status])}</b></p>
+          </div>
+          <div class="approved-actions">
+            <button type="button" class="btn primary" data-act="print">🖨️ Print / PDF</button>
+            <button type="button" class="btn primary" data-act="add-change">＋ Add</button>
+          </div>
+        </div>
+        <div class="btn-grid">
+          ${share}
+          <button type="button" class="btn" data-act="sms" ${current.client.phone ? '' : 'disabled'}>💬 Text</button>
+          <button type="button" class="btn" data-act="email" ${current.client.email ? '' : 'disabled'}>✉️ Email</button>
+          <button type="button" class="btn" data-act="schedule">📅 Schedule</button>
+        </div>
+        <p class="hint">Approved estimates open as one document. Use <b>Add</b> for a signed change order (extra days, reason, optional trees).</p>
+        <div class="doc-preview">${renderDoc(current)}</div>
+        <div class="btn-pair">
+          <button type="button" class="btn" data-act="duplicate">⧉ Duplicate</button>
+          <button type="button" class="btn danger" data-act="delete-est">🗑 Delete</button>
+        </div>
+      </div>`;
+  }
+
+  function openChangeOrder() {
+    if (!current) return;
+    changeDraft = blankChangeOrder();
+    renderChangeOrderForm();
+  }
+
+  function renderChangeOrderForm() {
+    if (!changeDraft || !current) return;
+    const dlg = $('#change-dlg');
+    if (!dlg) return;
+    const trees = (changeDraft.trees || []).map((t, i) => `
+      <div class="tree-card">
+        <button type="button" class="tree-main" data-act="edit-change-tree" data-i="${i}">
+          <b>${i + 1}. ${esc(treeTitle(t))}</b>
+          <span class="muted">${esc(treeDetails(t)) || 'Tap to add details'}</span>
+        </button>
+      </div>`).join('');
+    dlg.innerHTML = `
+      <div class="sheet-head" data-scope="change">
+        <button type="button" class="icon-btn" data-act="close-change" aria-label="Cancel">✕</button>
+        <h3>Change order</h3>
+        <button type="button" class="btn primary sm" data-act="save-change">Save</button>
+      </div>
+      <div class="sheet-body" data-scope="change">
+        <p class="hint">Adds days (and optional trees) to ${esc(current.number)}. Client signature is required.</p>
+        <h4>Additional days</h4>
+        ${chips('days', DAYS, { isNum: true })}
+        <div class="mt">${stepper('days', { step: 0.5, min: 0.5 })}</div>
+        <div class="sum-line">At ${money(num(current.dayRate))}/day → <b>${money(num(changeDraft.days) * num(current.dayRate))}</b></div>
+        <h4>Reason</h4>
+        ${chips('reason', CHANGE_REASONS)}
+        ${changeDraft.reason === 'Other' || changeDraft.reasonOther
+          ? `<input class="mt" data-bind="reasonOther" placeholder="Describe the reason…">`
+          : ''}
+        <h4>Add trees <small class="muted">optional</small></h4>
+        <div class="line-list">${trees || '<p class="empty">No trees on this change order.</p>'}</div>
+        <button type="button" class="btn" data-act="add-change-tree">＋ Add tree</button>
+        <h4>Client signature</h4>
+        <canvas id="sig-change" class="sig" aria-label="Client signs change order"></canvas>
+        <div class="sig-foot"><span>Client signs above</span><button type="button" class="link" data-act="clear-change-sig">Clear</button></div>
+        ${field('Date', 'clientSigDate', 'type="date"')}
+        <button type="button" class="btn primary big" data-act="save-change">Save change order</button>
+      </div>`;
+    syncAll(dlg, 'change');
+    if (!dlg.open) dlg.showModal();
+    initSignature($('#sig-change'), () => changeDraft.clientSig, (url) => {
+      changeDraft.clientSig = url;
+      if (url && !changeDraft.clientSigDate) {
+        changeDraft.clientSigDate = today();
+        syncKey('change', 'clientSigDate');
+      }
+    });
+    $('.sheet-body', dlg).scrollTop = 0;
+  }
+
+  function saveChangeOrder() {
+    if (!current || !changeDraft) return;
+    flushBound('change');
+    if (!num(changeDraft.days)) {
+      toast('Enter additional days');
+      return;
+    }
+    if (!changeDraft.reason) {
+      toast('Choose a reason');
+      return;
+    }
+    if (changeDraft.reason === 'Other' && !String(changeDraft.reasonOther || '').trim()) {
+      toast('Describe the reason');
+      return;
+    }
+    if (!changeDraft.clientSig) {
+      toast('Client signature required');
+      return;
+    }
+    if (!changeDraft.clientSigDate) changeDraft.clientSigDate = today();
+    if (!Array.isArray(current.changeOrders)) current.changeOrders = [];
+    current.changeOrders.push(clone(changeDraft));
+    // Extend completion date by additional whole days when a schedule exists.
+    if (current.endDate) {
+      current.endDate = addDays(current.endDate, Math.max(0, Math.ceil(num(changeDraft.days) || 0)));
+    }
+    changeDraft = null;
+    $('#change-dlg')?.close();
+    saveNow();
+    toast('Change order added');
+    renderApprovedDoc(current.id);
   }
 
   // ---------- schedule ----------
@@ -1993,10 +2419,10 @@
     return `
       <article class="job-card" data-id="${esc(e.id)}">
         <div class="row">
-          <b>${esc(e.client?.name || 'No name')}</b>
+          <b>${esc(clientDisplayName(e.client) || 'No name')}</b>
           <span class="badge ${statusBadgeClass(status)}">${esc(STATUS_LABEL[status])}</span>
         </div>
-        <div class="muted">${esc(e.client?.town || 'No town')} · ${esc(daysLabel(e.days))}</div>
+        <div class="muted">${esc(e.client?.town || 'No town')} · ${esc(daysLabel(num(e.days) + changeOrderDays(e)))}</div>
         ${dates}
         <div class="muted small">Equipment: ${eq.yes ? esc(eq.text) : 'None'}</div>
         ${reason}
@@ -2179,8 +2605,6 @@
 
   // ---------- contacts ----------
 
-  const stateZipOf = (region, zip) => [region, zip].filter(Boolean).join(' ');
-
   async function pickContact() {
     if ('contacts' in navigator && 'select' in navigator.contacts) {
       try {
@@ -2188,13 +2612,16 @@
         const [c] = await navigator.contacts.select(props.filter((p) => ['name', 'tel', 'email', 'address'].includes(p)), { multiple: false });
         if (!c) return;
         const a = c.address?.[0];
+        const names = splitLegacyName(c.name?.[0] || '');
         fillClient({
-          name: c.name?.[0] || '',
+          firstName: names.firstName,
+          lastName: names.lastName,
           phone: c.tel?.[0] || '',
           email: c.email?.[0] || '',
           street: a?.addressLine?.join(' ') || '',
           town: a?.city || '',
-          csz: a ? stateZipOf(a.region, a.postalCode) : '',
+          state: a?.region ? String(a.region).slice(0, 2).toUpperCase() : '',
+          zip: a?.postalCode || '',
         });
       } catch (err) {
         console.warn(err);
@@ -2213,30 +2640,41 @@
       if (i < 0) continue;
       const key = line.slice(0, i).split(';')[0].toUpperCase().replace(/^ITEM\d+\./, '');
       const raw = line.slice(i + 1);
-      if (key === 'END' && out.name) break; // first card only
+      if (key === 'END' && (out.firstName || out.name)) break; // first card only
       if (key === 'FN' && !out.name) out.name = unesc(raw);
       if (key === 'N' && !out.nParts) out.nParts = raw.split(';').map(unesc);
+      if (key === 'ORG' && !out.company) out.company = unesc(raw.split(';')[0] || '');
       if (key === 'TEL' && !out.phone) out.phone = unesc(raw);
       if (key === 'EMAIL' && !out.email) out.email = unesc(raw);
       if (key === 'ADR' && !out.street) {
         const [, , street, city, region, zip] = raw.replace(/\\;/g, '\u0000').split(';').map((x) => unesc(x.replace(/\u0000/g, ';')));
         out.street = street;
         out.town = city || '';
-        out.csz = stateZipOf(region, zip);
+        out.state = region ? String(region).slice(0, 2).toUpperCase() : '';
+        out.zip = zip || '';
       }
     }
-    if (!out.name && out.nParts) out.name = [out.nParts[1], out.nParts[0]].filter(Boolean).join(' ');
+    if (out.nParts) {
+      out.firstName = out.nParts[1] || '';
+      out.lastName = out.nParts[0] || '';
+    } else if (out.name) {
+      Object.assign(out, splitLegacyName(out.name));
+    }
     return out;
   }
 
   function fillClient(c) {
-    for (const k of ['name', 'phone', 'email', 'street', 'town', 'csz']) {
+    const keys = ['firstName', 'lastName', 'company', 'phone', 'email', 'street', 'town', 'state', 'zip'];
+    for (const k of keys) {
       if (c[k]) current.client[k] = c[k];
-      syncKey('est', 'client.' + k);
     }
+    if (!current.client.state) current.client.state = 'MI';
+    syncClientDerived(current.client);
+    for (const k of [...keys, 'name', 'csz']) syncKey('est', 'client.' + k);
     $('#appbar-title').textContent = wizardTitle();
     scheduleSave();
-    toast(c.name ? `Added ${c.name}` : 'Contact added');
+    const label = clientDisplayName(current.client);
+    toast(label ? `Added ${label}` : 'Contact added');
   }
 
   function pastClients() {
@@ -2244,22 +2682,25 @@
     const list = Object.values(allEstimates()).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     for (const e of list) {
       const c = hydrateEstimate(e).client || {};
-      const k = (c.name + '|' + c.phone).toLowerCase();
-      if (c.name && !seen.has(k) && e.id !== current?.id) seen.set(k, c);
+      const name = clientDisplayName(c);
+      const k = (name + '|' + c.phone).toLowerCase();
+      if (name && !seen.has(k) && e.id !== current?.id) seen.set(k, c);
     }
     return [...seen.values()];
   }
 
   function filteredClients() {
     const q = $('#pick-search').value.trim().toLowerCase();
-    return pastClients().filter((c) => !q || [c.name, c.phone, c.street, c.town, c.csz].join(' ').toLowerCase().includes(q));
+    return pastClients().filter((c) => !q || [
+      clientDisplayName(c), c.company, c.phone, c.street, c.town, c.state, c.zip, c.csz,
+    ].join(' ').toLowerCase().includes(q));
   }
 
   function renderPickList() {
     const list = filteredClients();
     $('#pick-list').innerHTML = list.length
       ? list.map((c, i) => `<button type="button" class="pick-item" data-act="choose-client" data-i="${i}">
-          <b>${esc(c.name)}</b><span class="muted">${esc([c.phone, c.town || c.street].filter(Boolean).join(' · '))}</span></button>`).join('')
+          <b>${esc(clientDisplayName(c))}</b><span class="muted">${esc([c.company, c.phone, c.town || c.street].filter(Boolean).join(' · '))}</span></button>`).join('')
       : `<p class="empty">${$('#pick-search').value ? 'No matches.' : 'No past clients yet.'}</p>`;
   }
 
@@ -2471,8 +2912,22 @@
       if (!current.clientSigDate) current.clientSigDate = today();
       saveNow();
       toast(`${current.number} approved`);
-      const hashStep = location.hash.replace(/^#\/?/, '').split('/')[2];
-      renderWizard(current.id, hashStep || 'summary');
+      renderApprovedDoc(current.id);
+    },
+    'add-change': () => openChangeOrder(),
+    'close-change': () => {
+      changeDraft = null;
+      $('#change-dlg')?.close();
+      if (current) renderApprovedDoc(current.id);
+    },
+    'save-change': () => saveChangeOrder(),
+    'add-change-tree': () => openTree(-1, null, 'change'),
+    'edit-change-tree': (el) => openTree(num(el.dataset.i), null, 'change'),
+    'clear-change-sig': () => {
+      if (!changeDraft) return;
+      changeDraft.clientSig = '';
+      changeDraft.clientSigDate = '';
+      renderChangeOrderForm();
     },
 
     'cal-today': () => { cal.cursor = detroitYmd(); renderCalendar(); },
@@ -2579,6 +3034,7 @@
       setPath(obj, key, Math.max(num(el.dataset.min), num(getPath(obj, key)) + num(el.dataset.d)));
       syncKey(scope, key);
       onChange(scope, key);
+      if (scope === 'change' && key === 'days') renderChangeOrderForm();
     },
     'start-in': (el) => {
       current.startDate = addDays(today(), num(el.dataset.d));
@@ -2594,6 +3050,12 @@
     'save-tree': saveTree,
     'delete-tree': () => {
       if (!confirm('Delete this tree?')) return;
+      if (treeTarget === 'change') {
+        changeDraft?.trees.splice(editingIndex, 1);
+        $('#tree-dlg').close();
+        renderChangeOrderForm();
+        return;
+      }
       current.trees.splice(editingIndex, 1);
       $('#tree-dlg').close();
       saveNow();
@@ -2606,7 +3068,12 @@
       const price = key
         ? (profile.prices[key] ?? EQUIPMENT_DEFAULTS[key] ?? '')
         : '';
-      current.equipment.push({ desc, qty: 1, price });
+      current.equipment.push({
+        desc,
+        qty: num(current.days) || 1,
+        price,
+        qtyManual: false,
+      });
       saveNow();
       renderWizard(current.id, 'equipment');
       const row = $$('.line-card').pop();
@@ -2660,6 +3127,7 @@
         blockReason: '',
         clientSig: '', clientSigDate: '',
         startDate: '', endDate: '',
+        changeOrders: [],
         createdAt: new Date().toISOString(),
         updatedAt: null,
       };
@@ -2714,6 +3182,7 @@
       }
       syncKey(scope, key);
       onChange(scope, key);
+      if (scope === 'change' && (key === 'reason' || key === 'days')) renderChangeOrderForm();
       return;
     }
     const act = e.target.closest('[data-act]');
