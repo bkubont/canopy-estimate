@@ -1868,15 +1868,18 @@
           <div><h4>Qty / days</h4>${stepper(`equipment.${i}.qty`, { step: 0.5, min: 0.5 })}</div>
           <div><h4>Rental cost each</h4>${moneyInput(`equipment.${i}.price`)}</div>
         </div>
-        <div class="sum-line">Line total <small class="muted">+20%</small> <b data-line="equipment.${i}"></b></div>
+        <div class="sum-line">Line total ${equipmentMarkupOf(current) > 1 ? '<small class="muted">+20%</small> ' : ''}<b data-line="equipment.${i}"></b></div>
       </div>`).join('');
+    const markupHint = equipmentMarkupOf(current) > 1
+      ? '<p class="hint">Enter the rental cost. A 20% markup is added automatically for the customer total.</p>'
+      : '';
     return `
       <h2 class="step-title">Equipment rentals</h2>
       <section class="card">
-        <h3>Tap to add <small>Smith cost rates · 20% markup on totals</small></h3>
+        <h3>Tap to add <small>Smith cost rates${equipmentMarkupOf(current) > 1 ? ' · 20% markup on totals' : ''}</small></h3>
         <div class="chips">${EQUIPMENT.map(([d]) => `<button type="button" class="chip" data-act="add-equip" data-desc="${esc(d)}">＋ ${esc(d)}</button>`).join('')}</div>
       </section>
-      <p class="hint">Enter the rental cost. A 20% markup is added automatically for the customer total.</p>
+      ${markupHint}
       <div class="line-list">${rows || '<p class="empty">No equipment rentals. Skip this step if none are needed.</p>'}</div>
       <button type="button" class="btn big" data-act="add-equip" data-desc="">＋ Other item</button>
       <section class="card"><div class="sum-line grand">Total equipment <b data-total="equipment"></b></div></section>`;
