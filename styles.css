@@ -560,10 +560,50 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
   color: var(--doc-red); margin-bottom: 2px;
 }
 .doc-head h1 {
-  margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.7em; font-weight: 800;
+  margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.55em; font-weight: 800;
   letter-spacing: .02em; text-transform: uppercase; color: var(--doc-ink);
 }
+.doc-company {
+  margin-top: 6px;
+  font-size: .92em;
+  color: var(--doc-muted);
+  line-height: 1.35;
+}
+.doc-contact { font-weight: 700; color: var(--doc-ink); }
 .doc-no { text-align: right; font-size: .95em; white-space: nowrap; }
+.doc-client-site { align-items: stretch; }
+.doc-site-notes > h3 {
+  background: color-mix(in srgb, var(--doc-ink) 78%, #fff);
+  color: #fff;
+  font-size: .78em;
+}
+.doc-site-notes .doc-sec-body {
+  font-size: .86em;
+  color: var(--doc-muted);
+  padding: 12px 10px 8px;
+  background: color-mix(in srgb, var(--doc-line) 45%, #fff);
+}
+.doc-note-line { display: grid; grid-template-columns: 5.5em 1fr; gap: 6px; padding: 3px 0; }
+.doc-note-line + .doc-note-line { border-top: 1px solid var(--doc-line); }
+.doc-note-label { font-weight: 700; color: var(--doc-ink); }
+.doc-note-body .doc-checks { padding-left: 1em; margin: 0; }
+.doc-pricing-label {
+  margin: 10px 0 4px;
+  font-size: .8em;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--doc-muted);
+}
+.doc-pricing-label:first-child { margin-top: 0; }
+.doc-sum { margin-top: 10px; }
+.doc-terms {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px solid var(--doc-line);
+  font-size: .72em;
+  line-height: 1.4;
+  color: var(--doc-muted);
+}
 .doc-sec { margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
 .doc-sec > h3 {
   position: relative; z-index: 1;
@@ -615,9 +655,10 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
 
 @media (max-width: 560px) {
   .doc-preview { font-size: 11px; }
-  .doc-head h1 { font-size: 1.5em; }
+  .doc-head h1 { font-size: 1.35em; }
   .doc-cols, .grid2 { grid-template-columns: 1fr; }
   .doc-form th { white-space: normal; width: 30%; }
+  .doc-note-line { grid-template-columns: 1fr; gap: 2px; }
 }
 
 /* ---------- tablet: wider canvas, fewer empty gutters ---------- */
