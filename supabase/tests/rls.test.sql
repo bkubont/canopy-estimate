@@ -231,5 +231,82 @@ set role anon;
 select t.fails($$ select public.customer_sign(v::uuid, 'data:image/png;base64,iVBORw0KGgo=', 'Dana') from t.ids where k = 'token' $$,
   'expired', 'an expired estimate cannot be signed through the link');
 
+
+-- ================================================================ Phase 3: invoices and payments
+\set inv '''44444444-4444-4444-4444-444444444444'''
+\set pay1 '''55555555-5555-5555-5555-555555555551'''
+\set pay2 '''55555555-5555-5555-5555-555555555552'''
+
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+-- A deposit taken before there is an invoice.
+insert into public.payments (id, org_id, job_id, amount, method, reference, recorded_by_name)
+  select :pay1, v::uuid, :job, 500, 'check', '#1042', 'Pat' from t.ids where k = 'org';
+insert into public.invoices (id, org_id, job_id, number, lines, tax_rate, total, notes, internal_notes)
+  select :inv, v::uuid, :job, 'INV-1001',
+    '[{"id":"a","desc":"Labor","qty":2,"unit":2000,"taxable":true},
+      {"id":"b","desc":"Stump grinder","qty":2,"unit":342,"taxable":true},
+      {"id":"c","desc":"Travel","qty":1,"unit":100,"taxable":false}]',
+    6, 1, 'Thank you!', 'SECRET-INVOICE-NOTE slow payer'
+  from t.ids where k = 'org';
+select t.ok((select subtotal = 4784 and tax = 281.04 and total = 5065.04 from public.invoices where id = :inv),
+  'the server computes invoice totals from the lines (a made-up total is ignored; travel is untaxed)');
+select t.ok((select stage = 'done' or stage = 'estimate' from public.jobs where id = :job), 'a draft invoice does not change the job stage');
+select t.fails($$ select public.create_invoice_link('44444444-4444-4444-4444-444444444444') $$, 'send the invoice first', 'a draft invoice has no customer link');
+
+update public.invoices set status = 'sent' where id = :inv;
+select t.ok((select sent_at is not null from public.invoices where id = :inv), 'sending records when it was sent');
+select t.ok((select stage = 'invoice' from public.jobs where id = :job), 'a sent invoice moves the job to Invoice');
+
+-- An older copy (still a draft, different lines) arrives from another device.
+update public.invoices set status = 'draft', sent_at = null, lines = '[]', internal_notes = 'call before 5pm' where id = :inv;
+select t.ok((select status = 'sent' and total = 5065.04 and internal_notes = 'call before 5pm' from public.invoices where id = :inv),
+  'a sent invoice keeps its lines and total against an older copy, but internal notes still save');
+
+insert into t.ids select 'itoken', public.create_invoice_link(:inv);
+
+-- ---- crew can't see money
+select t.login(:crew, 'crew@ats.test');
+select t.ok((select count(*) = 0 from public.invoices), 'crew cannot see invoices');
+select t.ok((select count(*) = 0 from public.payments), 'crew cannot see payments');
+select t.ok((select jsonb_array_length(public.sync_pull(v::uuid) -> 'invoices') = 0 and jsonb_array_length(public.sync_pull(v::uuid) -> 'payments') = 0 from t.ids where k = 'org'),
+  'crew sync pull contains no invoices or payments');
+select t.fails($$ insert into public.payments (id, org_id, job_id, amount, method) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 1, 'cash' from t.ids where k = 'org' $$,
+  'row-level security', 'crew cannot record payments');
+
+-- ---- the customer's invoice link
+reset role;
+select set_config('request.jwt.claims', '', false);
+set role anon;
+select t.ok((select (public.invoice_view(v::uuid) ->> 'balance')::numeric = 4565.04 from t.ids where k = 'itoken'),
+  'customer link shows the balance after the deposit (5,065.04 - 500)');
+select t.ok((select public.invoice_view(v::uuid)::text not like '%SECRET%' and public.invoice_view(v::uuid)::text not like '%1042%' from t.ids where k = 'itoken'),
+  'customer link shows no internal notes or check numbers');
+select t.fails($$ select public.invoice_view(gen_random_uuid()) $$, 'no longer valid', 'a made-up invoice link shows nothing');
+reset role;
+
+-- ---- final payment, then a bounced check
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+insert into public.payments (id, org_id, job_id, invoice_id, amount, method)
+  select :pay2, v::uuid, :job, :inv, 4565.04, 'cash' from t.ids where k = 'org';
+select t.ok((select stage = 'paid' from public.jobs where id = :job), 'paying the balance marks the job Paid');
+update public.payments set voided_at = now(), note = 'check bounced' where id = :pay1;
+select t.ok((select stage = 'invoice' from public.jobs where id = :job), 'voiding a payment puts the job back to Invoice');
+update public.payments set voided_at = null where id = :pay1;
+select t.ok((select voided_at is not null from public.payments where id = :pay1), 'a voided payment stays voided');
+select t.fails($$ insert into public.payments (id, org_id, job_id, amount, method) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 0, 'cash' from t.ids where k = 'org' $$,
+  'check constraint', 'a payment must be more than zero');
+
+-- ---- void the invoice
+update public.invoices set status = 'void' where id = :inv;
+select t.ok((select stage = 'estimate' from public.jobs where id = :job), 'voiding the invoice takes the job out of Invoice/Paid');
+update public.invoices set status = 'sent' where id = :inv;
+select t.ok((select status = 'void' from public.invoices where id = :inv), 'a voided invoice stays voided');
+insert into public.invoices (id, org_id, job_id, number) select gen_random_uuid(), v::uuid, :job, 'INV-1002' from t.ids where k = 'org';
+select t.ok(true, 'a new invoice can replace a voided one');
+select t.fails($$ insert into public.invoices (id, org_id, job_id, number) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 'INV-1003' from t.ids where k = 'org' $$,
+  'duplicate key', 'a job can only have one live invoice');
+
 reset role;
 
