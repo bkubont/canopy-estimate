@@ -26,7 +26,10 @@ It takes about 20 minutes and has four parts:
 Open **SQL Editor → New query** in Supabase. Paste and run each file in order:
 
 1. `supabase/migrations/20261112000000_init.sql` (tables, roles, security rules)
-2. `supabase/migrations/20261112000100_storage.sql` (private file storage for logos and signatures)
+2. `supabase/migrations/20261112000100_storage.sql` (private file storage)
+3. `supabase/migrations/20261113000000_estimates.sql` (signatures, the signed-estimate lock, the customer link)
+
+Already ran the first two? Just run the third.
 
 Each should end with **Success. No rows returned**.
 
@@ -86,7 +89,8 @@ cd web && npm test
 # Two people on two devices, through the real screens.
 # Needs Playwright installed: npm i -D playwright && npx playwright install chromium
 cd web && npm run dev                        # in one terminal, with .env pointing at your project
-APP_URL=http://localhost:5173/ node e2e/two-devices.mjs
+APP_URL=http://localhost:5173/ node e2e/two-devices.mjs     # team + sync
+APP_URL=http://localhost:5173/ node e2e/estimate-flow.mjs   # estimate, customer signs by link, change order, crew view
 ```
 
 The two-device test creates two throwaway accounts. Against a real project, confirmation emails are needed, so run it against a **separate test project**, or with **Confirm email** off on that test project only.

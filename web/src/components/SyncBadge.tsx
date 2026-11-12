@@ -16,7 +16,9 @@ export function SyncBadge() {
   const st = useSyncStatus(engine);
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
   const wrap = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -47,7 +49,9 @@ export function SyncBadge() {
         <div className="sync-popover" role="dialog" aria-label="Sync status" style={{ position: 'absolute', right: 12, top: 'calc(var(--appbar-h) + 4px)', width: 'min(340px, calc(100vw - 24px))', zIndex: 30 }}>
           <div className={`card ${st.failed.length ? 'sync-panel' : ''}`}>
             <p style={{ marginTop: 0 }}>
-              {st.state === 'offline'
+              {st.failed.length
+                ? `${st.failed.length} change(s) couldn’t be saved to the server. See below.`
+                : st.state === 'offline'
                 ? 'No connection. Everything is saved on this device and will upload when you’re back online.'
                 : st.pending
                   ? `${st.pending} change(s) waiting to upload.`

@@ -64,9 +64,9 @@ function customer(id: string, patch: Partial<Customer> = {}): Customer {
 function job(id: string, customerId: string): Job {
   return {
     id, org_id: ORG, number: 'E-1001', stage: 'estimate', status: 'pending', block_reason: '',
-    customer_id: customerId, client: {}, trees: [], site: {}, equipment: [], days: 1, change_orders: [],
-    client_notes: '', internal_notes: '', estimate_date: '2026-11-12', client_sig_path: '',
-    client_sig_date: null, signed_at: null, assigned_crew: '', deleted_at: null,
+    customer_id: customerId, client: {} as never, trees: [], site: {} as never, equipment: [], days: 1, change_orders: [],
+    client_notes: '', internal_notes: '', estimate_date: '2026-11-12', client_sig: '', client_sig_date: null,
+    signed_at: null, signed_by_name: '', signed_via: '', prepared_by_name: '', contractor_sig: '', assigned_crew: '', deleted_at: null,
   };
 }
 

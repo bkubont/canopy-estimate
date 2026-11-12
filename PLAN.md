@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phase 1 built** (2026-11-12). Waiting on the Supabase project (see SETUP.md) before Phase 2.
+Status: **Phases 1 and 2 built** (2026-11-12). Not yet run against a live Supabase project (see SETUP.md).
 
 ## Decisions so far
 
@@ -94,6 +94,17 @@ Port the wizard, plus these fixes:
 - **Tablet:** fix the Back/Next bar overlapping the sidebar
 - **Real PDF file** to attach or share, not only the print dialog
 - **Customer link:** view and **sign online** when the customer isn't on site
+
+**Status: built and tested.**
+- Internal notes on the job and every tree, styled differently, never on the PDF, print, texts or the customer link (enforced by the document component and by the server for the link)
+- Equipment lines show the marked-up price; the owner/office see their cost and what the markup earns, privately
+- 5 steps; one "Choose client" (contacts, past estimates, phone contacts / .vcf); typed-in clients are added to Contacts
+- Signing locks the estimate and records the agreed prices; older copies on other devices can't undo a signature; "Remove signature" is an explicit owner/office action
+- Customer link: view, sign, download PDF; crew can't open or create links
+- Change orders with signature; crew get a no-price job sheet with every internal note
+- Estimate numbers reserved in blocks so devices never collide, even offline
+- Tests: 63 database checks, 38 unit tests, 32-step estimate walkthrough (phone, customer phone, tablet, desktop)
+- Deposit **payment** by card at signing comes with Stripe in Phase 3 (the deposit amount already shows on the estimate and link)
 
 ### Phase 3: Work orders, invoices, payments
 - **Convert to work order:** a crew-facing document with internal notes, trees, equipment, site and parking, and no prices.

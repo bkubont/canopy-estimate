@@ -34,6 +34,13 @@ export function createFakeBackend() {
     return true;
   };
   const strip = ({ _seq, ...r }) => r;
+  const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  // Same as public.customer_pricing: unit prices include the markup; cost never leaves.
+  const customerPricing = (p, j) => ({
+    day_rate: p.day_rate,
+    unit_prices: Object.fromEntries((j.equipment ?? []).map((l) => [l.id, round2((p.equipment_costs?.[l.id] ?? 0) * p.equipment_markup)])),
+    tax_rate: p.tax_rate, additional: p.additional, deposit_pct: p.deposit_pct, deposit_amt: p.deposit_amt, valid_days: p.valid_days,
+  });
 
   const offline = new WeakSet();
 
@@ -69,6 +76,35 @@ export function createFakeBackend() {
     if (p === '/auth/v1/user') return user ? json(200, session(user).user) : json(401, { msg: 'no user' });
     if (p === '/auth/v1/logout') return json(204);
 
+    // ---- customer link (no account)
+    if (p === '/rest/v1/rpc/customer_view' || p === '/rest/v1/rpc/customer_sign') {
+      const pr = t.job_pricing.find((x) => x.share_token && x.share_token === body.p_token);
+      const j = pr && t.jobs.find((x) => x.id === pr.job_id && !x.deleted_at);
+      if (!j) return json(400, { code: 'P0001', message: 'This link is no longer valid' });
+      if (p.endsWith('customer_sign')) {
+        if (j.signed_at) return json(400, { code: 'P0001', message: 'This estimate has already been signed' });
+        if (!String(body.p_sig).startsWith('data:image/png;base64,')) return json(400, { code: 'P0001', message: 'Please sign in the box' });
+        if (!String(body.p_name || '').trim()) return json(400, { code: 'P0001', message: 'Please type your name' });
+        Object.assign(j, { client_sig: body.p_sig, client_sig_date: now().slice(0, 10), signed_at: now(), signed_via: 'link', signed_by_name: body.p_name.trim(), status: 'approved' });
+        touch(j, null);
+        pr.signed_snapshot = customerPricing(pr, j);
+        touch(pr, null);
+      }
+      const o = t.organizations.find((x) => x.id === j.org_id);
+      const noInternal = (trees) => (trees ?? []).map(({ internal_notes, ...rest }) => rest);
+      return json(200, {
+        company: { name: o.name, contact_name: o.contact_name, license: o.license, address: o.address, phone: o.phone, email: o.email, website: o.website, logo_data: o.logo_data ?? '' },
+        job: {
+          number: j.number, stage: j.stage, estimate_date: j.estimate_date, client: j.client, trees: noInternal(j.trees), site: j.site,
+          equipment: j.equipment, days: j.days, client_notes: j.client_notes,
+          change_orders: (j.change_orders ?? []).map((co) => ({ ...co, trees: noInternal(co.trees) })),
+          client_sig: j.client_sig, client_sig_date: j.client_sig_date, signed_at: j.signed_at, signed_by_name: j.signed_by_name,
+          prepared_by_name: j.prepared_by_name, contractor_sig: j.contractor_sig,
+        },
+        pricing: pr.signed_snapshot ?? customerPricing(pr, j),
+      });
+    }
+
     // ---- rpc
     if (p.startsWith('/rest/v1/rpc/')) {
       if (!user) return json(401, { message: 'JWT required' });
@@ -80,9 +116,9 @@ export function createFakeBackend() {
       }
       if (fn === 'create_organization') {
         const id = uuid();
-        t.organizations.push(touch({ id, name: body.p_name, contact_name: '', license: '', address: '', phone: '', email: '', website: '', logo_path: '', next_estimate_no: 1001, next_invoice_no: 1001, created_at: now(), deleted_at: null }, user));
+        t.organizations.push(touch({ id, name: body.p_name, contact_name: '', license: '', address: '', phone: '', email: '', website: '', logo_path: '', logo_data: '', next_estimate_no: 1001, next_invoice_no: 1001, created_at: now(), deleted_at: null }, user));
         t.org_pricing.push(touch({ org_id: id, day_rate: 2000, tax_rate: 0, deposit_pct: 0, valid_days: 30, equipment_markup: 1.2, equipment_costs: {}, created_at: now(), deleted_at: null }, user));
-        t.members.push(touch({ org_id: id, user_id: user.id, role: 'owner', display_name: body.p_display_name ?? '', created_at: now(), deleted_at: null }, user));
+        t.members.push(touch({ org_id: id, user_id: user.id, role: 'owner', display_name: body.p_display_name ?? '', signature_data: '', created_at: now(), deleted_at: null }, user));
         return json(200, id);
       }
       if (fn === 'accept_invite') {
@@ -90,9 +126,31 @@ export function createFakeBackend() {
         if (!inv) return json(400, { code: 'P0001', message: 'Invite not found' });
         if (inv.accepted_at) return json(400, { code: 'P0001', message: 'Invite already used' });
         if (inv.email.toLowerCase() !== user.email.toLowerCase()) return json(400, { code: 'P0001', message: 'This invite was sent to a different email address' });
-        t.members.push(touch({ org_id: inv.org_id, user_id: user.id, role: inv.role, display_name: body.p_display_name ?? '', created_at: now(), deleted_at: null }, user));
+        t.members.push(touch({ org_id: inv.org_id, user_id: user.id, role: inv.role, display_name: body.p_display_name ?? '', signature_data: '', created_at: now(), deleted_at: null }, user));
         inv.accepted_at = now();
         return json(200, inv.org_id);
+      }
+      if (fn === 'reserve_numbers') {
+        const o = t.organizations.find((x) => x.id === body.p_org);
+        const key = body.p_kind === 'invoice' ? 'next_invoice_no' : 'next_estimate_no';
+        const first = o[key];
+        o[key] += body.p_count;
+        return json(200, first);
+      }
+      if (fn === 'create_share_link') {
+        const p = t.job_pricing.find((x) => x.job_id === body.p_job);
+        if (!p || !['owner', 'office'].includes(roleOf(p.org_id, user))) return json(400, { code: 'P0001', message: 'Not allowed' });
+        p.share_token ??= uuid();
+        touch(p, user);
+        return json(200, p.share_token);
+      }
+      if (fn === 'void_signature') {
+        const j = t.jobs.find((x) => x.id === body.p_job);
+        Object.assign(j, { signed_at: null, client_sig: '', client_sig_date: null, signed_by_name: '', signed_via: '', status: 'pending', change_orders: [] });
+        touch(j, user);
+        const p = t.job_pricing.find((x) => x.job_id === body.p_job);
+        if (p) touch(Object.assign(p, { signed_snapshot: null }), user);
+        return json(200, null);
       }
       if (fn === 'sync_pull') {
         if (!roleOf(body.p_org, user)) return json(400, { code: 'P0001', message: 'Not a member of this company' });

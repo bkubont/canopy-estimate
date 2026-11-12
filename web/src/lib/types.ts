@@ -18,6 +18,7 @@ export interface Organization extends SyncCols {
   email: string;
   website: string;
   logo_path: string;
+  logo_data: string;
   next_estimate_no?: number;
   next_invoice_no?: number;
 }
@@ -38,6 +39,7 @@ export interface Member extends SyncCols {
   user_id: string;
   role: Role;
   display_name: string;
+  signature_data: string;
 }
 
 export interface Customer extends SyncCols {
@@ -63,18 +65,24 @@ export interface Job extends SyncCols {
   status: 'pending' | 'approved' | 'scheduled' | 'in_progress' | 'blocked' | 'done';
   block_reason: string;
   customer_id: string | null;
-  client: Record<string, unknown>;
-  trees: unknown[];
-  site: Record<string, unknown>;
-  equipment: unknown[];
+  client: Client;
+  trees: Tree[];
+  site: Site;
+  equipment: EquipLine[];
   days: number;
-  change_orders: unknown[];
+  change_orders: ChangeOrder[];
+  /** Printed on the estimate. */
   client_notes: string;
+  /** Never printed or sent to the customer. */
   internal_notes: string;
   estimate_date: string;
-  client_sig_path: string;
+  client_sig: string;
   client_sig_date: string | null;
   signed_at: string | null;
+  signed_by_name: string;
+  signed_via: '' | 'device' | 'link';
+  prepared_by_name: string;
+  contractor_sig: string;
   assigned_crew: string;
 }
 
@@ -90,6 +98,73 @@ export interface JobPricing extends SyncCols {
   deposit_amt: number | null;
   valid_days: number;
   total: number;
+  /** Customer-facing prices at the moment of signing. */
+  signed_snapshot: CustomerPricing | null;
+  share_token?: string | null;
+}
+
+export interface Client {
+  firstName: string;
+  lastName: string;
+  company: string;
+  phone: string;
+  email: string;
+  street: string;
+  town: string;
+  state: string;
+  zip: string;
+}
+
+export interface Tree {
+  id: string;
+  species: string;
+  work: string[];
+  location: string;
+  size: string;
+  condition: string;
+  qty: number;
+  /** Printed. */
+  notes: string;
+  /** Never printed. */
+  internal_notes: string;
+}
+
+export interface Site {
+  conditions: string[];
+  other: string;
+  parking: string;
+  debris: string;
+}
+
+export interface EquipLine {
+  id: string;
+  desc: string;
+  qty: number;
+  /** True once someone typed a quantity; otherwise it follows the job days. */
+  qty_manual: boolean;
+}
+
+export interface ChangeOrder {
+  id: string;
+  date: string;
+  days: number;
+  reason: string;
+  reason_other: string;
+  trees: Tree[];
+  client_sig: string;
+  client_sig_date: string;
+  signed_by_name: string;
+}
+
+/** What the customer is charged: equipment as marked-up unit prices, never cost. */
+export interface CustomerPricing {
+  day_rate: number;
+  unit_prices: Record<string, number>;
+  tax_rate: number;
+  additional: number;
+  deposit_pct: number;
+  deposit_amt: number | null;
+  valid_days: number;
 }
 
 export interface CalEvent extends SyncCols {

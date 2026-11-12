@@ -162,3 +162,93 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); out
 }
 .copy-box { display: flex; gap: 8px; }
 .copy-box input { font-size: 13px; }
+
+/* ---------- chips, stepper ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--on-primary); font-weight: 600; }
+.chip[aria-pressed="true"]::before { content: "✓ "; }
+.chip.add { background: var(--card); }
+.chip-group-label { margin: 12px 0 6px; font-size: 13px; color: var(--muted); }
+.stepper { display: grid; grid-template-columns: 52px 1fr 52px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; max-width: 260px; }
+.stepper button { border: 0; background: var(--bg); font-size: 22px; cursor: pointer; color: var(--green-dark); font-weight: 700; }
+.stepper input { border: 0; border-radius: 0; text-align: center; font-weight: 700; font-size: 18px; min-height: 48px; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font-size: 15px; }
+.check input { width: 22px; min-height: 22px; height: 22px; flex: none; margin-top: 2px; }
+.mt { margin-top: 10px; }
+h4.label { font-size: 14px; color: var(--muted); margin: 14px 0 6px; }
+h4.label:first-child { margin-top: 0; }
+
+/* Internal notes look different everywhere so nobody mistakes them for printed notes. */
+.internal { background: #FFF8E1; border: 1px dashed #C9A227; border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+.internal .field > span::after { content: " · never printed"; font-weight: 500; color: #8A6D0B; }
+.internal-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #8A6D0B; background: #FFF8E1; border: 1px dashed #C9A227; border-radius: 6px; padding: 1px 6px; }
+
+.notice { border-left: 4px solid var(--green-dark); }
+.notice.ok { border-left-color: var(--green-dark); background: color-mix(in srgb, var(--green) 14%, var(--card)); }
+.notice.warn { border-left-color: #C9A227; }
+
+/* ---------- sheet (dialog) ---------- */
+dialog.sheet {
+  padding: 0; border: 0; width: 100%; max-width: 640px; max-height: 92vh;
+  margin: auto auto 0; border-radius: 16px 16px 0 0; background: var(--bg); color: var(--ink);
+}
+dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
+@media (min-width: 700px) { dialog.sheet { margin: auto; border-radius: 16px; } }
+.sheet-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; background: var(--card); border-bottom: 1px solid var(--line);
+}
+.sheet-head h3 { font-size: 17px; }
+.sheet-body { padding: 16px; overflow-y: auto; max-height: calc(92vh - 60px); }
+.icon-btn { min-width: 44px; min-height: 44px; border: 0; background: none; font-size: 20px; cursor: pointer; border-radius: 10px; color: var(--ink); }
+
+/* ---------- wizard ---------- */
+.steps { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+.steps a {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; text-decoration: none;
+  padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+  font-size: 14px; font-weight: 600; color: var(--muted);
+}
+.steps a .dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); font-size: 12px; }
+.steps a.on { background: var(--green); border-color: var(--green); color: var(--on-primary); }
+.steps a.on .dot { background: var(--ink); color: var(--green); }
+.steps a.done .dot { background: color-mix(in srgb, var(--green) 40%, var(--card)); }
+.step-title { font-size: 20px; margin: 4px 0 12px; }
+.wizard-grid { display: grid; gap: 0 16px; }
+@media (min-width: 1100px) { .wizard-grid.two-col { grid-template-columns: 1fr 1fr; align-items: start; } }
+
+.bottombar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--card); border-top: 1px solid var(--line);
+}
+.bottombar .btn { min-height: 54px; font-size: 17px; }
+/* On desktop/tablet-landscape the bar sits beside the sidebar, never over it. */
+@media (min-width: 900px) { .bottombar { left: var(--sidebar-w); } }
+.has-bottombar .main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.has-bottombar .tabnav { display: none; }
+
+.line-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; }
+.line-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.qty-price { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .qty-price { grid-template-columns: 1fr; } }
+.sum-line { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.sum-line:last-child { border-bottom: 0; }
+.sum-line.grand { font-size: 19px; font-weight: 800; }
+.sum-line.private { color: #8A6D0B; font-size: 14px; }
+.tree-card { display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+.tree-card .list-item { flex: 1; }
+.est-filters { margin-bottom: 12px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+.est-filters .chip { min-height: 36px; padding: 4px 12px; font-size: 14px; white-space: nowrap; }
+.status { font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.status.pending, .status.blocked { background: #FDECEA; color: var(--danger); }
+.status.approved, .status.done { background: color-mix(in srgb, var(--green) 28%, var(--card)); color: var(--ok-ink); }
+.status.scheduled, .status.in_progress { background: #E8F1FB; color: #1d4f86; }
+.pick-list { display: grid; gap: 6px; margin-top: 10px; }
+.customer-page { background: var(--bg); min-height: 100vh; }
+.btn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }

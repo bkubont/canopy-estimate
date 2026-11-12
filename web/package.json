@@ -10,11 +10,14 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "e2e": "node e2e/two-devices.mjs",
-    "e2e:fake": "E2E_FAKE=1 node e2e/two-devices.mjs"
+    "e2e:fake": "E2E_FAKE=1 node e2e/two-devices.mjs",
+    "e2e:estimate": "node e2e/estimate-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
+    "html2canvas": "^1.4.1",
     "idb": "^8.0.0",
+    "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

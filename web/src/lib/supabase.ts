@@ -116,3 +116,43 @@ export async function revokeInvite(id: string) {
 export function inviteLink(token: string) {
   return `${location.origin}${location.pathname}#/invite/${token}`;
 }
+
+// ---------------------------------------------------------------- estimates
+
+export const reserveNumbers = async (orgId: string, kind: 'estimate' | 'invoice', count: number): Promise<number> => {
+  const { data, error } = await supabase.rpc('reserve_numbers', { p_org: orgId, p_kind: kind, p_count: count });
+  if (error) throw new Error(error.message);
+  return data as number;
+};
+
+export async function createShareLink(jobId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('create_share_link', { p_job: jobId });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+export async function voidSignature(jobId: string) {
+  const { error } = await supabase.rpc('void_signature', { p_job: jobId });
+  if (error) throw new Error(error.message);
+}
+
+/** The customer's link, e.g. https://app.example.com/#/c/<token>. */
+export const customerLink = (token: string) => `${location.origin}${location.pathname}#/c/${token}`;
+
+export interface CustomerView {
+  company: import('../components/EstimateDoc').CustomerCompany;
+  job: import('../components/EstimateDoc').CustomerJob & { stage: string };
+  pricing: import('./types').CustomerPricing | null;
+}
+
+export async function customerView(token: string): Promise<CustomerView> {
+  const { data, error } = await supabase.rpc('customer_view', { p_token: token });
+  if (error) throw new Error(error.message);
+  return data as CustomerView;
+}
+
+export async function customerSign(token: string, sig: string, name: string): Promise<CustomerView> {
+  const { data, error } = await supabase.rpc('customer_sign', { p_token: token, p_sig: sig, p_name: name });
+  if (error) throw new Error(error.message);
+  return data as CustomerView;
+}

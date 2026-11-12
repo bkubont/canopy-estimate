@@ -52,7 +52,19 @@ export function Company() {
           <label className="field"><span>Address</span>
             <textarea rows={2} value={o.address} onChange={(e) => setO({ ...o, address: e.target.value })} />
           </label>
-          <p className="muted small">Logo and contractor signature move here in Phase 2.</p>
+          <h4 className="label">Logo</h4>
+          {o.logo_data ? <img src={o.logo_data} alt="Company logo" style={{ maxHeight: 80, display: 'block', marginBottom: 8 }} /> : <p className="muted small">No logo yet.</p>}
+          <div className="btn-row">
+            <label className="btn sm">
+              {o.logo_data ? 'Change logo' : 'Add logo'}
+              <input type="file" accept="image/*" hidden onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) setO({ ...o, logo_data: await shrinkImage(f) });
+              }} />
+            </label>
+            {o.logo_data && <button type="button" className="btn sm" onClick={() => setO({ ...o, logo_data: '' })}>Remove</button>}
+          </div>
         </section>
 
         {showPrices && p && (
@@ -98,4 +110,22 @@ export function Company() {
       )}
     </form>
   );
+}
+
+/** Shrink a logo to at most 500×250 so it syncs quickly and fits every document. */
+function shrinkImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 500 / img.width, 250 / img.height);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
 }
