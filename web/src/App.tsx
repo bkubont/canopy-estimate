@@ -6,7 +6,10 @@ import { AcceptInvite } from './screens/AcceptInvite';
 import { Company } from './screens/Company';
 import { ContactEdit } from './screens/ContactEdit';
 import { Contacts } from './screens/Contacts';
+import { CustomerInvoicePage } from './screens/CustomerInvoicePage';
 import { CustomerPage } from './screens/CustomerPage';
+import { InvoiceScreen } from './screens/invoice/InvoiceScreen';
+import { Invoices } from './screens/invoice/Invoices';
 import { Estimates } from './screens/Estimates';
 import { EstimateScreen } from './screens/estimate/EstimateScreen';
 import { Onboarding } from './screens/Onboarding';
@@ -19,10 +22,13 @@ export function App() {
   const { phase } = useApp();
   if (phase === 'unconfigured') return <Unconfigured />;
   // The customer's link works without signing in, so it skips everything below.
-  if (location.hash.startsWith('#/c/')) {
+  if (location.hash.startsWith('#/c/') || location.hash.startsWith('#/i/')) {
     return (
       <HashRouter>
-        <Routes><Route path="/c/:token" element={<CustomerPage />} /></Routes>
+        <Routes>
+          <Route path="/c/:token" element={<CustomerPage />} />
+          <Route path="/i/:token" element={<CustomerInvoicePage />} />
+        </Routes>
       </HashRouter>
     );
   }
@@ -45,6 +51,8 @@ export function App() {
             <Route path="/estimates" element={<Estimates />} />
             <Route path="/estimates/:id" element={<EstimateScreen />} />
             <Route path="/estimates/:id/:step" element={<EstimateScreen />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/invoices/:id" element={<InvoiceScreen />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/contacts/:id" element={<ContactEdit />} />
             <Route path="/company" element={<Company />} />

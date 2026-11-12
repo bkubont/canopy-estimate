@@ -30,7 +30,7 @@ export function Estimates() {
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (jobs ?? [])
-      .filter((j) => j.stage === 'estimate' || j.stage === 'work_order')
+      .filter((j) => j.stage !== 'archived')
       .filter((j) => filter === 'all' || j.status === filter)
       .filter((j) => !needle || [j.number, clientName(j.client), j.client?.phone, j.client?.street, j.client?.town].join(' ').toLowerCase().includes(needle))
       .sort((a, b) => (b.updated_at ?? b.created_at ?? '').localeCompare(a.updated_at ?? a.created_at ?? ''));
@@ -55,7 +55,7 @@ export function Estimates() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Estimates</h2>
+        <h2>{canCreate ? 'Estimates' : 'Jobs'}</h2>
         {canCreate && <button type="button" className="btn primary" onClick={create}>＋ New estimate</button>}
       </div>
       {profileMissing && (
@@ -82,7 +82,9 @@ export function Estimates() {
               </div>
               <div className="row muted small">
                 <span>{j.number} · {j.client?.town || 'No town'} · {niceDate(j.estimate_date)}</span>
-                <span className={`status ${j.status}`}>{STATUS_LABEL[j.status]}</span>
+                {canCreate && (j.stage === 'invoice' || j.stage === 'paid')
+                  ? <span className={`status inv-${j.stage === 'paid' ? 'paid' : 'unpaid'}`}>{j.stage === 'paid' ? 'Paid' : 'Invoiced'}</span>
+                  : <span className={`status ${j.status}`}>{STATUS_LABEL[j.status]}</span>}
               </div>
             </Link>
           ))}

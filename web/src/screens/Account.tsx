@@ -27,6 +27,7 @@ export function Account() {
         </section>
       )}
       <nav className="list" style={{ marginBottom: 12 }}>
+        <Link className="list-item" to="/contacts"><b>Contacts</b><span className="muted small">Your team’s shared client list</span></Link>
         <Link className="list-item" to="/company"><b>Company</b><span className="muted small">Details on estimates{can.seePrices(org.role) ? ', day rate, markup' : ''}</span></Link>
         {can.manageTeam(org.role) && <Link className="list-item" to="/team"><b>Team</b><span className="muted small">Invite people and set roles</span></Link>}
       </nav>

@@ -13,7 +13,8 @@ export interface OutboxEntry {
   error?: string;
 }
 
-const VERSION = 1;
+// Bump when tables are added; the upgrade adds any missing stores.
+const VERSION = 2;
 
 /**
  * Each signed-in person gets their own on-device database, so two people
@@ -28,9 +29,9 @@ export type LocalDb = IDBPDatabase;
 export async function openLocalDb(name: string): Promise<LocalDb> {
   return openDB(name, VERSION, {
     upgrade(db) {
-      for (const t of TABLE_NAMES) db.createObjectStore(t);
-      db.createObjectStore('outbox', { keyPath: 'id' });
-      db.createObjectStore('meta');
+      for (const t of TABLE_NAMES) if (!db.objectStoreNames.contains(t)) db.createObjectStore(t);
+      if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
     },
   });
 }

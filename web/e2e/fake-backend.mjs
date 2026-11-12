@@ -12,7 +12,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 export function createFakeBackend() {
   const users = new Map(); // email -> {id,email,password}
   const tokens = new Map(); // access token -> user
-  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], events: [], invites: [] };
+  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], invites: [] };
   let seq = 1;
   const keyCols = { organizations: ['id'], org_pricing: ['org_id'], members: ['org_id', 'user_id'], job_pricing: ['job_id'] };
   const keysOf = (table) => keyCols[table] ?? ['id'];
@@ -30,10 +30,33 @@ export function createFakeBackend() {
     const orgId = row.org_id ?? row.id;
     const role = roleOf(orgId, user);
     if (!role) return false;
-    if ((table === 'org_pricing' || table === 'job_pricing') && role === 'crew') return false;
+    if (['org_pricing', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew') return false;
     return true;
   };
   const strip = ({ _seq, ...r }) => r;
+  // Mirrors public.invoices_compute: totals from lines; sent and void are locked.
+  function lockInvoice(before, r) {
+    const locked = ['job_id', 'number', 'issue_date', 'due_date', 'lines', 'tax_rate', 'notes', 'sent_at'];
+    if (before?.status === 'void') { for (const k of locked) r[k] = before[k]; r.status = 'void'; r.voided_at = before.voided_at; }
+    else if (before?.sent_at) { for (const k of locked) r[k] = before[k]; if (r.status !== 'void') r.status = 'sent'; }
+    if (r.status === 'sent' && !r.sent_at) r.sent_at = now();
+    if (r.status === 'void' && !r.voided_at) r.voided_at = now();
+    const amounts = (r.lines ?? []).map((l) => round2(Number(l.qty) * Number(l.unit)));
+    r.subtotal = round2(amounts.reduce((a, b) => a + b, 0));
+    const taxable = round2((r.lines ?? []).reduce((a, l, i) => a + (l.taxable === false ? 0 : amounts[i]), 0));
+    r.tax = round2((taxable * Number(r.tax_rate ?? 0)) / 100);
+    r.total = round2(r.subtotal + r.tax);
+  }
+  const paidFor = (jobId) => round2(t.payments.filter((p) => p.job_id === jobId && !p.voided_at && !p.deleted_at).reduce((a, p) => a + Number(p.amount), 0));
+  // Mirrors public.refresh_job_stage.
+  function afterMoney(table, r) {
+    if (table !== 'invoices' && table !== 'payments') return;
+    const job = t.jobs.find((j) => j.id === r.job_id);
+    const inv = t.invoices.find((i) => i.job_id === r.job_id && i.status === 'sent' && !i.deleted_at);
+    if (!job) return;
+    const next = !inv ? (['invoice', 'paid'].includes(job.stage) ? 'estimate' : job.stage) : paidFor(r.job_id) >= inv.total ? 'paid' : 'invoice';
+    if (next !== job.stage) { job.stage = next; touch(job, null); }
+  }
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   // Same as public.customer_pricing: unit prices include the markup; cost never leaves.
   const customerPricing = (p, j) => ({
@@ -75,6 +98,23 @@ export function createFakeBackend() {
     }
     if (p === '/auth/v1/user') return user ? json(200, session(user).user) : json(401, { msg: 'no user' });
     if (p === '/auth/v1/logout') return json(204);
+
+    // ---- invoice link (no account)
+    if (p === '/rest/v1/rpc/invoice_view') {
+      const i = t.invoices.find((x) => x.share_token && x.share_token === body.p_token && x.status !== 'draft' && !x.deleted_at);
+      if (!i) return json(400, { code: 'P0001', message: 'This link is no longer valid' });
+      const j = t.jobs.find((x) => x.id === i.job_id);
+      const o = t.organizations.find((x) => x.id === i.org_id);
+      const pays = t.payments.filter((x) => x.job_id === i.job_id && !x.voided_at && !x.deleted_at);
+      const paid = paidFor(i.job_id);
+      return json(200, {
+        company: { name: o.name, contact_name: o.contact_name, license: o.license, address: o.address, phone: o.phone, email: o.email, website: o.website, logo_data: o.logo_data ?? '', payment_instructions: o.payment_instructions ?? '' },
+        invoice: { number: i.number, status: i.status, issue_date: i.issue_date, due_date: i.due_date, lines: i.lines, tax_rate: i.tax_rate, subtotal: i.subtotal, tax: i.tax, total: i.total, notes: i.notes },
+        job: { number: j.number, client: j.client },
+        payments: pays.map((x) => ({ received_on: x.received_on, amount: x.amount, method: x.method })),
+        paid, balance: Math.max(0, round2(i.total - paid)),
+      });
+    }
 
     // ---- customer link (no account)
     if (p === '/rest/v1/rpc/customer_view' || p === '/rest/v1/rpc/customer_sign') {
@@ -144,6 +184,13 @@ export function createFakeBackend() {
         touch(p, user);
         return json(200, p.share_token);
       }
+      if (fn === 'create_invoice_link') {
+        const i = t.invoices.find((x) => x.id === body.p_invoice && x.status === 'sent');
+        if (!i || !['owner', 'office'].includes(roleOf(i.org_id, user))) return json(400, { code: 'P0001', message: 'Send the invoice first (and make sure it has synced)' });
+        i.share_token ??= uuid();
+        touch(i, user);
+        return json(200, i.share_token);
+      }
       if (fn === 'void_signature') {
         const j = t.jobs.find((x) => x.id === body.p_job);
         Object.assign(j, { signed_at: null, client_sig: '', client_sig_date: null, signed_by_name: '', signed_via: '', status: 'pending', change_orders: [] });
@@ -156,7 +203,7 @@ export function createFakeBackend() {
         if (!roleOf(body.p_org, user)) return json(400, { code: 'P0001', message: 'Not a member of this company' });
         const since = Number(body.p_since ?? 0);
         const out = { cursor: String(seq) };
-        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'events']) {
+        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'invoices', 'payments', 'events']) {
           out[table] = t[table].filter((r) => (r.org_id ?? r.id) === body.p_org && r._seq >= since && visible(table, r, user)).map(strip);
         }
         return json(200, out);
@@ -188,14 +235,24 @@ export function createFakeBackend() {
     }
     if (method === 'PATCH') {
       const rows = t[table].filter((r) => match(r) && visible(table, r, user));
-      for (const r of rows) touch(Object.assign(r, body), user);
+      for (const r of rows) {
+        const before = { ...r };
+        Object.assign(r, body);
+        if (table === 'invoices') lockInvoice(before, r);
+        if (table === 'payments' && before.voided_at) r.voided_at = before.voided_at;
+        touch(r, user);
+        afterMoney(table, r);
+      }
       return json(200, rows.map((r) => Object.fromEntries(keysOf(table).map((k) => [k, r[k]]))));
     }
     if (method === 'POST') {
       const role = roleOf(body.org_id, user);
-      const allowed = role && !(['jobs', 'job_pricing'].includes(table) && role === 'crew');
+      const allowed = role && !(['jobs', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew');
       if (!allowed) return json(403, { code: '42501', message: `new row violates row-level security policy for table "${table}"` });
-      t[table].push(touch({ created_at: now(), ...body }, user));
+      const row = { created_at: now(), ...body };
+      if (table === 'invoices') lockInvoice(null, row);
+      t[table].push(touch(row, user));
+      afterMoney(table, row);
       return json(201, null);
     }
     return json(405, { message: `${method} not supported` });

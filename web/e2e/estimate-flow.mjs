@@ -36,7 +36,7 @@ async function notSee(page, pattern, msg) {
 }
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 async function draw(page, canvas) {
-  await canvas.scrollIntoViewIfNeeded();
+  await canvas.evaluate((el) => el.scrollIntoView({ block: 'center' }));
   const box = await canvas.boundingBox();
   await page.mouse.move(box.x + 30, box.y + box.height * 0.6);
   await page.mouse.down();

@@ -252,3 +252,9 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .pick-list { display: grid; gap: 6px; margin-top: 10px; }
 .customer-page { background: var(--bg); min-height: 100vh; }
 .btn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.status.inv-draft { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.status.inv-unpaid, .status.inv-partial { background: #E8F1FB; color: #1d4f86; }
+.status.inv-overdue { background: #FDECEA; color: var(--danger); }
+.status.inv-paid { background: color-mix(in srgb, var(--green) 28%, var(--card)); color: var(--ok-ink); }
+.status.inv-void { background: var(--bg); color: var(--muted); text-decoration: line-through; }
+.doc .pre, .pre { white-space: pre-line; }

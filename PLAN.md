@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1 and 2 built** (2026-11-12). Not yet run against a live Supabase project (see SETUP.md).
+Status: **Phases 1–3 built** (2026-11-12), except card payments (waiting on approval for Stripe). Not yet run against a live Supabase project (see SETUP.md).
 
 ## Decisions so far
 
@@ -117,6 +117,15 @@ Port the wizard, plus these fixes:
 - **Record cash or check** payments by hand; partial payments supported.
 - **Invoice list** with Unpaid / Overdue / Paid filters.
 - **Optional:** take the deposit by card at signing.
+
+**Status: built and tested, without card payments.**
+- Create invoice from a signed estimate (labor, change orders, equipment at customer prices, untaxed other costs); edit lines while it's a draft; sending locks it; void is final
+- Record deposits and payments by check (with check #), cash or other; partial payments; void a bounced check
+- Balance, Partly paid / Overdue / Paid status; job moves to Invoiced → Paid automatically
+- Invoices list with Outstanding and Overdue totals; customer invoice link with payment instructions
+- Owner/office only: crew have no Invoices tab, and the database never sends them invoices or payments
+- Tests: 84 database checks, 45 unit tests, 25-step invoice walkthrough (one intermittent test-timing failure seen in ~15 runs; diagnostics added)
+- **Waiting on approval:** Stripe "Pay by card" on the invoice link and deposit at signing. The page has a marked spot for the button; card payments will be recorded automatically as method "card".
 
 ### Phase 4: Calendar and Jobs board
 - The calendar is the single source of dates; the Jobs board reads from it, so the two can't disagree again.

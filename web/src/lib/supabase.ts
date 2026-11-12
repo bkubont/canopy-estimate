@@ -156,3 +156,25 @@ export async function customerSign(token: string, sig: string, name: string): Pr
   if (error) throw new Error(error.message);
   return data as CustomerView;
 }
+
+// ---------------------------------------------------------------- invoices
+
+export async function createInvoiceLink(invoiceId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('create_invoice_link', { p_invoice: invoiceId });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+export const invoiceLink = (token: string) => `${location.origin}${location.pathname}#/i/${token}`;
+
+export interface InvoiceView extends Omit<import('../components/InvoiceDoc').CustomerInvoice, 'payments'> {
+  payments: import('../components/InvoiceDoc').CustomerInvoice['payments'];
+  paid: number;
+  balance: number;
+}
+
+export async function invoiceView(token: string): Promise<InvoiceView> {
+  const { data, error } = await supabase.rpc('invoice_view', { p_token: token });
+  if (error) throw new Error(error.message);
+  return data as InvoiceView;
+}

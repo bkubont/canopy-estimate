@@ -19,6 +19,7 @@ export interface Organization extends SyncCols {
   website: string;
   logo_path: string;
   logo_data: string;
+  payment_instructions?: string;
   next_estimate_no?: number;
   next_invoice_no?: number;
 }
@@ -32,6 +33,7 @@ export interface OrgPricing extends SyncCols {
   valid_days: number;
   equipment_markup: number;
   equipment_costs: Record<string, number>;
+  invoice_due_days?: number;
 }
 
 export interface Member extends SyncCols {
@@ -185,6 +187,52 @@ export interface CalEvent extends SyncCols {
   notes: string;
 }
 
+export interface InvoiceLine {
+  id: string;
+  desc: string;
+  qty: number;
+  unit: number;
+  /** Other costs (travel, misc.) are not taxed, matching the estimate. */
+  taxable: boolean;
+}
+
+export interface Invoice extends SyncCols {
+  id: string;
+  org_id: string;
+  job_id: string;
+  number: string;
+  status: 'draft' | 'sent' | 'void';
+  issue_date: string;
+  due_date: string;
+  lines: InvoiceLine[];
+  tax_rate: number;
+  /** Computed by the server from the lines; the app shows its own matching calculation. */
+  subtotal?: number;
+  tax?: number;
+  total?: number;
+  notes: string;
+  internal_notes: string;
+  sent_at: string | null;
+  voided_at: string | null;
+  share_token?: string | null;
+}
+
+export type PaymentMethod = 'cash' | 'check' | 'card' | 'other';
+
+export interface Payment extends SyncCols {
+  id: string;
+  org_id: string;
+  job_id: string;
+  invoice_id: string | null;
+  amount: number;
+  method: PaymentMethod;
+  reference: string;
+  received_on: string;
+  note: string;
+  recorded_by_name: string;
+  voided_at: string | null;
+}
+
 export interface TableRows {
   organizations: Organization;
   org_pricing: OrgPricing;
@@ -192,6 +240,8 @@ export interface TableRows {
   customers: Customer;
   jobs: Job;
   job_pricing: JobPricing;
+  invoices: Invoice;
+  payments: Payment;
   events: CalEvent;
 }
 export type TableName = keyof TableRows;
@@ -209,6 +259,8 @@ export const TABLES: { name: TableName; keyCols: string[]; push: 'update' | 'ups
   { name: 'customers', keyCols: ['id'], push: 'upsert' },
   { name: 'jobs', keyCols: ['id'], push: 'upsert' },
   { name: 'job_pricing', keyCols: ['job_id'], push: 'upsert' },
+  { name: 'invoices', keyCols: ['id'], push: 'upsert' },
+  { name: 'payments', keyCols: ['id'], push: 'upsert' },
   { name: 'events', keyCols: ['id'], push: 'upsert' },
 ];
 

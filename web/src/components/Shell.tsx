@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useReady } from '../lib/session';
+import { can, useReady } from '../lib/session';
 import { SyncBadge } from './SyncBadge';
 
 const TITLES: Record<string, string> = {
@@ -9,6 +9,7 @@ const TITLES: Record<string, string> = {
   company: 'Company',
   team: 'Team',
   account: 'More',
+  invoices: 'Invoices',
 };
 
 export function Shell() {
@@ -27,7 +28,8 @@ export function Shell() {
           </div>
         </div>
         <NavLink to="/calendar">Calendar</NavLink>
-        <NavLink to="/estimates">Estimates</NavLink>
+        <NavLink to="/estimates">{can.seePrices(org.role) ? 'Estimates' : 'Jobs'}</NavLink>
+        {can.seePrices(org.role) && <NavLink to="/invoices">Invoices</NavLink>}
         <NavLink to="/contacts">Contacts</NavLink>
         <NavLink to="/company">Company</NavLink>
         {isOwner && <NavLink to="/team">Team</NavLink>}
@@ -39,7 +41,7 @@ export function Shell() {
       <div className="main">
         <header className="appbar">
           <img src="brand/logo.svg" alt="" className="appbar-logo" />
-          <div className="appbar-title">{TITLES[section] ?? org.name}</div>
+          <div className="appbar-title">{section === 'estimates' && !can.seePrices(org.role) ? 'Jobs' : TITLES[section] ?? org.name}</div>
           <SyncBadge />
         </header>
         <Outlet />
@@ -47,8 +49,10 @@ export function Shell() {
 
       <nav className="tabnav" aria-label="Primary">
         <NavLink to="/calendar"><span className="ico" aria-hidden="true">📅</span>Calendar</NavLink>
-        <NavLink to="/estimates"><span className="ico" aria-hidden="true">📋</span>Estimates</NavLink>
-        <NavLink to="/contacts"><span className="ico" aria-hidden="true">👤</span>Contacts</NavLink>
+        <NavLink to="/estimates"><span className="ico" aria-hidden="true">📋</span>{can.seePrices(org.role) ? 'Estimates' : 'Jobs'}</NavLink>
+        {can.seePrices(org.role)
+          ? <NavLink to="/invoices"><span className="ico" aria-hidden="true">🧾</span>Invoices</NavLink>
+          : <NavLink to="/contacts"><span className="ico" aria-hidden="true">👤</span>Contacts</NavLink>}
         <NavLink to="/account"><span className="ico" aria-hidden="true">⋯</span>More</NavLink>
       </nav>
     </div>

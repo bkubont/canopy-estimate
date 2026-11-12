@@ -6,8 +6,11 @@ import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
   blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, money, niceDate, normalizeJob, STATUS_LABEL, todayYmd, totals, treeDetails, treeTitle,
 } from '../../lib/estimate';
-import { can, useReady, useRow } from '../../lib/session';
-import { voidSignature } from '../../lib/supabase';
+import { invoiceFromJob, paidForJob } from '../../lib/invoice';
+import { takeNumber } from '../../lib/numbers';
+import { can, useReady, useRow, useRows } from '../../lib/session';
+import { reserveNumbers, voidSignature } from '../../lib/supabase';
+import { PaymentSheet } from '../invoice/PaymentSheet';
 import type { ChangeOrder, Job, JobPricing, Organization } from '../../lib/types';
 import { useJobDraft } from '../../lib/useJobDraft';
 import { SendActions } from './SendActions';
@@ -129,10 +132,32 @@ function DangerZone({ job }: { job: Job }) {
 // ---------------------------------------------------------------- signed
 
 function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricing }: Draft) {
-  const { org, engine } = useReady();
+  const { org, engine, user } = useReady();
+  const nav = useNavigate();
   const [co, setCo] = useState<ChangeOrder | null>(null);
   const [voiding, setVoiding] = useState('');
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [invError, setInvError] = useState('');
+  const invoices = useRows(engine, 'invoices');
+  const payments = useRows(engine, 'payments');
+  const orgPricing = useRow(engine, 'org_pricing', org.org_id);
+  const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const t = totals(job, customerPricing(job, pricing));
+  const invoice = (invoices ?? []).find((i) => i.job_id === job.id && i.status !== 'void');
+  const paid = paidForJob(payments ?? [], job.id);
+
+  async function createInvoice() {
+    setInvError('');
+    try {
+      await flush();
+      const number = await takeNumber(engine.db, org.org_id, 'invoice', reserveNumbers);
+      const inv = invoiceFromJob(job, pricing, { number, dueDays: orgPricing?.invoice_due_days ?? 15 });
+      await engine.save('invoices', inv);
+      nav(`/invoices/${inv.id}`);
+    } catch (e) {
+      setInvError((e as Error).message);
+    }
+  }
 
   async function voidSig() {
     if (!confirm('Remove the client’s signature so the estimate can be changed? It goes back to Pending, any change orders are removed, and the client will need to sign again.')) return;
@@ -166,13 +191,35 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
           <textarea rows={2} value={job.internal_notes} onChange={(e) => updateJob((j) => ({ ...j, internal_notes: e.target.value }))} />
         </Field>
       </section>
+      <section className="card">
+        <div className="sum-line"><span>Signed total{job.change_orders.length ? ' (with change orders)' : ''}</span><b>{money(t.total)}</b></div>
+        <div className="sum-line"><span>Paid so far{t.deposit ? ` (deposit asked: ${money(t.deposit)})` : ''}</span><span>{money(paid)}</span></div>
+        <div className="btn-row mt">
+          {invoice
+            ? <Link className="btn primary" to={`/invoices/${invoice.id}`}>Open invoice {invoice.number}</Link>
+            : <button type="button" className="btn primary" onClick={() => void createInvoice()}>🧾 Create invoice</button>}
+          {!invoice && <button type="button" className="btn" onClick={() => setDepositOpen(true)}>＋ Record deposit</button>}
+        </div>
+        {invError && <p className="error-text">{invError}</p>}
+      </section>
       <div className="btn-row" style={{ marginBottom: 12 }}>
-        <button type="button" className="btn primary" onClick={() => setCo(blankChangeOrder())}>＋ Change order</button>
+        <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}>＋ Change order</button>
         {can.seePrices(org.role) && <button type="button" className="btn danger" onClick={() => void voidSig()} disabled={voiding === 'working'}>Remove signature</button>}
       </div>
       {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
       <SendActions job={job} pricing={pricing} company={company} flush={flush} />
 
+      <PaymentSheet
+        open={depositOpen}
+        onClose={() => setDepositOpen(false)}
+        title={`Deposit on ${job.number}`}
+        suggested={Math.max(0, t.deposit - paid)}
+        base={{ org_id: job.org_id, job_id: job.id, invoice_id: null, recorded_by_name: me?.display_name ?? '' }}
+        onSave={(p) => {
+          void engine.save('payments', p);
+          setDepositOpen(false);
+        }}
+      />
       <ChangeOrderSheet
         co={co}
         dayRate={customerPricing(job, pricing).day_rate}

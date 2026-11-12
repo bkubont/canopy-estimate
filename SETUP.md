@@ -28,8 +28,9 @@ Open **SQL Editor → New query** in Supabase. Paste and run each file in order:
 1. `supabase/migrations/20261112000000_init.sql` (tables, roles, security rules)
 2. `supabase/migrations/20261112000100_storage.sql` (private file storage)
 3. `supabase/migrations/20261113000000_estimates.sql` (signatures, the signed-estimate lock, the customer link)
+4. `supabase/migrations/20261114000000_invoices.sql` (invoices and payments)
 
-Already ran the first two? Just run the third.
+Already ran some? Just run the ones after the last you ran, in order.
 
 Each should end with **Success. No rows returned**.
 
@@ -91,6 +92,7 @@ cd web && npm test
 cd web && npm run dev                        # in one terminal, with .env pointing at your project
 APP_URL=http://localhost:5173/ node e2e/two-devices.mjs     # team + sync
 APP_URL=http://localhost:5173/ node e2e/estimate-flow.mjs   # estimate, customer signs by link, change order, crew view
+APP_URL=http://localhost:5173/ node e2e/invoice-flow.mjs    # deposit, invoice, customer link, final payment, crew can't see
 ```
 
 The two-device test creates two throwaway accounts. Against a real project, confirmation emails are needed, so run it against a **separate test project**, or with **Confirm email** off on that test project only.

@@ -52,6 +52,9 @@ export function Company() {
           <label className="field"><span>Address</span>
             <textarea rows={2} value={o.address} onChange={(e) => setO({ ...o, address: e.target.value })} />
           </label>
+          <label className="field"><span>How customers can pay (printed on invoices)</span>
+            <textarea rows={3} placeholder={'Checks payable to Advanced Tree Service\nMail to: …'} value={o.payment_instructions ?? ''} onChange={(e) => setO({ ...o, payment_instructions: e.target.value })} />
+          </label>
           <h4 className="label">Logo</h4>
           {o.logo_data ? <img src={o.logo_data} alt="Company logo" style={{ maxHeight: 80, display: 'block', marginBottom: 8 }} /> : <p className="muted small">No logo yet.</p>}
           <div className="btn-row">
@@ -90,6 +93,11 @@ export function Company() {
               <label className="field"><span>Deposit</span>
                 <div className="price-input">
                   <input type="number" inputMode="decimal" min={0} max={100} step="1" value={p.deposit_pct} onChange={(e) => setP({ ...p, deposit_pct: num(e.target.value) })} /><span>%</span>
+                </div>
+              </label>
+              <label className="field"><span>Invoices due after</span>
+                <div className="price-input">
+                  <input type="number" inputMode="numeric" min={0} max={120} step="1" value={p.invoice_due_days ?? 15} onChange={(e) => setP({ ...p, invoice_due_days: num(e.target.value) })} /><span>days</span>
                 </div>
               </label>
               <label className="field"><span>Estimates valid for</span>
