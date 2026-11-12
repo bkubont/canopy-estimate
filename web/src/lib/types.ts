@@ -185,6 +185,8 @@ export interface CalEvent extends SyncCols {
   crew: string;
   equipment: string[];
   notes: string;
+  /** User ids of the crew members on this entry. */
+  assigned_to: string[];
 }
 
 export interface InvoiceLine {

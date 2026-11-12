@@ -308,5 +308,36 @@ select t.ok(true, 'a new invoice can replace a voided one');
 select t.fails($$ insert into public.invoices (id, org_id, job_id, number) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 'INV-1003' from t.ids where k = 'org' $$,
   'duplicate key', 'a job can only have one live invoice');
 
+
+-- ================================================================ Phase 4: calendar
+\set ev '''66666666-6666-6666-6666-666666666666'''
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+insert into public.events (id, org_id, type, title, all_day, starts, ends, job_id, assigned_to)
+  select :ev, v::uuid, 'tree_work', 'Dana Smith', true, '2026-11-16', '2026-11-18', :job, jsonb_build_array(:crew::text)
+  from t.ids where k = 'org';
+select t.ok((select assigned_to ? '00000000-0000-0000-0000-00000000000c' from public.events where id = :ev), 'a crew member can be assigned to a job day');
+select t.fails($$ insert into public.events (id, org_id, type, starts, ends) select gen_random_uuid(), v::uuid, 'other', '', '' from t.ids where k = 'org' $$,
+  'pick a date', 'a scheduled entry needs a date');
+insert into public.events (id, org_id, type, title, unscheduled, starts) select gen_random_uuid(), v::uuid, 'dump_run', 'Dump run', true, '2026-11-20' from t.ids where k = 'org';
+select t.ok((select starts = '' from public.events where title = 'Dump run'), 'a task left in the pool has no date');
+
+select t.login(:crew, 'crew@ats.test');
+select t.ok((select count(*) = 1 from public.events where assigned_to ? auth.uid()::text), 'crew can find the days they are assigned to');
+update public.events set status = 'completed', notes = 'Done early' where id = :ev;
+select t.ok((select status = 'completed' from public.events where id = :ev), 'crew can update a calendar entry');
+insert into public.events (id, org_id, type, title, all_day, starts, ends) select gen_random_uuid(), v::uuid, 'maintenance', 'Sharpen chains', true, '2026-11-17', '2026-11-18' from t.ids where k = 'org';
+select t.ok(true, 'crew can add maintenance and dump runs');
+
+-- another company can't link to this company's job
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
+select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
+set role authenticated;
+insert into t.ids select 'org2', public.create_organization('Other Co', 'Max');
+select t.fails($$ insert into public.events (id, org_id, type, starts, ends, job_id) select gen_random_uuid(), v::uuid, 'tree_work', '2026-11-16', '2026-11-17', '11111111-1111-1111-1111-111111111111' from t.ids where k = 'org2' $$,
+  'another company', 'a calendar entry cannot point at another company''s job');
+select t.ok((select count(*) = 0 from public.events), 'another company sees none of these calendar entries');
+
 reset role;
 
