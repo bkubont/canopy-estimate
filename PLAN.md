@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **draft for review**. Nothing here is built yet.
+Status: **Phase 1 built** (2026-11-12). Waiting on the Supabase project (see SETUP.md) before Phase 2.
 
 ## Decisions so far
 
@@ -76,6 +76,11 @@ activity_log      who did what, when
 - Port the shell: navigation, branding and the company profile
 
 **Done when:** two people on two devices log in, see the same data, and work offline.
+
+**Status: built and tested.** Not yet tried against a live Supabase project (needs your account; see SETUP.md).
+- Database: 36 security and sync checks pass against Postgres 16 (`supabase/tests/run-local.sh`)
+- App: 19 unit tests for the sync engine and server connection (`npm test`)
+- End to end: 22 two-device checks pass through the real screens against a stand-in backend (`web/e2e/two-devices.mjs`)
 
 ### Phase 2: Estimate wizard
 Port the wizard, plus these fixes:
