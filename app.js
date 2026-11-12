@@ -409,7 +409,16 @@
     };
   }
 
-  const blankTree = () => ({ species: '', work: '', location: '', size: '', condition: '', qty: 1, notes: '' });
+  const blankTree = () => ({ species: '', work: [], location: '', size: '', condition: '', qty: 1, notes: '' });
+
+  // Legacy trees stored work as a single string; new trees use a multi-select array.
+  function migrateWork(work) {
+    if (Array.isArray(work)) return work.map((w) => String(w || '').trim()).filter(Boolean);
+    const s = String(work || '').trim();
+    return s ? [s] : [];
+  }
+
+  const workLabel = (t) => migrateWork(t?.work).join(', ');
   const blankChangeOrder = () => ({
     id: uid(),
     date: today(),
@@ -538,6 +547,7 @@
       ...blankTree(),
       ...t,
       species: migrateSpecies(t?.species),
+      work: migrateWork(t?.work),
       condition: migrateCondition(t?.condition),
       size: migrateTreeSize(t?.size),
     }));
@@ -566,6 +576,7 @@
         ...blankTree(),
         ...t,
         species: migrateSpecies(t?.species),
+        work: migrateWork(t?.work),
         condition: migrateCondition(t?.condition),
         size: migrateTreeSize(t?.size),
       })),
@@ -617,7 +628,10 @@
   migrateEstimateFields();
 
   const treeCount = (e) => (e.trees || []).reduce((n, t) => n + (num(t.qty) || 1), 0);
-  const treeTitle = (t) => `${num(t.qty) > 1 ? num(t.qty) + ' × ' : ''}${t.species || 'Tree'}${t.work ? ' — ' + t.work : ''}`;
+  const treeTitle = (t) => {
+    const work = workLabel(t);
+    return `${num(t.qty) > 1 ? num(t.qty) + ' × ' : ''}${t.species || 'Tree'}${work ? ' — ' + work : ''}`;
+  };
   const sizeLabel = (size) => SIZES.find((s) => s[0] === size)?.[1] || '';
   const treeDetails = (t) => [t.location, sizeLabel(t.size), t.condition].filter(Boolean).join(' · ');
   const statusBadgeClass = (status) => {
@@ -632,7 +646,9 @@
   }
 
   function totals(e) {
+    const equipmentCost = (e.equipment || []).reduce((s, m) => s + num(m.qty) * num(m.price), 0);
     const equipment = (e.equipment || []).reduce((s, m) => s + rentalLineTotal(m, e), 0);
+    const equipmentMarkup = Math.max(0, equipment - equipmentCost);
     const baseLabor = num(e.days) * num(e.dayRate);
     const changeLabor = changeOrderDays(e) * num(e.dayRate);
     const labor = baseLabor + changeLabor;
@@ -641,7 +657,7 @@
     const additional = num(e.additional);
     const total = subtotal + tax + additional;
     const deposit = e.depositAmt !== '' && e.depositAmt != null ? num(e.depositAmt) : (total * Math.min(100, num(e.depositPct))) / 100;
-    return { equipment, labor, baseLabor, changeLabor, subtotal, tax, additional, total, deposit };
+    return { equipment, equipmentCost, equipmentMarkup, labor, baseLabor, changeLabor, subtotal, tax, additional, total, deposit };
   }
 
   let saveTimer;
@@ -2212,7 +2228,8 @@
       <h2 class="step-title">Estimate summary</h2>
       <section class="card totals">
         <div class="sum-line">Labor (${num(current.days)} day${num(current.days) === 1 ? '' : 's'} × ${money(num(current.dayRate))}) <span data-total="labor"></span></div>
-        <div class="sum-line">Equipment rentals <span data-total="equipment"></span></div>
+        <div class="sum-line">Equipment rental total <span data-total="equipmentCost"></span></div>
+        ${equipmentMarkupOf(current) > 1 ? '<div class="sum-line">20% markup <span data-total="equipmentMarkup"></span></div>' : ''}
         <div class="sum-line"><b>Subtotal</b> <b data-total="subtotal"></b></div>
       </section>
       <section class="card">
@@ -2257,6 +2274,7 @@
     const list = treeTarget === 'change' ? (changeDraft?.trees || []) : current.trees;
     editingIndex = i;
     editingTree = i >= 0 ? clone(list[i]) : from ? { ...clone(from), notes: '' } : blankTree();
+    editingTree.work = migrateWork(editingTree.work);
     const dlg = $('#tree-dlg');
     dlg.innerHTML = `
       <div class="sheet-head">
@@ -2268,8 +2286,8 @@
         <h4>Type of tree</h4>
         ${speciesChips()}
         <input data-bind="species" placeholder="Other type…" class="mt" autocapitalize="words">
-        <h4>Work</h4>
-        ${chips('work', WORK)}
+        <h4>Work <small class="muted">choose all that apply</small></h4>
+        ${chips('work', WORK, { multi: true })}
         <h4>Location</h4>
         ${chips('location', LOCATIONS)}
         <h4>Trunk diameter (DBH)</h4>
@@ -2290,6 +2308,7 @@
 
   function saveTree() {
     editingTree.qty = Math.max(1, num(editingTree.qty) || 1);
+    editingTree.work = migrateWork(editingTree.work);
     if (treeTarget === 'change') {
       if (!changeDraft) return;
       if (editingIndex >= 0) changeDraft.trees[editingIndex] = editingTree;
@@ -2456,7 +2475,7 @@
 
   function renderTreeTable(trees) {
     const rows = (trees || []).map((trItem, i) => `<tr>
-        <td>${i + 1}</td><td class="r">${num(trItem.qty) || 1}</td><td><b>${esc(trItem.species) || '—'}</b></td><td>${esc(trItem.work)}</td>
+        <td>${i + 1}</td><td class="r">${num(trItem.qty) || 1}</td><td><b>${esc(trItem.species) || '—'}</b></td><td>${esc(workLabel(trItem) || '—')}</td>
         <td>${esc(trItem.location)}</td><td>${esc(sizeLabel(trItem.size) || trItem.size)}</td><td>${esc(trItem.condition)}${trItem.notes ? `<div class="doc-note">${esc(trItem.notes)}</div>` : ''}</td></tr>`).join('');
     return `<table class="doc-table trees">
       <thead><tr><th>#</th><th class="r">Qty</th><th>Type of tree</th><th>Work</th><th>Location</th><th>DBH</th><th>Condition / notes</th></tr></thead>
@@ -2497,25 +2516,22 @@
     const clientName = clientDisplayName(e.client);
     // Honor an explicitly cleared contact name; only fall back when unset.
     const contactName = String(p.contactName ?? BRAND.company?.contactName ?? '').trim();
-    const siteDates = (e.startDate || e.endDate)
-      ? `Start ${niceDate(e.startDate) || '—'} · Done ${niceDate(e.endDate) || '—'}`
-      : '';
     const siteBody = [
       (e.site || []).length || e.siteOther ? kvHtml('Site', checkedList(e.site, e.siteOther)) : '',
       e.parking ? kvHtml('Parking', esc(e.parking).replace(/\n/g, '<br>')) : '',
       e.extras || e.extrasOther ? kvHtml('Wood & debris', checkedList(e.extras ? [e.extras] : [], e.extrasOther)) : '',
-      kv('Dates', siteDates),
       e.notes ? kvHtml('Notes', esc(e.notes).replace(/\n/g, '<br>')) : '',
     ].filter(Boolean).join('') || '<span class="doc-muted">None selected</span>';
 
-    // One flat list: labor + rentals as line items (no section subheadings).
+    // Labor + rental cost lines; 20% markup is a separate total under equipment.
     const lineRows = [
       `<tr><td>Total labor</td><td class="r">${num(e.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(t.baseLabor)}</td></tr>`,
       ...(e.changeOrders || []).map((co, i) =>
         `<tr><td>Change order ${i + 1}</td><td class="r">${num(co.days)}</td><td class="r">${money(num(e.dayRate))}</td><td class="r">${money(num(co.days) * num(e.dayRate))}</td></tr>`),
       ...(e.equipment || []).map((m) =>
-        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(rentalUnitPrice(m, e))}</td><td class="r">${money(rentalLineTotal(m, e))}</td></tr>`),
+        `<tr><td>${esc(m.desc) || 'Equipment'}</td><td class="r">${num(m.qty)}</td><td class="r">${money(num(m.price))}</td><td class="r">${money(num(m.qty) * num(m.price))}</td></tr>`),
     ].join('');
+    const showRentalMarkup = equipmentMarkupOf(e) > 1 && t.equipmentMarkup > 0;
 
     const changeDocs = (e.changeOrders || []).map((co, i) => renderChangeOrderDoc(co, i, e.dayRate)).join('');
     const headerBits = [
@@ -2559,7 +2575,8 @@
             </table>
             <table class="doc-sum">
               <tr><th>Labor total</th><td>${money(t.labor)}</td></tr>
-              <tr><th>Equipment total</th><td>${money(t.equipment)}</td></tr>
+              <tr><th>Equipment rental total</th><td>${money(t.equipmentCost)}</td></tr>
+              ${showRentalMarkup ? `<tr><th>20% markup</th><td>${money(t.equipmentMarkup)}</td></tr>` : ''}
               <tr><th>Subtotal</th><td>${money(t.subtotal)}</td></tr>
               <tr><th>Tax${num(e.taxRate) ? ` (${num(e.taxRate)}%)` : ''}</th><td>${money(t.tax)}</td></tr>
               <tr><th>Other costs</th><td>${money(t.additional)}</td></tr>
