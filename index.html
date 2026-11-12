@@ -14,8 +14,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=19">
-  <script src="brand.js?v=19"></script>
+  <link rel="stylesheet" href="styles.css?v=21">
+  <script src="brand.js?v=21"></script>
 </head>
 <body>
   <aside class="sidebar" id="sidebar" aria-label="Main navigation">
@@ -29,6 +29,7 @@
     <nav class="sidebar-nav">
       <button type="button" class="nav-item" data-act="calendar" data-nav="calendar">Calendar</button>
       <button type="button" class="nav-item" data-act="estimates" data-nav="estimates">Estimates</button>
+      <button type="button" class="nav-item" data-act="contacts" data-nav="contacts">Contacts</button>
       <button type="button" class="nav-item" data-act="profile" data-nav="profile">Company profile</button>
     </nav>
     <div class="sidebar-section">
@@ -90,7 +91,7 @@
   <dialog id="pick-dlg" class="sheet small">
     <div class="sheet-head">
       <button type="button" class="icon-btn" data-act="close-dlg" aria-label="Close">✕</button>
-      <h3 id="pick-title">Past clients</h3>
+      <h3 id="pick-title">Contacts</h3>
       <span></span>
     </div>
     <div class="sheet-body">
@@ -107,6 +108,7 @@
     </div>
     <div class="sheet-body menu">
       <button type="button" class="menu-item" data-act="schedule">Jobs board</button>
+      <button type="button" class="menu-item" data-act="contacts">Contacts</button>
       <button type="button" class="menu-item" data-act="profile">Company profile</button>
       <button type="button" class="menu-item" data-act="export">Back up data</button>
       <button type="button" class="menu-item" data-act="import">Restore from backup</button>
@@ -138,11 +140,12 @@
   <dialog id="event-dlg" class="sheet"></dialog>
 
   <input type="file" id="vcf-file" accept=".vcf,text/vcard,text/x-vcard" hidden>
+  <input type="file" id="contacts-vcf-file" accept=".vcf,text/vcard,text/x-vcard" hidden>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
   <input type="file" id="logo-file" accept="image/*" hidden>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>

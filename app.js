@@ -226,11 +226,12 @@
     profile: 'ats.profile',
     estimates: 'ats.estimates.v4',
     events: 'ats.events.v1',
+    contacts: 'ats.contacts.v1',
     restoreSnapshot: 'ats.restore-snapshot',
   };
   // Older app versions wrote these keys; bring them forward so estimates don't vanish after an update.
   const LEGACY_ESTIMATE_KEYS = ['ats.estimates.v3', 'ats.estimates', 'canopy.estimates'];
-  const BACKUP_SCHEMA_VERSION = 5;
+  const BACKUP_SCHEMA_VERSION = 6;
   const BACKUP_MIN_SCHEMA = 3;
 
   function load(key, fallback) {
@@ -869,15 +870,25 @@
   // ---------- calendar / events ----------
 
   const TZ = 'America/Detroit';
+  // Bids are timed (default 2h). Tree work jobs are all-day. Day tasks have no clock time —
+  // they live in the unscheduled pool until dragged onto a day.
   const EVENT_TYPES = [
-    ['estimate_visit', 'Estimate visit'],
+    ['estimate_visit', 'Bid'],
     ['tree_work', 'Tree work'],
     ['equipment_rental', 'Equipment rental'],
     ['dump_run', 'Dump run'],
+    ['maintenance', 'Maintenance'],
     ['time_off', 'Time off'],
     ['other', 'Other'],
   ];
   const EVENT_TYPE_LABEL = Object.fromEntries(EVENT_TYPES);
+  const DAY_TASK_TYPES = new Set(['dump_run', 'equipment_rental', 'maintenance']);
+  const BID_TYPE = 'estimate_visit';
+  const JOB_TYPE = 'tree_work';
+  const BID_DEFAULT_HOURS = 2;
+  const isDayTaskType = (type) => DAY_TASK_TYPES.has(type);
+  const isJobType = (type) => type === JOB_TYPE;
+  const isBidType = (type) => type === BID_TYPE;
   const EVENT_STATUSES = [
     ['tentative', 'Tentative'],
     ['confirmed', 'Confirmed'],
@@ -979,6 +990,7 @@
   }
 
   function eventRangeMs(ev) {
+    if (ev?.unscheduled || !ev?.start) return { start: 0, end: 0 };
     if (ev.allDay) {
       const s = String(ev.start).slice(0, 10);
       let e = String(ev.end || s).slice(0, 10);
@@ -996,6 +1008,7 @@
   }
 
   function eventTouchesDay(ev, ymd) {
+    if (ev?.unscheduled || !ev?.start) return false;
     const dayStart = new Date(detroitLocalToIso(ymd, '00:00')).getTime();
     const dayEnd = new Date(detroitLocalToIso(ymdAddDays(ymd, 1), '00:00')).getTime();
     const r = eventRangeMs(ev);
@@ -1016,10 +1029,16 @@
   }
 
   function formatEventWhen(ev) {
+    if (ev?.unscheduled || !ev?.start) {
+      return isDayTaskType(ev?.type) ? 'Unscheduled task' : 'Unscheduled';
+    }
     if (ev.allDay) {
       const s = String(ev.start).slice(0, 10);
       const eEx = String(ev.end || s).slice(0, 10);
       const last = eEx > s ? ymdAddDays(eEx, -1) : s;
+      if (isDayTaskType(ev.type)) {
+        return last === s ? `${niceDate(s)} · Task` : `${niceDate(s)} – ${niceDate(last)} · Task`;
+      }
       return last === s ? `${niceDate(s)} · All day` : `${niceDate(s)} – ${niceDate(last)} · All day`;
     }
     const a = new Date(ev.start);
@@ -1032,18 +1051,50 @@
   }
 
   function blankEvent(prefill = {}) {
+    const type = prefill.type || 'other';
+    const unscheduled = !!prefill.unscheduled || (isDayTaskType(type) && !prefill.date && prefill.unscheduled !== false && !prefill.start);
     const ymd = prefill.date || (cal && cal.cursor) || detroitYmd();
-    const allDay = !!prefill.allDay;
+    // Jobs + day tasks are date-only. Bids default to a 2-hour timed block.
+    let allDay = !!prefill.allDay;
+    if (isJobType(type) || isDayTaskType(type)) allDay = true;
+    if (isBidType(type) && prefill.allDay == null && !unscheduled) allDay = false;
     const startHm = prefill.startHm || '09:00';
-    const endHm = prefill.endHm || '10:00';
+    let endHm = prefill.endHm;
+    if (!endHm && isBidType(type)) {
+      const [hh, mm] = startHm.split(':').map(Number);
+      endHm = `${String(hh + BID_DEFAULT_HOURS).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}`;
+    }
+    endHm = endHm || '10:00';
+    if (unscheduled) {
+      return {
+        id: uid(),
+        type,
+        title: prefill.title || '',
+        start: '',
+        end: '',
+        timezone: TZ,
+        allDay: true,
+        unscheduled: true,
+        status: prefill.status || 'tentative',
+        estimateId: prefill.estimateId || '',
+        address: prefill.address || '',
+        town: prefill.town || '',
+        notes: prefill.notes || '',
+        crew: prefill.crew || '',
+        equipment: Array.isArray(prefill.equipment) ? prefill.equipment : [],
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      };
+    }
     return {
       id: uid(),
-      type: prefill.type || 'other',
+      type,
       title: prefill.title || '',
       start: allDay ? ymd : detroitLocalToIso(ymd, startHm),
       end: allDay ? ymdAddDays(ymd, 1) : detroitLocalToIso(ymd, endHm),
       timezone: TZ,
       allDay,
+      unscheduled: false,
       status: prefill.status || 'tentative',
       estimateId: prefill.estimateId || '',
       address: prefill.address || '',
@@ -1056,8 +1107,20 @@
     };
   }
 
+  function looksLikeInstant(value) {
+    const s = String(value || '');
+    return s.includes('T') || /Z$/i.test(s) || /[+-]\d{2}:\d{2}$/.test(s);
+  }
+
+  function toDetroitYmd(value) {
+    const s = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (!s) return detroitYmd();
+    return detroitYmd(new Date(s));
+  }
+
   function hydrateEvent(raw) {
-    const b = blankEvent();
+    const b = blankEvent({ type: raw?.type || 'other', unscheduled: false, date: detroitYmd() });
     const e = { ...b, ...raw };
     e.timezone = e.timezone || TZ;
     e.equipment = Array.isArray(e.equipment) ? e.equipment : [];
@@ -1065,7 +1128,57 @@
     e.estimateId = e.estimateId || '';
     if (!EVENT_TYPE_LABEL[e.type]) e.type = 'other';
     if (!EVENT_STATUS_LABEL[e.status]) e.status = 'tentative';
+    const missingStart = e.start == null || e.start === '';
+    e.unscheduled = !!(e.unscheduled || (isDayTaskType(e.type) && missingStart));
+    if (e.unscheduled) {
+      e.start = '';
+      e.end = '';
+      e.allDay = true;
+      return e;
+    }
+    // Day tasks + jobs are all-day. Convert legacy ISO timestamps to Detroit YMD
+    // before flipping allDay, so late-evening events don't shift a calendar day.
+    if (isDayTaskType(e.type) || isJobType(e.type)) {
+      const needsDateNormalize = !e.allDay || looksLikeInstant(e.start) || looksLikeInstant(e.end);
+      if (needsDateNormalize && e.start) {
+        const ymd = toDetroitYmd(e.start);
+        e.start = ymd;
+        e.end = ymdAddDays(ymd, 1);
+      }
+      e.allDay = true;
+    }
     return e;
+  }
+
+  function scheduleEventOnDay(ev, ymd) {
+    const next = hydrateEvent(ev);
+    next.unscheduled = false;
+    if (isDayTaskType(next.type) || isJobType(next.type) || next.allDay) {
+      next.allDay = true;
+      next.start = ymd;
+      next.end = ymdAddDays(ymd, 1);
+    } else {
+      // Keep timed bids on the new date with the same local clock times.
+      const startHm = next.start ? detroitHm(new Date(next.start)) : '09:00';
+      const endHm = next.end ? detroitHm(new Date(next.end)) : (() => {
+        const [hh, mm] = startHm.split(':').map(Number);
+        return `${String(hh + BID_DEFAULT_HOURS).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}`;
+      })();
+      next.start = detroitLocalToIso(ymd, startHm);
+      next.end = detroitLocalToIso(ymd, endHm);
+      next.allDay = false;
+    }
+    return upsertEvent(next);
+  }
+
+  function unscheduleEvent(ev) {
+    const next = hydrateEvent(ev);
+    if (!isDayTaskType(next.type)) return next;
+    next.unscheduled = true;
+    next.allDay = true;
+    next.start = '';
+    next.end = '';
+    return upsertEvent(next);
   }
 
   const saveEvents = (map) => store(KEYS.events, map);
@@ -1100,6 +1213,7 @@
   }
 
   function findConflicts(candidate, { ignoreId } = {}) {
+    if (candidate?.unscheduled || !candidate?.start) return [];
     const cand = eventRangeMs(candidate);
     const crew = String(candidate.crew || '').trim().toLowerCase();
     const equip = new Set(equipmentTokens(candidate));
@@ -1107,7 +1221,7 @@
     const hits = [];
     for (const ev of listEvents()) {
       if (ev.id === ignoreId || ev.id === candidate.id) continue;
-      if (ev.status === 'cancelled') continue;
+      if (ev.status === 'cancelled' || ev.unscheduled || !ev.start) continue;
       if (!rangesOverlap(cand, eventRangeMs(ev))) continue;
       const sameCrew = crew && crew === String(ev.crew || '').trim().toLowerCase();
       const sharedEquip = [...equip].some((t) => equipmentTokens(ev).includes(t));
@@ -1160,7 +1274,7 @@
     try { localStorage.setItem(SEED_FLAG, '1'); } catch { /* ignore */ }
   }
 
-  const defaultCalView = () => (isTablet() ? 'month' : 'agenda');
+  const defaultCalView = () => 'week';
   let cal = {
     view: (() => {
       try { return localStorage.getItem('ats.calView') || defaultCalView(); }
@@ -1172,6 +1286,38 @@
   if (!['month', 'week', 'day', 'agenda'].includes(cal.view)) cal.view = defaultCalView();
 
   seedEventsFromEstimates();
+  // One-time: convert legacy timed dump/rental rows into all-day day tasks.
+  // Inspect raw fields first — hydrateEvent also normalizes, but migration must
+  // see the original ISO timestamps to pick the Detroit calendar day.
+  (function migrateDayTaskEvents() {
+    const FLAG = 'ats.events.daytasks.v1';
+    try { if (localStorage.getItem(FLAG) === '1') return; } catch { /* ignore */ }
+    const all = allEvents();
+    let changed = false;
+    for (const [id, raw] of Object.entries(all)) {
+      if (!raw || !isDayTaskType(raw.type)) continue;
+      const missingStart = raw.start == null || raw.start === '';
+      if (raw.unscheduled || missingStart) {
+        all[id] = hydrateEvent({ ...raw, unscheduled: true, start: '', end: '', allDay: true });
+        changed = true;
+        continue;
+      }
+      const needsConvert = !raw.allDay || looksLikeInstant(raw.start) || looksLikeInstant(raw.end);
+      if (needsConvert) {
+        const ymd = toDetroitYmd(raw.start);
+        all[id] = hydrateEvent({
+          ...raw,
+          allDay: true,
+          unscheduled: false,
+          start: ymd,
+          end: ymdAddDays(ymd, 1),
+        });
+        changed = true;
+      }
+    }
+    if (changed) saveEvents(all);
+    try { localStorage.setItem(FLAG, '1'); } catch { /* ignore */ }
+  })();
 
   function saveCalView(view) {
     cal.view = view;
@@ -1223,10 +1369,10 @@
   function renderCalendar() {
     setChrome({ title: 'Calendar', back: false, bottombar: false });
     const views = [
-      ['agenda', 'Agenda'],
-      ['month', 'Month'],
       ['week', 'Week'],
       ['day', 'Day'],
+      ['month', 'Month'],
+      ['agenda', 'Agenda'],
     ];
     const crews = [...new Set(listEvents().map((e) => String(e.crew || '').trim()).filter(Boolean))].sort();
     $('#view').innerHTML = `
@@ -1243,7 +1389,8 @@
               <button type="button" class="chip" data-act="cal-view" data-view="${id}" aria-pressed="${cal.view === id}">${label}</button>`).join('')}
           </div>
           <div class="cal-actions">
-            <button type="button" class="btn primary" data-act="cal-new">＋ New event</button>
+            <button type="button" class="btn primary" data-act="cal-new-task">＋ Task</button>
+            <button type="button" class="btn" data-act="cal-new">＋ Bid / job</button>
             <button type="button" class="btn" data-act="schedule">Jobs board</button>
           </div>
         </div>
@@ -1279,14 +1426,127 @@
     else if (cal.view === 'week') body.innerHTML = renderWeekView();
     else if (cal.view === 'day') body.innerHTML = renderDayView();
     else body.innerHTML = renderAgendaView();
+    bindPlannerDnD();
   }
 
-  function eventChipHtml(ev, { compact } = {}) {
-    const time = ev.allDay ? 'All day' : detroitHm(new Date(ev.start));
-    return `<button type="button" class="cal-event type-${esc(ev.type)} status-${esc(ev.status)}" data-act="cal-open" data-id="${esc(ev.id)}" title="${esc(ev.title)}">
+  function eventChipHtml(ev, { compact, draggable } = {}) {
+    const canDrag = draggable ?? isDayTaskType(ev.type);
+    let time = '';
+    if (ev.unscheduled) time = 'Task';
+    else if (isDayTaskType(ev.type)) time = 'Task';
+    else if (isJobType(ev.type) || ev.allDay) time = 'Job';
+    else time = detroitHm(new Date(ev.start));
+    return `<button type="button" class="cal-event type-${esc(ev.type)} status-${esc(ev.status)} ${canDrag ? 'cal-draggable' : ''}"
+      data-act="cal-open" data-id="${esc(ev.id)}" title="${esc(ev.title)}"
+      ${canDrag ? `draggable="true" data-drag-id="${esc(ev.id)}"` : ''}>
       ${compact ? '' : `<span class="cal-event-time">${esc(time)}</span>`}
       <span class="cal-event-title">${esc(ev.title || EVENT_TYPE_LABEL[ev.type] || 'Event')}</span>
     </button>`;
+  }
+
+  function unscheduledTasks() {
+    return filteredCalendarEvents()
+      .filter((ev) => ev.status !== 'cancelled' && isDayTaskType(ev.type) && ev.unscheduled)
+      .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  }
+
+  function partitionDayEvents(ymd) {
+    const list = eventsForDay(ymd);
+    return {
+      jobs: list.filter((ev) => isJobType(ev.type)),
+      bids: list.filter((ev) => isBidType(ev.type)),
+      tasks: list.filter((ev) => isDayTaskType(ev.type)),
+      other: list.filter((ev) => !isJobType(ev.type) && !isBidType(ev.type) && !isDayTaskType(ev.type)),
+    };
+  }
+
+  function plannerTaskPoolHtml() {
+    const tasks = unscheduledTasks();
+    return `<aside class="cal-task-pool" data-drop="pool" aria-label="Unscheduled tasks">
+      <div class="cal-pool-head">
+        <h3>Tasks</h3>
+        <button type="button" class="btn sm" data-act="cal-new-task">＋ Add</button>
+      </div>
+      <p class="muted small cal-pool-hint">Dump runs, rentals, and maintenance — drag onto a day.</p>
+      <div class="cal-pool-list">
+        ${tasks.length
+          ? tasks.map((ev) => eventChipHtml(ev, { draggable: true })).join('')
+          : '<p class="empty small">No unscheduled tasks</p>'}
+      </div>
+    </aside>`;
+  }
+
+  function plannerDayColumnHtml(ymd, { compact } = {}) {
+    const today = detroitYmd();
+    const { jobs, bids, tasks, other } = partitionDayEvents(ymd);
+    const { D } = parseYmd(ymd);
+    const head = compact
+      ? `<div class="cal-plan-dayhead ${ymd === today ? 'today' : ''}" data-act="cal-select-day" data-date="${ymd}">
+          <span class="cal-plan-dow">${esc(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(detroitLocalToIso(ymd, '12:00')).getUTCDay()])}</span>
+          <span class="cal-plan-dom">${D}</span>
+        </div>`
+      : `<div class="cal-plan-dayhead ${ymd === today ? 'today' : ''}">
+          <span>${esc(niceDate(ymd))}</span>
+        </div>`;
+    const section = (label, items, empty) => `
+      <div class="cal-plan-section">
+        <div class="cal-plan-label">${label}</div>
+        ${items.length ? items.map((ev) => eventChipHtml(ev, { draggable: isDayTaskType(ev.type) })).join('') : `<p class="muted small">${empty}</p>`}
+      </div>`;
+    return `<div class="cal-plan-day ${ymd === today ? 'today' : ''}" data-drop="day" data-date="${ymd}">
+      ${head}
+      ${section('Jobs', jobs, '—')}
+      ${section('Bids', bids, '—')}
+      ${section('Tasks', tasks, 'Drop tasks here')}
+      ${other.length ? section('Other', other, '') : ''}
+      <button type="button" class="cal-plan-add link" data-act="cal-new" data-date="${ymd}">＋ Add</button>
+    </div>`;
+  }
+
+  function bindPlannerDnD() {
+    const root = $('#cal-body');
+    if (!root) return;
+    let dragId = '';
+    root.addEventListener('dragstart', (e) => {
+      const card = e.target.closest('[data-drag-id]');
+      if (!card) return;
+      dragId = card.dataset.dragId || '';
+      e.dataTransfer?.setData('text/plain', dragId);
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('is-dragging');
+    });
+    root.addEventListener('dragend', (e) => {
+      e.target.closest('[data-drag-id]')?.classList.remove('is-dragging');
+      for (const el of root.querySelectorAll('.is-drop-target')) el.classList.remove('is-drop-target');
+      dragId = '';
+    });
+    root.addEventListener('dragover', (e) => {
+      const zone = e.target.closest('[data-drop]');
+      if (!zone) return;
+      e.preventDefault();
+      zone.classList.add('is-drop-target');
+    });
+    root.addEventListener('dragleave', (e) => {
+      const zone = e.target.closest('[data-drop]');
+      if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('is-drop-target');
+    });
+    root.addEventListener('drop', (e) => {
+      const zone = e.target.closest('[data-drop]');
+      if (!zone) return;
+      e.preventDefault();
+      zone.classList.remove('is-drop-target');
+      const id = dragId || e.dataTransfer?.getData('text/plain');
+      const ev = id ? allEvents()[id] : null;
+      if (!ev || !isDayTaskType(ev.type)) return;
+      if (zone.dataset.drop === 'pool') {
+        unscheduleEvent(ev);
+        toast('Moved to task pool');
+      } else if (zone.dataset.drop === 'day' && zone.dataset.date) {
+        scheduleEventOnDay(ev, zone.dataset.date);
+        toast(`Planned for ${niceDate(zone.dataset.date)}`);
+      } else return;
+      renderCalendar();
+    });
   }
 
   function renderMonthView() {
@@ -1349,44 +1609,23 @@
     return `<div class="cal-agenda">${blocks.join('')}</div>`;
   }
 
-  function hoursGridHtml(days) {
-    const hours = [];
-    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) hours.push(h);
-    const allDayRow = days.map((ymd) => {
-      const allDay = eventsForDay(ymd).filter((e) => e.allDay);
-      return `<div class="cal-allday-cell" data-act="cal-slot" data-date="${ymd}" data-allday="1">
-        ${allDay.map((ev) => eventChipHtml(ev, { compact: true })).join('') || '<span class="muted small">All day</span>'}
-      </div>`;
-    }).join('');
-    const rows = hours.map((h) => {
-      const label = `${String(h).padStart(2, '0')}:00`;
-      const cells = days.map((ymd) => {
-        const hm = `${String(h).padStart(2, '0')}:00`;
-        const timed = eventsForDay(ymd).filter((e) => {
-          if (e.allDay) return false;
-          const startH = +detroitHm(new Date(e.start)).slice(0, 2);
-          return startH === h;
-        });
-        return `<div class="cal-slot" data-act="cal-slot" data-date="${ymd}" data-time="${hm}">
-          ${timed.map((ev) => eventChipHtml(ev)).join('')}
-        </div>`;
-      }).join('');
-      return `<div class="cal-time-row"><div class="cal-time-label">${label}</div>${cells}</div>`;
-    }).join('');
-    const head = days.map((ymd) => `<div class="cal-time-dayhead ${ymd === detroitYmd() ? 'today' : ''}" data-act="cal-select-day" data-date="${ymd}">${esc(niceDate(ymd))}</div>`).join('');
-    return `<div class="cal-timegrid cols-${days.length}">
-      <div class="cal-time-row head"><div class="cal-time-label"></div>${head}</div>
-      <div class="cal-time-row allday"><div class="cal-time-label">All day</div>${allDayRow}</div>
-      ${rows}
+  function renderWeekView() {
+    const days = weekDays(cal.cursor);
+    return `<div class="cal-planner">
+      ${plannerTaskPoolHtml()}
+      <div class="cal-plan-board cols-7">
+        ${days.map((ymd) => plannerDayColumnHtml(ymd, { compact: true })).join('')}
+      </div>
     </div>`;
   }
 
-  function renderWeekView() {
-    return hoursGridHtml(weekDays(cal.cursor));
-  }
-
   function renderDayView() {
-    return hoursGridHtml([cal.cursor]);
+    return `<div class="cal-planner">
+      ${plannerTaskPoolHtml()}
+      <div class="cal-plan-board cols-1">
+        ${plannerDayColumnHtml(cal.cursor, { compact: false })}
+      </div>
+    </div>`;
   }
 
   function estimateOptionsHtml(selected) {
@@ -1402,7 +1641,14 @@
     eventOverrideUnapproved = false;
     const d = eventDraft;
     let startDate; let startTime; let endDate; let endTime;
-    if (d.allDay) {
+    if (d.unscheduled || !d.start) {
+      startDate = (cal && cal.cursor) || detroitYmd();
+      endDate = startDate;
+      startTime = '09:00';
+      endTime = isBidType(d.type)
+        ? `${String(9 + BID_DEFAULT_HOURS).padStart(2, '0')}:00`
+        : '10:00';
+    } else if (d.allDay) {
       startDate = String(d.start).slice(0, 10);
       const endEx = String(d.end).slice(0, 10);
       endDate = endEx > startDate ? ymdAddDays(endEx, -1) : startDate;
@@ -1430,16 +1676,18 @@
           <select id="ev-type">${EVENT_TYPES.map(([id, label]) =>
             `<option value="${id}" ${d.type === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
         </label>
+        <p class="hint" id="ev-type-hint"></p>
         <label class="field"><span>Status</span>
           <select id="ev-status">${EVENT_STATUSES.map(([id, label]) =>
             `<option value="${id}" ${d.status === id ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
         </label>
-        <label class="switch"><input type="checkbox" id="ev-allday" ${d.allDay ? 'checked' : ''}><span>All day</span></label>
-        <div class="two">
+        <label class="switch" id="ev-unscheduled-wrap"><input type="checkbox" id="ev-unscheduled" ${d.unscheduled ? 'checked' : ''}><span>Keep in task pool (no day yet)</span></label>
+        <label class="switch" id="ev-allday-wrap"><input type="checkbox" id="ev-allday" ${d.allDay ? 'checked' : ''}><span>All day</span></label>
+        <div class="two" id="ev-dates">
           <label class="field"><span>Start date</span><input type="date" id="ev-start-date" value="${esc(startDate)}"></label>
           <label class="field" id="ev-start-time-wrap"><span>Start time</span><input type="time" id="ev-start-time" value="${esc(startTime)}"></label>
         </div>
-        <div class="two">
+        <div class="two" id="ev-end-row">
           <label class="field"><span>End date</span><input type="date" id="ev-end-date" value="${esc(endDate)}"></label>
           <label class="field" id="ev-end-time-wrap"><span>End time</span><input type="time" id="ev-end-time" value="${esc(endTime)}"></label>
         </div>
@@ -1463,8 +1711,13 @@
         ${d.estimateId ? `<button type="button" class="btn" data-act="open" data-id="${esc(d.estimateId)}">Open linked estimate</button>` : ''}
       </div>`;
     syncEventEditorChrome();
-    $('#ev-allday').addEventListener('change', syncEventEditorChrome);
-    $('#ev-type').addEventListener('change', syncUnapprovedWarn);
+    $('#ev-allday')?.addEventListener('change', syncEventEditorChrome);
+    $('#ev-unscheduled')?.addEventListener('change', syncEventEditorChrome);
+    $('#ev-type').addEventListener('change', () => {
+      applyTypeDefaultsToEditor();
+      syncEventEditorChrome();
+      syncUnapprovedWarn();
+    });
     $('#ev-estimate').addEventListener('change', () => {
       fillFromEstimate($('#ev-estimate').value);
       syncUnapprovedWarn();
@@ -1473,10 +1726,53 @@
     $('#event-dlg').showModal();
   }
 
+  function applyTypeDefaultsToEditor() {
+    const type = $('#ev-type')?.value;
+    if (isDayTaskType(type)) {
+      $('#ev-allday').checked = true;
+      if (!$('#ev-title').value.trim()) {
+        $('#ev-title').value = EVENT_TYPE_LABEL[type] || '';
+      }
+    } else if (isJobType(type)) {
+      $('#ev-allday').checked = true;
+      $('#ev-unscheduled').checked = false;
+    } else if (isBidType(type)) {
+      $('#ev-allday').checked = false;
+      $('#ev-unscheduled').checked = false;
+      const start = $('#ev-start-time').value || '09:00';
+      const [hh, mm] = start.split(':').map(Number);
+      $('#ev-end-time').value = `${String(hh + BID_DEFAULT_HOURS).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}`;
+      if (!$('#ev-title').value.trim()) $('#ev-title').value = 'Bid';
+    }
+  }
+
   function syncEventEditorChrome() {
-    const allDay = $('#ev-allday')?.checked;
-    $('#ev-start-time-wrap').hidden = !!allDay;
-    $('#ev-end-time-wrap').hidden = !!allDay;
+    const type = $('#ev-type')?.value;
+    const dayTask = isDayTaskType(type);
+    const job = isJobType(type);
+    const bid = isBidType(type);
+    const unscheduled = !!$('#ev-unscheduled')?.checked;
+    const hint = $('#ev-type-hint');
+    if (hint) {
+      if (dayTask) hint.textContent = 'Day task — no clock time. Leave in the pool or pick a day.';
+      else if (job) hint.textContent = 'Tree work jobs are all-day on the planner.';
+      else if (bid) hint.textContent = 'Bids are scheduled for 2 hours by default.';
+      else hint.textContent = '';
+    }
+    $('#ev-unscheduled-wrap').hidden = !dayTask;
+    if (!dayTask && $('#ev-unscheduled')) $('#ev-unscheduled').checked = false;
+    if (dayTask || job) {
+      $('#ev-allday').checked = true;
+      $('#ev-allday-wrap').hidden = true;
+    } else {
+      $('#ev-allday-wrap').hidden = false;
+    }
+    const allDay = $('#ev-allday')?.checked || dayTask || job;
+    const hideDates = dayTask && unscheduled;
+    $('#ev-dates').hidden = !!hideDates;
+    $('#ev-end-row').hidden = !!hideDates;
+    $('#ev-start-time-wrap').hidden = !!allDay || hideDates;
+    $('#ev-end-time-wrap').hidden = !!allDay || hideDates;
   }
 
   function fillFromEstimate(id) {
@@ -1510,15 +1806,28 @@
   }
 
   function readEventForm() {
-    const allDay = $('#ev-allday').checked;
-    const startDate = $('#ev-start-date').value;
+    const type = $('#ev-type').value;
+    const dayTask = isDayTaskType(type);
+    const job = isJobType(type);
+    const unscheduled = dayTask && !!$('#ev-unscheduled')?.checked;
+    let allDay = $('#ev-allday').checked || dayTask || job;
+    if (dayTask || job) allDay = true;
+    const startDate = $('#ev-start-date').value || detroitYmd();
     const endDate = $('#ev-end-date').value || startDate;
-    const startTime = $('#ev-start-time').value || '09:00';
-    const endTime = $('#ev-end-time').value || '10:00';
+    let startTime = $('#ev-start-time').value || '09:00';
+    let endTime = $('#ev-end-time').value || '10:00';
+    if (isBidType(type) && !allDay) {
+      // Keep bids on a 2-hour block when end wasn't edited past start.
+      const [sh, sm] = startTime.split(':').map(Number);
+      const [eh, em] = endTime.split(':').map(Number);
+      if ((eh * 60 + em) <= (sh * 60 + sm)) {
+        endTime = `${String(sh + BID_DEFAULT_HOURS).padStart(2, '0')}:${String(sm || 0).padStart(2, '0')}`;
+      }
+    }
     const equipment = $('#ev-equipment').value.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
-    const base = hydrateEvent(eventDraft || blankEvent());
+    const base = hydrateEvent(eventDraft || blankEvent({ type, unscheduled: false, date: startDate }));
     base.title = $('#ev-title').value.trim();
-    base.type = $('#ev-type').value;
+    base.type = type;
     base.status = $('#ev-status').value;
     base.allDay = allDay;
     base.timezone = TZ;
@@ -1528,6 +1837,14 @@
     base.crew = $('#ev-crew').value.trim();
     base.equipment = equipment;
     base.notes = $('#ev-notes').value.trim();
+    if (unscheduled) {
+      base.unscheduled = true;
+      base.allDay = true;
+      base.start = '';
+      base.end = '';
+      return base;
+    }
+    base.unscheduled = false;
     if (allDay) {
       base.start = startDate;
       base.end = ymdAddDays(endDate, 1); // exclusive
@@ -1552,11 +1869,13 @@
       toast('Title is required');
       return;
     }
-    const startMs = eventRangeMs(ev).start;
-    const endMs = eventRangeMs(ev).end;
-    if (!(endMs > startMs)) {
-      toast('End must be after start');
-      return;
+    if (!ev.unscheduled) {
+      const startMs = eventRangeMs(ev).start;
+      const endMs = eventRangeMs(ev).end;
+      if (!(endMs > startMs)) {
+        toast('End must be after start');
+        return;
+      }
     }
     if (ev.type === 'tree_work' && ev.estimateId) {
       const est = allEstimates()[ev.estimateId];
@@ -1613,6 +1932,7 @@
     closeMenus();
 
     if (parts[0] === 'profile') renderProfile();
+    else if (parts[0] === 'contacts') renderContacts();
     else if (parts[0] === 'schedule' || parts[0] === 'jobs') renderSchedule();
     else if (parts[0] === 'estimates' || parts[0] === 'home') renderHome();
     else if (parts[0] === 'e') renderWizard(parts[1], parts[2]);
@@ -1626,6 +1946,7 @@
     const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
     if (parts[0] === 'estimates' || parts[0] === 'home') return 'estimates';
     if (parts[0] === 'profile') return 'profile';
+    if (parts[0] === 'contacts') return 'contacts';
     if (parts[0] === 'schedule' || parts[0] === 'jobs') return 'jobs';
     if (parts[0] === 'e') return 'estimates';
     return 'calendar';
@@ -1635,7 +1956,7 @@
     const key = currentNavKey();
     for (const el of $$('[data-nav]')) {
       const nav = el.dataset.nav;
-      const on = nav === key || (nav === 'more' && (key === 'jobs' || key === 'profile'));
+      const on = nav === key || (nav === 'more' && (key === 'jobs' || key === 'profile' || key === 'contacts'));
       if (on) el.setAttribute('aria-current', 'page');
       else el.removeAttribute('aria-current');
     }
@@ -1784,7 +2105,7 @@
       <h2 class="step-title">Client information</h2>
       <div class="btn-pair">
         <button type="button" class="btn big-ish" data-act="pick-contact">📇 From contacts</button>
-        <button type="button" class="btn big-ish" data-act="pick-previous">↺ Past client</button>
+        <button type="button" class="btn big-ish" data-act="pick-previous">↺ Contacts</button>
       </div>
       ${canPick ? '' : '<p class="hint">On iPhone: in Contacts, open the person → Share Contact → Save to Files, then tap “From contacts” and pick the file.</p>'}
       <section class="card field-grid">
@@ -2695,7 +3016,119 @@
     navigate('#/');
   }
 
-  // ---------- contacts ----------
+  // ---------- contacts library ----------
+
+  function blankContact(prefill = {}) {
+    const c = {
+      id: prefill.id || uid(),
+      firstName: prefill.firstName || '',
+      lastName: prefill.lastName || '',
+      name: prefill.name || '',
+      company: prefill.company || '',
+      phone: prefill.phone || '',
+      email: prefill.email || '',
+      street: prefill.street || '',
+      town: prefill.town || '',
+      state: prefill.state || '',
+      zip: prefill.zip || '',
+      csz: prefill.csz || '',
+      createdAt: prefill.createdAt || new Date().toISOString(),
+      updatedAt: prefill.updatedAt || null,
+    };
+    syncClientDerived(c);
+    return c;
+  }
+
+  function hydrateContact(raw) {
+    return blankContact(raw && typeof raw === 'object' ? raw : {});
+  }
+
+  const allContacts = () => {
+    const raw = load(KEYS.contacts, {});
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  };
+  const saveContacts = (map) => store(KEYS.contacts, map);
+
+  function upsertContact(contact) {
+    const next = hydrateContact({ ...contact, updatedAt: new Date().toISOString() });
+    const all = allContacts();
+    all[next.id] = next;
+    saveContacts(all);
+    return next;
+  }
+
+  function deleteContact(id) {
+    const all = allContacts();
+    delete all[id];
+    saveContacts(all);
+  }
+
+  function contactDedupeKey(c) {
+    const phone = String(c.phone || '').replace(/\D/g, '');
+    const name = clientDisplayName(c).toLowerCase().trim();
+    if (phone) return `p:${phone}`;
+    if (name) return `n:${name}|${String(c.street || '').toLowerCase().trim()}`;
+    return '';
+  }
+
+  function listContacts() {
+    return Object.values(allContacts()).map(hydrateContact)
+      .sort((a, b) => clientDisplayName(a).localeCompare(clientDisplayName(b)));
+  }
+
+  function findContactByDedupe(map, contact) {
+    const key = contactDedupeKey(contact);
+    if (!key) return null;
+    for (const c of Object.values(map)) {
+      if (contactDedupeKey(c) === key) return c;
+    }
+    return null;
+  }
+
+  function mergeContactFields(existing, incoming) {
+    const out = hydrateContact(existing);
+    for (const k of ['firstName', 'lastName', 'company', 'phone', 'email', 'street', 'town', 'state', 'zip']) {
+      if (!out[k] && incoming[k]) out[k] = incoming[k];
+    }
+    syncClientDerived(out);
+    out.updatedAt = new Date().toISOString();
+    return out;
+  }
+
+  /** Parse every VCARD in a .vcf export (Apple/Google multi-contact files). */
+  function parseAllVCards(text) {
+    const cards = [];
+    const chunks = String(text || '').split(/BEGIN:VCARD/i).slice(1);
+    for (const chunk of chunks) {
+      const body = 'BEGIN:VCARD' + chunk.split(/END:VCARD/i)[0] + 'END:VCARD';
+      const c = parseVCard(body);
+      if (c.firstName || c.lastName || c.name || c.phone || c.email || c.company) {
+        cards.push(blankContact(c));
+      }
+    }
+    return cards;
+  }
+
+  function importContactsFromVcfText(text) {
+    const cards = parseAllVCards(text);
+    if (!cards.length) return { added: 0, updated: 0, total: 0 };
+    const all = allContacts();
+    let added = 0;
+    let updated = 0;
+    for (const card of cards) {
+      const existing = findContactByDedupe(all, card);
+      if (existing) {
+        all[existing.id] = mergeContactFields(existing, card);
+        updated++;
+      } else {
+        const next = blankContact({ ...card, id: uid() });
+        all[next.id] = next;
+        added++;
+      }
+    }
+    saveContacts(all);
+    return { added, updated, total: cards.length };
+  }
 
   async function pickContact() {
     if ('contacts' in navigator && 'select' in navigator.contacts) {
@@ -2732,7 +3165,7 @@
       if (i < 0) continue;
       const key = line.slice(0, i).split(';')[0].toUpperCase().replace(/^ITEM\d+\./, '');
       const raw = line.slice(i + 1);
-      if (key === 'END' && (out.firstName || out.name)) break; // first card only
+      if (key === 'END' && (out.firstName || out.name || out.phone || out.email)) break;
       if (key === 'FN' && !out.name) out.name = unesc(raw);
       if (key === 'N' && !out.nParts) out.nParts = raw.split(';').map(unesc);
       if (key === 'ORG' && !out.company) out.company = unesc(raw.split(';')[0] || '');
@@ -2775,25 +3208,108 @@
     for (const e of list) {
       const c = hydrateEstimate(e).client || {};
       const name = clientDisplayName(c);
-      const k = (name + '|' + c.phone).toLowerCase();
+      const k = contactDedupeKey(c) || (name + '|' + c.phone).toLowerCase();
       if (name && !seen.has(k) && e.id !== current?.id) seen.set(k, c);
     }
     return [...seen.values()];
   }
 
+  /** Library contacts first, then past estimate clients not already in the library. */
+  function pickerContactList() {
+    const lib = listContacts();
+    const seen = new Set(lib.map(contactDedupeKey).filter(Boolean));
+    const extras = pastClients().filter((c) => {
+      const k = contactDedupeKey(c);
+      return k && !seen.has(k);
+    });
+    return [...lib, ...extras];
+  }
+
   function filteredClients() {
     const q = $('#pick-search').value.trim().toLowerCase();
-    return pastClients().filter((c) => !q || [
-      clientDisplayName(c), c.company, c.phone, c.street, c.town, c.state, c.zip, c.csz,
+    return pickerContactList().filter((c) => !q || [
+      clientDisplayName(c), c.company, c.phone, c.email, c.street, c.town, c.state, c.zip, c.csz,
     ].join(' ').toLowerCase().includes(q));
   }
 
   function renderPickList() {
     const list = filteredClients();
+    $('#pick-title').textContent = 'Contacts';
     $('#pick-list').innerHTML = list.length
       ? list.map((c, i) => `<button type="button" class="pick-item" data-act="choose-client" data-i="${i}">
           <b>${esc(clientDisplayName(c))}</b><span class="muted">${esc([c.company, c.phone, c.town || c.street].filter(Boolean).join(' · '))}</span></button>`).join('')
-      : `<p class="empty">${$('#pick-search').value ? 'No matches.' : 'No past clients yet.'}</p>`;
+      : `<p class="empty">${$('#pick-search').value ? 'No matches.' : 'No contacts yet. Import a .vcf from Contacts in More.'}</p>`;
+  }
+
+  function filteredLibraryContacts(q = '') {
+    const query = String(q || '').trim().toLowerCase();
+    return listContacts().filter((c) => !query || [
+      clientDisplayName(c), c.company, c.phone, c.email, c.street, c.town, c.state, c.zip,
+    ].join(' ').toLowerCase().includes(query));
+  }
+
+  function contactsListHtml(list, total) {
+    return list.length ? list.map((c) => `
+      <article class="contact-card">
+        <div>
+          <b>${esc(clientDisplayName(c) || 'Unnamed')}</b>
+          <div class="muted">${esc([c.company, c.phone, c.email, [c.town, c.state].filter(Boolean).join(', ')].filter(Boolean).join(' · '))}</div>
+          ${c.street ? `<div class="muted small">${esc(c.street)}</div>` : ''}
+        </div>
+        <button type="button" class="link danger" data-act="contact-delete" data-id="${esc(c.id)}">Remove</button>
+      </article>`).join('')
+      : `<p class="empty">${total ? 'No matches.' : 'No contacts yet. Import a .vcf to get started.'}</p>`;
+  }
+
+  function refreshContactsList() {
+    const q = $('#contacts-search')?.value || '';
+    const list = filteredLibraryContacts(q);
+    const total = listContacts().length;
+    const countEl = $('#contacts-count');
+    if (countEl) countEl.textContent = String(total);
+    const root = $('#contacts-list');
+    if (root) root.innerHTML = contactsListHtml(list, total);
+  }
+
+  function renderContacts() {
+    setChrome({ title: 'Contacts', back: false, bottombar: false });
+    const q = $('#contacts-search')?.value || '';
+    const list = filteredLibraryContacts(q);
+    const total = listContacts().length;
+    $('#view').innerHTML = `
+      <div class="page-head">
+        <h2>Contacts <small class="muted" id="contacts-count">${total}</small></h2>
+        <div class="btn-pair">
+          <button type="button" class="btn primary" data-act="contacts-import-vcf">Import .vcf</button>
+          <button type="button" class="btn" data-act="contacts-from-estimates">Add from estimates</button>
+        </div>
+      </div>
+      <p class="hint">Upload your full Apple/Google contact export (.vcf). Contacts stay on this device and appear when you pick a client on an estimate.</p>
+      <input type="search" id="contacts-search" class="search" placeholder="Search contacts" value="${esc(q)}">
+      <div class="contacts-list" id="contacts-list">
+        ${contactsListHtml(list, total)}
+      </div>`;
+    // Only refresh the list so the search field keeps focus / mobile keyboard.
+    $('#contacts-search')?.addEventListener('input', () => refreshContactsList());
+  }
+
+  function importContactsFromEstimates() {
+    const all = allContacts();
+    let added = 0;
+    for (const c of pastClients()) {
+      if (!clientDisplayName(c) && !c.phone) continue;
+      const existing = findContactByDedupe(all, c);
+      if (existing) {
+        all[existing.id] = mergeContactFields(existing, c);
+      } else {
+        const next = blankContact({ ...c, id: uid() });
+        all[next.id] = next;
+        added++;
+      }
+    }
+    saveContacts(all);
+    toast(added ? `Added ${added} from estimates` : 'Library already has those clients');
+    renderContacts();
   }
 
   // ---------- backup ----------
@@ -2823,6 +3339,7 @@
       profile,
       estimates,
       events: allEvents(),
+      contacts: allContacts(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -2865,6 +3382,7 @@
       profile,
       estimates: allEstimates(),
       events: allEvents(),
+      contacts: allContacts(),
     };
     store(KEYS.restoreSnapshot, snap);
   }
@@ -2873,8 +3391,10 @@
     pendingRestore = data;
     const estimates = normalizeBackupMap(data.estimates);
     const events = normalizeBackupMap(data.events);
+    const contacts = normalizeBackupMap(data.contacts);
     const estCount = Object.keys(estimates).length;
     const eventCount = Object.keys(events).length;
+    const contactCount = Object.keys(contacts).length;
     const hasProfile = !!(data.profile && typeof data.profile === 'object');
     const when = data.exportedAt ? niceDate(String(data.exportedAt).slice(0, 10)) : 'unknown date';
     $('#restore-summary').innerHTML = `
@@ -2882,6 +3402,7 @@
       Exported: ${esc(when)} · schema ${esc(backupSchemaVersion(data))}<br>
       ${estCount} estimate${estCount === 1 ? '' : 's'},
       ${eventCount} calendar event${eventCount === 1 ? '' : 's'},
+      ${contactCount} contact${contactCount === 1 ? '' : 's'},
       company profile: ${hasProfile ? 'yes' : 'no'}.`;
     const opt = $('#restore-include-profile');
     opt.checked = hasProfile;
@@ -2896,8 +3417,10 @@
     const includeProfile = $('#restore-include-profile')?.checked && data.profile;
     const incomingEstimates = hydrateEstimateMap(data.estimates);
     const incomingEvents = normalizeBackupMap(data.events);
+    const incomingContacts = normalizeBackupMap(data.contacts);
     const estCount = Object.keys(incomingEstimates).length;
     const eventCount = Object.keys(incomingEvents).length;
+    const contactCount = Object.keys(incomingContacts).length;
 
     if (mode === 'replace') {
       snapshotBeforeReplace();
@@ -2905,6 +3428,7 @@
       // when the file has none — leave the current estimate list alone.
       if (estCount) store(KEYS.estimates, incomingEstimates);
       if (data.events != null) store(KEYS.events, incomingEvents);
+      if (data.contacts != null) store(KEYS.contacts, incomingContacts);
       if (includeProfile) applyProfileFromBackup(data.profile);
     } else {
       if (estCount) {
@@ -2916,6 +3440,10 @@
         const mergedEvents = { ...allEvents(), ...incomingEvents };
         store(KEYS.events, mergedEvents);
       }
+      if (contactCount || data.contacts != null) {
+        const mergedContacts = { ...allContacts(), ...incomingContacts };
+        store(KEYS.contacts, mergedContacts);
+      }
       if (includeProfile) applyProfileFromBackup(data.profile);
     }
 
@@ -2924,6 +3452,7 @@
     const parts = [];
     if (estCount) parts.push(`${estCount} estimate${estCount === 1 ? '' : 's'}`);
     if (eventCount) parts.push(`${eventCount} event${eventCount === 1 ? '' : 's'}`);
+    if (contactCount) parts.push(`${contactCount} contact${contactCount === 1 ? '' : 's'}`);
     if (includeProfile) parts.push('profile');
     toast(parts.length
       ? `${mode === 'replace' ? 'Replaced' : 'Merged'}: ${parts.join(', ')}`
@@ -2943,11 +3472,13 @@
         toast('Backup schema is too old or missing');
         return;
       }
-      if (!data.estimates && !data.profile && data.events == null) {
-        toast('That file has no profile, estimates, or events');
+      if (!data.estimates && !data.profile && data.events == null && data.contacts == null) {
+        toast('That file has no profile, estimates, events, or contacts');
         return;
       }
       // Accept legacy backups that used `version` without schemaVersion / events.
+      // Do NOT invent an empty contacts map — Replace must leave the current
+      // library alone when the backup predates contacts.
       if (data.events == null) data.events = {};
       if (data.estimates == null) data.estimates = {};
       showRestoreDialog(data);
@@ -2963,7 +3494,17 @@
     home: () => navigate('#/'),
     calendar: () => navigate('#/'),
     estimates: () => navigate('#/estimates'),
+    contacts: () => navigate('#/contacts'),
     schedule: () => navigate('#/schedule'),
+    'contacts-import-vcf': () => $('#contacts-vcf-file')?.click(),
+    'contacts-from-estimates': () => importContactsFromEstimates(),
+    'contact-delete': (el) => {
+      const id = el.dataset.id;
+      if (!id || !confirm('Remove this contact from the library?')) return;
+      deleteContact(id);
+      toast('Contact removed');
+      renderContacts();
+    },
     menu: () => {
       $('#menu-install').hidden = !installPrompt;
       const si = $('#sidebar-install');
@@ -3035,15 +3576,33 @@
     'cal-view': (el) => { saveCalView(el.dataset.view); renderCalendar(); },
     'cal-new': (el) => {
       const date = el.dataset.date || cal.cursor || detroitYmd();
-      openEventEditor(blankEvent({ date }), { isNew: true });
+      openEventEditor(blankEvent({
+        date,
+        type: BID_TYPE,
+        startHm: '09:00',
+        endHm: `${String(9 + BID_DEFAULT_HOURS).padStart(2, '0')}:00`,
+      }), { isNew: true });
+    },
+    'cal-new-task': () => {
+      openEventEditor(blankEvent({
+        type: 'dump_run',
+        title: 'Dump run',
+        unscheduled: true,
+      }), { isNew: true });
     },
     'cal-slot': (el) => {
       const date = el.dataset.date || cal.cursor;
       const allDay = el.dataset.allday === '1';
       const startHm = el.dataset.time || '09:00';
       const [hh, mm] = startHm.split(':').map(Number);
-      const endHm = `${String(hh + 1).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-      openEventEditor(blankEvent({ date, allDay, startHm, endHm }), { isNew: true });
+      const endHm = `${String(hh + BID_DEFAULT_HOURS).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      openEventEditor(blankEvent({
+        date,
+        allDay,
+        type: allDay ? JOB_TYPE : BID_TYPE,
+        startHm,
+        endHm,
+      }), { isNew: true });
     },
     'cal-select-day': (el) => {
       cal.cursor = el.dataset.date || cal.cursor;
@@ -3120,6 +3679,7 @@
     'pick-contact': pickContact,
     'pick-previous': () => {
       $('#pick-search').value = '';
+      $('#pick-title').textContent = 'Contacts';
       renderPickList();
       $('#pick-dlg').showModal();
     },
@@ -3331,9 +3891,33 @@
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
-    const c = parseVCard(await file.text());
-    if (c.name || c.phone) fillClient(c);
-    else toast('No contact found in that file');
+    const text = await file.text();
+    // Prefer the first card for filling the open estimate; also merge into the library.
+    const cards = parseAllVCards(text);
+    const c = cards[0] || parseVCard(text);
+    if (c && (c.name || c.firstName || c.phone)) {
+      fillClient(c);
+      if (cards.length) importContactsFromVcfText(text);
+    } else toast('No contact found in that file');
+  });
+
+  $('#contacts-vcf-file')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const result = importContactsFromVcfText(await file.text());
+      if (!result.total) {
+        toast('No contacts found in that .vcf');
+        return;
+      }
+      toast(`Imported ${result.added} new, updated ${result.updated} (${result.total} in file)`);
+      if ((location.hash || '').includes('contacts')) renderContacts();
+      else navigate('#/contacts');
+    } catch (err) {
+      console.error(err);
+      toast('Could not read that .vcf');
+    }
   });
 
   $('#import-file').addEventListener('change', (e) => {
