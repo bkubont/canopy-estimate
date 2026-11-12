@@ -11,6 +11,12 @@ Status: **draft for review**. Nothing here is built yet.
 | Distribution | Home-screen install is fine | Stay an installable web app (PWA); no App Store work now |
 | Existing data | None to keep | Start with a clean data model; drop all the legacy-migration code |
 | Equipment pricing on PDF | Hide markup, per-line prices OK | Lines show the marked-up price; cost and markup stay internal |
+| Crew sees prices | No | Prices live in a separate table only owner/office can read |
+| Deposit by card at signing | Yes | Customer signing link offers "Pay deposit" (Phase 2/3) |
+| Card fees | Absorb | No surcharge logic or disclosures needed |
+| Invoicing | One invoice per job, at completion | No progress billing |
+| Stripe account | None yet | Owner creates one in the business name before Phase 3 (verification takes a few days) |
+| Web address | Real subdomain | e.g. `app.advanced-treeservice.com` before customer links go out |
 
 ## Architecture
 
@@ -56,10 +62,10 @@ attachments       signatures, photos, PDFs (Storage)
 activity_log      who did what, when
 ```
 
-### Roles (proposed; please confirm)
+### Roles (confirmed)
 - **Owner:** everything, including company settings, Stripe and the team.
 - **Office:** estimates, invoices, payments, calendar.
-- **Crew:** calendar, assigned jobs, internal notes, and marking work done. They can see the work but **not the prices**.
+- **Crew:** calendar, assigned jobs, internal notes, and marking work done. They see the work but **not the prices** (enforced by the database, not just hidden on screen).
 
 ## Phases
 
@@ -110,9 +116,4 @@ Port the wizard, plus these fixes:
 - Reports: revenue, equipment spend, and markup earned
 
 ## Open questions
-1. **Roles:** should crew be blocked from seeing prices? (Proposed: yes.)
-2. **Deposits:** collect the deposit by card when the customer signs, or only on the invoice?
-3. **Card fees:** absorb them, or add a card surcharge? (Michigan allows surcharges, with disclosure rules.)
-4. **Invoice timing:** one invoice per job at completion, or progress invoices on multi-day jobs too?
-5. **Stripe account:** does the company already have one? It needs to be in the business name.
-6. **Hosting:** should the Hostinger temporary domain become a real subdomain (for example `app.advanced-treeservice.com`) before customers get links?
+None right now. All six were answered on 2026-11-12 (see Decisions).
