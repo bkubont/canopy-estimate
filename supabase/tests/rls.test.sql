@@ -2,7 +2,7 @@
 -- what they can and cannot see or change. Any failed check aborts the run.
 
 create schema t;
-grant usage on schema t to authenticated;
+grant usage on schema t to authenticated, anon;
 
 create function t.login(p_uid uuid, p_email text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', p_uid, 'email', p_email, 'role', 'authenticated')::text, false);
@@ -25,9 +25,9 @@ begin
   end;
   raise exception 'FAILED: % (no error raised)', p_msg;
 end $$;
-grant execute on all functions in schema t to authenticated;
+grant execute on all functions in schema t to authenticated, anon;
 create table t.ids (k text primary key, v text);
-grant all on t.ids to authenticated;
+grant all on t.ids to authenticated, anon;
 
 insert into auth.users values
   ('00000000-0000-0000-0000-00000000000a', 'owner@ats.test'),
@@ -97,8 +97,9 @@ select t.ok((select status = 'in_progress' from public.jobs where id = :job), 'c
 update public.jobs set status = 'done', created_at = '2000-01-01', updated_at = '2000-01-01' where id = :job;
 select t.ok((select status = 'done' and created_at > '2020-01-01' from public.jobs where id = :job),
   'crew full-row sync is accepted and the server keeps its own timestamps');
-select t.fails($$ update public.jobs set trees = '[]' where id = '11111111-1111-1111-1111-111111111111' $$,
-  'only update job status', 'crew cannot edit the estimate itself');
+update public.jobs set trees = '[]', number = 'HACKED' where id = :job;
+select t.ok((select jsonb_array_length(trees) = 1 and number = 'E-1001' from public.jobs where id = :job),
+  'crew cannot edit the estimate itself (their copy of those fields is ignored)');
 select t.fails($$ update public.jobs set status = 'pending' where id = '11111111-1111-1111-1111-111111111111' $$,
   'cannot set status', 'crew cannot reset a job to pending');
 select t.fails($$ insert into public.jobs (id, org_id, number) select gen_random_uuid(), v::uuid, 'E-9999' from t.ids where k = 'org' $$,
@@ -143,5 +144,92 @@ select t.fails($$ select public.sync_pull(v::uuid) from t.ids where k = 'org' $$
 select t.fails($$ insert into public.customers (id, org_id) select gen_random_uuid(), v::uuid from t.ids where k = 'org' $$,
   'row-level security', 'outsiders cannot add data to the company');
 select t.fails($$ delete from public.jobs $$, 'permission denied', 'nobody can hard-delete rows');
+-- ================================================================ Phase 2: estimates
+\set job2 '''33333333-3333-3333-3333-333333333333'''
+\set sig '''data:image/png;base64,iVBORw0KGgo='''
+
+select t.login(:office, 'office@ats.test');
+insert into public.jobs (id, org_id, number, trees, equipment, client_notes, internal_notes, prepared_by_name)
+  select :job2, v::uuid, 'E-1002',
+    '[{"species":"Ash","internal_notes":"crew: watch the fence"}]',
+    '[{"id":"l1","desc":"Stump grinder","qty":1}]', 'Haul all brush', 'Customer is picky', 'Pat'
+  from t.ids where k = 'org';
+insert into public.job_pricing (job_id, org_id, day_rate, equipment_markup, equipment_costs)
+  select :job2, v::uuid, 2000, 1.2, '{"l1": 285}' from t.ids where k = 'org';
+insert into t.ids select 'token', public.create_share_link(:job2);
+select t.ok((select public.create_share_link(:job2)::text = v from t.ids where k = 'token'), 'a job keeps the same customer link');
+
+select t.login(:crew, 'crew@ats.test');
+select t.fails($$ select public.create_share_link('33333333-3333-3333-3333-333333333333') $$, 'not allowed', 'crew cannot create customer links');
+select t.ok((select count(*) = 0 from public.job_pricing where job_id = :job2), 'crew cannot read the customer link token');
+
+-- ---- the customer, with no account
+reset role;
+select set_config('request.jwt.claims', '', false);
+set role anon;
+select t.ok((select (public.customer_view(v::uuid) -> 'pricing' -> 'unit_prices' ->> 'l1')::numeric = 342.00 from t.ids where k = 'token'),
+  'customer sees the equipment price with markup built in (285 × 1.2 = 342)');
+select t.ok((select public.customer_view(v::uuid)::text not like '%285%' and public.customer_view(v::uuid)::text not like '%markup%' from t.ids where k = 'token'),
+  'customer never sees the rental cost or the markup');
+select t.ok((select public.customer_view(v::uuid)::text not like '%watch the fence%' and public.customer_view(v::uuid)::text not like '%picky%' from t.ids where k = 'token'),
+  'customer never sees internal notes (job or tree)');
+select t.ok((select public.customer_view(v::uuid) -> 'job' ->> 'client_notes' = 'Haul all brush' from t.ids where k = 'token'),
+  'customer sees the client notes');
+select t.fails($$ select public.customer_view(gen_random_uuid()) $$, 'no longer valid', 'a made-up link shows nothing');
+select t.fails($$ select public.customer_sign(v::uuid, 'not an image', 'Dana') from t.ids where k = 'token' $$, 'sign in the box', 'signing needs a real signature');
+select t.fails($$ select public.customer_sign(v::uuid, 'data:image/png;base64,iVBORw0KGgo=', '  ') from t.ids where k = 'token' $$, 'type your name', 'signing needs a name');
+select public.customer_sign(v::uuid, :sig, 'Dana Smith') from t.ids where k = 'token';
+select t.ok((select public.customer_view(v::uuid) -> 'job' ->> 'signed_by_name' = 'Dana Smith' from t.ids where k = 'token'), 'customer signs through the link');
+select t.fails($$ select public.customer_sign(v::uuid, 'data:image/png;base64,iVBORw0KGgo=', 'Someone') from t.ids where k = 'token' $$,
+  'already been signed', 'a signed estimate cannot be signed again');
+select t.fails($$ select * from public.jobs $$, 'permission denied', 'the link does not open up the jobs table');
+reset role;
+
+-- ---- after signing
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+select t.ok((select status = 'approved' and signed_via = 'link' from public.jobs where id = :job2), 'signing through the link approves the estimate');
+select t.ok((select (signed_snapshot -> 'unit_prices' ->> 'l1')::numeric = 342 from public.job_pricing where job_id = :job2), 'the signed price is recorded');
+
+-- An office tablet with an older, unsigned copy uploads it with a new internal note.
+update public.jobs set signed_at = null, client_sig = '', signed_by_name = '', status = 'approved',
+  internal_notes = 'Bring the big grinder', trees = '[]' where id = :job2;
+select t.ok((select signed_at is not null and client_sig <> '' and jsonb_array_length(trees) = 1 from public.jobs where id = :job2),
+  'an older copy from another device cannot erase the signature or change signed content');
+select t.ok((select internal_notes = 'Bring the big grinder' from public.jobs where id = :job2), 'but its internal note still saves');
+
+update public.job_pricing set signed_snapshot = null, share_token = null, day_rate = 2000 where job_id = :job2;
+select t.ok((select signed_snapshot is not null and share_token is not null from public.job_pricing where job_id = :job2),
+  'an older pricing copy cannot erase the signed price or the customer link');
+select t.fails($$ update public.job_pricing set signed_snapshot = '{"day_rate": 1}' where job_id = '33333333-3333-3333-3333-333333333333' $$,
+  'signed price', 'the signed price cannot be rewritten');
+
+update public.jobs set change_orders = '[{"id":"co1","days":1,"reason":"Weather delay"}]' where id = :job2;
+select t.ok((select jsonb_array_length(change_orders) = 1 from public.jobs where id = :job2), 'a change order can be added to a signed estimate');
+update public.jobs set change_orders = '[]' where id = :job2;
+select t.ok((select jsonb_array_length(change_orders) = 1 from public.jobs where id = :job2), 'an older copy without it does not remove the change order');
+select t.fails($$ update public.jobs set change_orders = '[{"id":"co1","days":9,"reason":"Weather delay"}]' where id = '33333333-3333-3333-3333-333333333333' $$,
+  'can''t be changed', 'a signed change order cannot be edited');
+
+-- Crew phone with an old copy marks the job in progress.
+select t.login(:crew, 'crew@ats.test');
+update public.jobs set status = 'in_progress', signed_at = null, client_sig = '' where id = :job2;
+select t.ok((select status = 'in_progress' and signed_at is not null from public.jobs where id = :job2),
+  'crew status update from an older copy is accepted without touching the signature');
+select t.fails($$ select public.void_signature('33333333-3333-3333-3333-333333333333') $$, 'not allowed', 'crew cannot void a signature');
+
+select t.login(:office, 'office@ats.test');
+select public.void_signature(:job2);
+select t.ok((select signed_at is null and client_sig = '' and status = 'pending' from public.jobs where id = :job2), 'office can void a signature on purpose');
+select t.ok((select signed_snapshot is null from public.job_pricing where job_id = :job2), 'voiding clears the signed price');
+
+-- Expired estimates can't be signed through the link.
+update public.jobs set estimate_date = current_date - 45 where id = :job2;
+reset role;
+select set_config('request.jwt.claims', '', false);
+set role anon;
+select t.fails($$ select public.customer_sign(v::uuid, 'data:image/png;base64,iVBORw0KGgo=', 'Dana') from t.ids where k = 'token' $$,
+  'expired', 'an expired estimate cannot be signed through the link');
 
 reset role;
+

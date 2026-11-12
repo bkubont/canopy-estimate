@@ -12,3 +12,4 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 grant usage on schema auth to anon, authenticated;
 grant execute on all functions in schema auth to anon, authenticated;
+grant usage on schema public to anon, authenticated;
