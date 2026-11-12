@@ -258,3 +258,74 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .status.inv-paid { background: color-mix(in srgb, var(--green) 28%, var(--card)); color: var(--ok-ink); }
 .status.inv-void { background: var(--bg); color: var(--muted); text-decoration: line-through; }
 .doc .pre, .pre { white-space: pre-line; }
+
+/* ---------- calendar ---------- */
+.cal-page { max-width: 1400px; }
+.cal-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cal-heading { font-size: 18px; margin-left: 4px; }
+.cal-toolbar .chips .chip { min-height: 38px; padding: 4px 12px; font-size: 14px; }
+.cal-pool-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.cal-pool-list .cal-entry { width: auto; min-width: 160px; }
+
+/* Phone: one day under another. */
+.cal-week { display: grid; gap: 8px; }
+.cal-day { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.cal-day.today { border-color: var(--green-dark); box-shadow: inset 0 0 0 1px var(--green-dark); }
+.cal-day-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.cal-day-head .dow { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.cal-day-head .dom { font-size: 18px; font-weight: 800; }
+.cal-day.today .cal-day-head .dom { background: var(--green); border-radius: 999px; padding: 0 8px; }
+.cal-day-list { display: grid; gap: 6px; }
+.cal-empty { margin: 0; }
+.cal-add { margin-top: 6px; }
+
+/* Tablet and up: seven columns. If the screen is narrower than seven readable
+   columns, the week scrolls sideways instead of cutting days off. */
+@media (min-width: 700px) {
+  .cal-week { grid-template-columns: repeat(7, minmax(112px, 1fr)); gap: 6px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+  .cal-day { padding: 8px; }
+  .cal-entry { padding: 5px 6px; }
+  .cal-day { min-height: 220px; display: flex; flex-direction: column; scroll-snap-align: start; }
+  .cal-day-list { flex: 1; align-content: start; }
+}
+
+.cal-entry {
+  display: grid; gap: 1px; width: 100%; text-align: left; cursor: pointer;
+  padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); border-left: 4px solid var(--muted);
+  background: #fff; font: inherit; color: var(--ink);
+}
+.cal-entry-title { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.cal-entry-meta { font-size: 12px; color: var(--muted); }
+.type-tree_work { border-left-color: var(--green-dark); background: color-mix(in srgb, var(--green) 14%, #fff); }
+.type-estimate_visit { border-left-color: #1d4f86; background: #EEF4FB; }
+.type-dump_run, .type-equipment_rental, .type-maintenance { border-left-color: #C9A227; background: #FFF8E1; }
+.type-time_off { border-left-color: #9AA7AE; background: #F1F3F5; }
+.status-tentative { border-style: dashed; border-left-style: solid; }
+.status-completed .cal-entry-title { text-decoration: line-through; color: var(--muted); }
+
+.cal-month { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-dow { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.cal-cell {
+  display: flex; flex-direction: column; gap: 2px; align-items: stretch; min-height: 72px; padding: 4px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--card); font: inherit; text-align: left; cursor: pointer; overflow: hidden;
+}
+.cal-cell .dom { font-weight: 700; font-size: 13px; }
+.cal-cell.outside { opacity: .45; }
+.cal-cell.today .dom { color: var(--ok-ink); background: var(--green); border-radius: 999px; padding: 0 6px; align-self: flex-start; }
+.cal-cell.selected { border-color: var(--ink); }
+.cal-dot { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; padding: 0 4px; border-left: 3px solid var(--muted); }
+@media (min-width: 900px) { .cal-cell { min-height: 100px; } }
+
+/* ---------- jobs board ---------- */
+.board-tabs { margin-bottom: 12px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+.board-tabs .chip { white-space: nowrap; min-height: 38px; font-size: 14px; }
+.board { display: grid; gap: 10px; }
+@media (min-width: 900px) {
+  .board { grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); overflow-x: auto; align-items: start; padding-bottom: 6px; }
+  .board-tabs { display: none; }
+}
+@media (max-width: 899px) { .board-col:not(.on) { display: none; } }
+.board-col { background: color-mix(in srgb, var(--line) 35%, var(--bg)); border-radius: var(--radius); padding: 8px; }
+.board-col > header { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 8px; font-weight: 700; }
+.job-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+.job-card .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

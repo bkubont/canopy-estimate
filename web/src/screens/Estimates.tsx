@@ -55,7 +55,7 @@ export function Estimates() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>{canCreate ? 'Estimates' : 'Jobs'}</h2>
+        <h2>{canCreate ? 'Estimates' : 'Job details'}</h2>
         {canCreate && <button type="button" className="btn primary" onClick={create}>＋ New estimate</button>}
       </div>
       {profileMissing && (

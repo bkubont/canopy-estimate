@@ -10,6 +10,7 @@ const TITLES: Record<string, string> = {
   team: 'Team',
   account: 'More',
   invoices: 'Invoices',
+  board: 'Jobs board',
 };
 
 export function Shell() {
@@ -28,7 +29,8 @@ export function Shell() {
           </div>
         </div>
         <NavLink to="/calendar">Calendar</NavLink>
-        <NavLink to="/estimates">{can.seePrices(org.role) ? 'Estimates' : 'Jobs'}</NavLink>
+        <NavLink to="/board">Jobs board</NavLink>
+        <NavLink to="/estimates">{can.seePrices(org.role) ? 'Estimates' : 'Job details'}</NavLink>
         {can.seePrices(org.role) && <NavLink to="/invoices">Invoices</NavLink>}
         <NavLink to="/contacts">Contacts</NavLink>
         <NavLink to="/company">Company</NavLink>
@@ -41,7 +43,7 @@ export function Shell() {
       <div className="main">
         <header className="appbar">
           <img src="brand/logo.svg" alt="" className="appbar-logo" />
-          <div className="appbar-title">{section === 'estimates' && !can.seePrices(org.role) ? 'Jobs' : TITLES[section] ?? org.name}</div>
+          <div className="appbar-title">{section === 'estimates' && !can.seePrices(org.role) ? 'Job details' : TITLES[section] ?? org.name}</div>
           <SyncBadge />
         </header>
         <Outlet />
@@ -49,7 +51,9 @@ export function Shell() {
 
       <nav className="tabnav" aria-label="Primary">
         <NavLink to="/calendar"><span className="ico" aria-hidden="true">📅</span>Calendar</NavLink>
-        <NavLink to="/estimates"><span className="ico" aria-hidden="true">📋</span>{can.seePrices(org.role) ? 'Estimates' : 'Jobs'}</NavLink>
+        {can.seePrices(org.role)
+          ? <NavLink to="/estimates"><span className="ico" aria-hidden="true">📋</span>Estimates</NavLink>
+          : <NavLink to="/board"><span className="ico" aria-hidden="true">🪵</span>Jobs</NavLink>}
         {can.seePrices(org.role)
           ? <NavLink to="/invoices"><span className="ico" aria-hidden="true">🧾</span>Invoices</NavLink>
           : <NavLink to="/contacts"><span className="ico" aria-hidden="true">👤</span>Contacts</NavLink>}

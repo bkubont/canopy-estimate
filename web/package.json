@@ -12,7 +12,8 @@
     "e2e": "node e2e/two-devices.mjs",
     "e2e:fake": "E2E_FAKE=1 node e2e/two-devices.mjs",
     "e2e:estimate": "node e2e/estimate-flow.mjs",
-    "e2e:invoice": "node e2e/invoice-flow.mjs"
+    "e2e:invoice": "node e2e/invoice-flow.mjs",
+    "e2e:calendar": "node e2e/calendar-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

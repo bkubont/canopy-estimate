@@ -27,7 +27,7 @@ export function Invoices() {
     }).sort((a, b) => b.inv.issue_date.localeCompare(a.inv.issue_date) || b.inv.number.localeCompare(a.inv.number));
   }, [invoices, payments, jobs]);
 
-  if (!can.seePrices(org.role)) return <Navigate to="/estimates" replace />;
+  if (!can.seePrices(org.role)) return <Navigate to="/board" replace />;
 
   const test = FILTERS.find(([id]) => id === filter)![2];
   const list = rows.filter((r) => test(r.status));

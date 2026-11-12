@@ -66,7 +66,7 @@ await signUp(o, owner);
 await expectText(o, 'Set up your company', 'new account is asked to set up a company');
 await o.getByLabel('Your name').fill('Joey');
 await o.getByRole('button', { name: 'Create company' }).click();
-await expectText(o, 'Coming in Phase 4', 'owner lands in the app');
+await expectText(o, 'Tasks with no day yet', 'owner lands in the app');
 await expectText(o, 'Synced', 'sync badge reports synced');
 await shot(o, '02-home');
 
@@ -98,7 +98,7 @@ await signUp(c, crew);
 await expectText(c, 'Join your team', 'after sign-up the invite is offered');
 await c.getByLabel('Your name').fill('Sam');
 await c.getByRole('button', { name: 'Join company' }).click();
-await expectText(c, 'Coming in Phase 4', 'crew member joins the company');
+await expectText(c, 'Tasks with no day yet', 'crew member joins the company');
 
 await c.goto(`${APP}#/contacts`);
 await expectText(c, 'Dana Smith', 'crew sees the contact the owner added (second device)');

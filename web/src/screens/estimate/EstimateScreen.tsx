@@ -11,6 +11,8 @@ import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
 import { reserveNumbers, voidSignature } from '../../lib/supabase';
 import { PaymentSheet } from '../invoice/PaymentSheet';
+import { EventSheet, eventForJob } from '../calendar/EventSheet';
+import { blankEvent, dayLabel, jobSchedule, todayMi } from '../../lib/calendar';
 import type { ChangeOrder, Job, JobPricing, Organization } from '../../lib/types';
 import { useJobDraft } from '../../lib/useJobDraft';
 import { SendActions } from './SendActions';
@@ -144,6 +146,9 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
   const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const t = totals(job, customerPricing(job, pricing));
   const invoice = (invoices ?? []).find((i) => i.job_id === job.id && i.status !== 'void');
+  const events = useRows(engine, 'events');
+  const sched = jobSchedule(job.id, events ?? []);
+  const [scheduling, setScheduling] = useState<import('../../lib/types').CalEvent | null>(null);
   const paid = paidForJob(payments ?? [], job.id);
 
   async function createInvoice() {
@@ -192,6 +197,14 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         </Field>
       </section>
       <section className="card">
+        <div className="row">
+          <span>{sched.start ? <>📅 {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
+          <button type="button" className="btn sm" onClick={() => setScheduling(sched.events[0] ?? eventForJob(blankEvent(job.org_id), job, todayMi()))}>
+            {sched.start ? 'Change dates' : '📅 Schedule'}
+          </button>
+        </div>
+      </section>
+      <section className="card">
         <div className="sum-line"><span>Signed total{job.change_orders.length ? ' (with change orders)' : ''}</span><b>{money(t.total)}</b></div>
         <div className="sum-line"><span>Paid so far{t.deposit ? ` (deposit asked: ${money(t.deposit)})` : ''}</span><span>{money(paid)}</span></div>
         <div className="btn-row mt">
@@ -209,6 +222,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
       {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
       <SendActions job={job} pricing={pricing} company={company} flush={flush} />
 
+      <EventSheet event={scheduling} onClose={() => setScheduling(null)} />
       <PaymentSheet
         open={depositOpen}
         onClose={() => setDepositOpen(false)}
@@ -281,6 +295,8 @@ function ChangeOrderSheet({ co, dayRate, onClose, onSave }: { co: ChangeOrder | 
 function JobSheet({ job }: { job: Job }) {
   const { engine, org } = useReady();
   const company = useRow(engine, 'organizations', org.org_id);
+  const events = useRows(engine, 'events');
+  const sched = jobSchedule(job.id, events ?? []);
   const allTrees = [...job.trees, ...job.change_orders.flatMap((c) => c.trees)];
   return (
     <div className="page">
@@ -288,6 +304,9 @@ function JobSheet({ job }: { job: Job }) {
         <h2>{job.number} · {clientName(job.client)}</h2>
         <span className={`status ${job.status}`}>{STATUS_LABEL[job.status]}</span>
       </div>
+      <section className="card">
+        <b>{sched.start ? `📅 ${dayLabel(sched.start)}${sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}` : 'Not on the calendar yet'}</b>
+      </section>
       <section className="card">
         <h3>Client</h3>
         <p style={{ margin: 0 }}>{clientName(job.client)}<br />{[job.client.street, job.client.town].filter(Boolean).join(', ')}</p>

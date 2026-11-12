@@ -58,7 +58,7 @@ export function InvoiceScreen() {
   const [busy, setBusy] = useState(false);
   const docRef = useRef<HTMLDivElement>(null);
 
-  if (!can.seePrices(org.role)) return <Navigate to="/estimates" replace />;
+  if (!can.seePrices(org.role)) return <Navigate to="/board" replace />;
   if (missing) return <Navigate to="/invoices" replace />;
   if (!inv || !job || !company || payments === null) return <div className="page"><p className="empty">Loading…</p></div>;
 

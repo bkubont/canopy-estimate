@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1–3 built** (2026-11-12), except card payments (waiting on approval for Stripe). Not yet run against a live Supabase project (see SETUP.md).
+Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). Not yet run against a live Supabase project (see SETUP.md).
 
 ## Decisions so far
 
@@ -133,6 +133,15 @@ Port the wizard, plus these fixes:
 - Week view fits iPad landscape (scrolls instead of cutting off).
 - Assign a job to a crew; crew members see "My jobs this week."
 - The Kanban stages follow the job stage (approved → scheduled → in progress → done → invoiced → paid).
+
+**Status: built and tested.**
+- Work dates live only on the calendar. A signed job is Scheduled while it has a tree-work day there; remove the day and it's Approved again, on every screen
+- Schedule from the Jobs board, the signed estimate, or the calendar: all create the same calendar entry, pre-filled from the job (title, town, days, equipment)
+- Crew assigned per calendar entry, with a double-booking warning; crew open on "Only mine"; their Jobs tab is the board (no money columns)
+- Week view: list of days on phones, 7 columns on tablets (the whole week fits on an iPad Pro in landscape; narrower screens scroll sideways); Month view
+- Tasks with no day yet (dump runs, rentals, maintenance): tap to pick a day, no drag-and-drop needed on touch screens
+- Board: Approved → Scheduled → In progress → Blocked (with reason) → Done → Invoiced → Paid; the board follows a job to its new column
+- Tests: 92 database checks, 51 unit tests, 22-step calendar walkthrough (phone, crew phone, iPad)
 
 ### Phase 5: Later
 - App Store and Play Store builds (Capacitor wraps the same code)

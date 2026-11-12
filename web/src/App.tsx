@@ -5,6 +5,8 @@ import { Account } from './screens/Account';
 import { AcceptInvite } from './screens/AcceptInvite';
 import { Company } from './screens/Company';
 import { ContactEdit } from './screens/ContactEdit';
+import { Board } from './screens/calendar/Board';
+import { Calendar } from './screens/calendar/Calendar';
 import { Contacts } from './screens/Contacts';
 import { CustomerInvoicePage } from './screens/CustomerInvoicePage';
 import { CustomerPage } from './screens/CustomerPage';
@@ -13,7 +15,6 @@ import { Invoices } from './screens/invoice/Invoices';
 import { Estimates } from './screens/Estimates';
 import { EstimateScreen } from './screens/estimate/EstimateScreen';
 import { Onboarding } from './screens/Onboarding';
-import { Placeholder } from './screens/Placeholder';
 import { SignIn } from './screens/SignIn';
 import { Team } from './screens/Team';
 import { Unconfigured } from './screens/Unconfigured';
@@ -44,10 +45,8 @@ export function App() {
         {phase === 'ready' && (
           <Route element={<Shell />}>
             <Route path="/" element={<Navigate to="/calendar" replace />} />
-            <Route
-              path="/calendar"
-              element={<Placeholder title="Calendar" phase="Phase 4" note="Week planner with jobs, bids and tasks, shared by the whole team." />}
-            />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/board" element={<Board />} />
             <Route path="/estimates" element={<Estimates />} />
             <Route path="/estimates/:id" element={<EstimateScreen />} />
             <Route path="/estimates/:id/:step" element={<EstimateScreen />} />

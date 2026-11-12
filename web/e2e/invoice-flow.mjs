@@ -71,7 +71,7 @@ await o.goto(APP);
 await signUp(o, owner);
 await o.getByLabel('Your name').fill('Joey');
 await o.getByRole('button', { name: 'Create company' }).click();
-await see(o, 'Coming in Phase 4', 'owner is in');
+await see(o, 'Tasks with no day yet', 'owner is in');
 await o.goto(`${APP}#/company`);
 await o.getByLabel('Phone').fill('231-555-0000');
 await o.getByLabel('How customers can pay').fill('Checks payable to Advanced Tree Service');
@@ -123,6 +123,15 @@ try {
   const boxes = [];
   for (let i = 0; i < 5; i++) { boxes.push(JSON.stringify(await b.boundingBox())); await o.waitForTimeout(150); }
   console.error('send button boxes:', boxes.join(' '), 'scrollY', await o.evaluate(() => window.scrollY));
+  console.error('diagnose:', JSON.stringify(await b.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return {
+      disabled: el.disabled, inert: !!el.closest('[inert]'), inViewport: r.top >= 0 && r.bottom <= innerHeight,
+      topElement: top ? `${top.tagName}.${top.className}` : null, topIsButton: top === el || el.contains(top),
+      openDialogs: [...document.querySelectorAll('dialog[open]')].map((d) => d.querySelector('h3')?.textContent),
+    };
+  })));
   await fail(o, 'send button not clickable');
 }
 await see(o, 'Partly paid', 'sent invoice shows Partly paid because of the deposit');
@@ -166,17 +175,17 @@ await c.goto(invite);
 await signUp(c, crew);
 await c.getByLabel('Your name').fill('Sam');
 await c.getByRole('button', { name: 'Join company' }).click();
-await see(c, 'Coming in Phase 4', 'crew joins');
+await see(c, 'Tasks with no day yet', 'crew joins');
 if (await c.locator('nav.tabnav a[href="#/invoices"]').count()) await fail(c, 'crew has an Invoices tab');
 ok('crew has no Invoices tab');
 await c.goto(`${APP}#/invoices`);
 try {
-  await c.getByRole('heading', { name: 'Jobs' }).waitFor({ timeout: 15000 });
-  ok('crew sent away from invoices to Jobs');
+  await c.getByRole('heading', { name: 'Jobs board' }).waitFor({ timeout: 15000 });
+  ok('crew sent away from invoices to their Jobs board');
 } catch {
   await fail(c, 'crew not redirected to Jobs');
 }
-await notSee(c, /\$|INV-/, 'crew sees no money anywhere on the jobs list');
+await notSee(c, /\$|INV-|Invoiced|Paid/, 'crew sees no money anywhere on the jobs board');
 
 await browser.close();
 console.log(`All ${step} invoice checks passed.`);

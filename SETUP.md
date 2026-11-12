@@ -29,6 +29,7 @@ Open **SQL Editor → New query** in Supabase. Paste and run each file in order:
 2. `supabase/migrations/20261112000100_storage.sql` (private file storage)
 3. `supabase/migrations/20261113000000_estimates.sql` (signatures, the signed-estimate lock, the customer link)
 4. `supabase/migrations/20261114000000_invoices.sql` (invoices and payments)
+5. `supabase/migrations/20261115000000_calendar.sql` (crew assignment on the calendar)
 
 Already ran some? Just run the ones after the last you ran, in order.
 
@@ -93,6 +94,7 @@ cd web && npm run dev                        # in one terminal, with .env pointi
 APP_URL=http://localhost:5173/ node e2e/two-devices.mjs     # team + sync
 APP_URL=http://localhost:5173/ node e2e/estimate-flow.mjs   # estimate, customer signs by link, change order, crew view
 APP_URL=http://localhost:5173/ node e2e/invoice-flow.mjs    # deposit, invoice, customer link, final payment, crew can't see
+APP_URL=http://localhost:5173/ node e2e/calendar-flow.mjs   # schedule from board/estimate, crew calendar, iPad week
 ```
 
 The two-device test creates two throwaway accounts. Against a real project, confirmation emails are needed, so run it against a **separate test project**, or with **Confirm email** off on that test project only.
