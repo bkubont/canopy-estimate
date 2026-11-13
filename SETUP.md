@@ -1,4 +1,4 @@
-# Setting up the new app (Phase 1)
+# Setting up the new app
 
 The new app lives in `web/` (the screens) and `supabase/` (the database). The original app in the repo root keeps running on Hostinger until the new one replaces it, so nothing changes for anyone until you switch over.
 
@@ -7,7 +7,7 @@ It takes about 20 minutes and has four parts:
 1. Create the Supabase project.
 2. Load the database.
 3. Turn on logins.
-4. Build the app and upload it.
+4. Turn on automatic deploys to the new subdomain.
 
 ## 1. Create the Supabase project (about 5 minutes)
 
@@ -48,24 +48,30 @@ In **Authentication → Providers → Email**, leave **Confirm email** on. It st
 
 Supabase's built-in email sender is limited to a few emails an hour. That's fine for a handful of people. Before inviting the whole team, add your own email service under **Project Settings → Auth → SMTP**; your email host's SMTP details work.
 
-## 4. Build and upload
+## 4. Automatic deploys (about 10 minutes, once)
 
-On your computer (needs Node.js 20 or newer):
+GitHub builds the app for you. Every push to `main` runs all the tests. If they pass, it builds the app and publishes the finished files to a branch called `deploy`. The new subdomain on Hostinger pulls that branch. If any test fails, nothing is published, and the live app stays as it was.
 
-```bash
-cd web
-cp .env.example .env          # then paste the Project URL and anon key into .env
-npm install
-npm run build                 # creates web/dist
-```
+**a. Give GitHub the two Supabase values.** In the repo on GitHub, go to **Settings → Secrets and variables → Actions → New repository secret** and add:
 
-Upload **everything inside `web/dist`** to the new subdomain's folder on Hostinger:
+| Name | Value |
+|---|---|
+| `VITE_SUPABASE_URL` | the Project URL, e.g. `https://abcd1234.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | the **anon public** key (never the `service_role` key) |
 
-1. In hPanel, go to **Domains → Subdomains** and create `app.advanced-treeservice.com`.
-2. Go to **Security → SSL** and turn on SSL for it. It's required for home-screen install and offline use.
-3. In **File Manager**, upload the contents of `web/dist` into that subdomain's folder.
+**b. Run the first deploy.** Go to **Actions → Build and deploy → Run workflow** (on `main`). After a few minutes it shows a green check, and a `deploy` branch appears in the repo.
+
+**c. Point a new subdomain at it.** In hPanel:
+1. **Domains → Subdomains:** create `app.advanced-treeservice.com`.
+2. **Security → SSL:** turn on SSL for it. Home-screen install, offline use and logins all need it.
+3. **Advanced → Git** for the subdomain: repository `https://github.com/bkubont/canopy-estimate.git`, branch **`deploy`**, install path empty (the subdomain's folder must be empty first). If the repo is private, add the SSH key Hostinger shows under **GitHub → repo → Settings → Deploy keys** and use the SSH address `git@github.com:bkubont/canopy-estimate.git`.
+4. Click **Deploy**. Then copy Hostinger's **auto-deployment webhook** URL into **GitHub → repo → Settings → Webhooks** (content type `application/json`, just the push event), so each new build goes live by itself.
 
 Then open the address on your phone, **Create account**, and set up the company. You'll be the owner.
+
+**Day to day:** merge to `main`, wait a few minutes, done. To roll back, open the `deploy` branch history on GitHub, and in hPanel deploy an earlier commit, or revert the change on `main`.
+
+**Without GitHub (fallback):** on a computer with Node.js 20+, `cd web && cp .env.example .env` (paste the two values in), `npm install && npm run build`, then upload everything inside `web/dist` with File Manager.
 
 ## Inviting your team
 
@@ -107,6 +113,6 @@ The two-device test creates two throwaway accounts. Against a real project, conf
 - Signing out uploads first, and warns you if anything couldn't be sent.
 - Supabase backs up the database daily (7 days on the free plan, 14+ on Pro).
 
-## Moving the app to Hostinger Git deploys (later)
+## The old app
 
-The current Git deploy publishes the repo root (the old app). When we switch over, we'll add a small build step so pushes to `main` publish `web/dist` instead. That happens at cut-over, not now.
+The original app at the repo root keeps running at its current address and is untouched by these deploys. Once the team is on the new one, we can retire it.
