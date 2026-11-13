@@ -1,0 +1,139 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import { can, useReady, useRow } from '../lib/session';
+import type { Organization, OrgPricing } from '../lib/types';
+
+const ORG_FIELDS: [keyof Organization, string, React.InputHTMLAttributes<HTMLInputElement>][] = [
+  ['name', 'Company name', { required: true, autoCapitalize: 'words' }],
+  ['contact_name', 'Contact name (on estimates)', { autoCapitalize: 'words' }],
+  ['phone', 'Phone', { type: 'tel', inputMode: 'tel' }],
+  ['email', 'Email', { type: 'email', inputMode: 'email' }],
+  ['website', 'Website', {}],
+  ['license', 'License #', {}],
+];
+
+export function Company() {
+  const { engine, org } = useReady();
+  const savedOrg = useRow(engine, 'organizations', org.org_id);
+  const savedPricing = useRow(engine, 'org_pricing', org.org_id);
+  const editable = can.editCompany(org.role);
+  const showPrices = can.seePrices(org.role);
+  const [o, setO] = useState<Organization | null>(null);
+  const [p, setP] = useState<OrgPricing | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => { if (savedOrg && !o) setO({ ...savedOrg }); }, [savedOrg, o]);
+  useEffect(() => { if (savedPricing && !p) setP({ ...savedPricing }); }, [savedPricing, p]);
+
+  if (!o) return <div className="page"><p className="empty">{savedOrg === null ? 'Waiting for first sync…' : 'Loading…'}</p></div>;
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!o) return;
+    await engine.save('organizations', o);
+    if (p && showPrices) await engine.save('org_pricing', p);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const num = (v: string) => (v === '' ? 0 : Number(v));
+
+  return (
+    <form className="page" onSubmit={save}>
+      <div className="page-head"><h2>Company</h2></div>
+      {!editable && <p className="hint">Only the owner can change company details.</p>}
+      <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}>
+        <section className="card">
+          <h3>Shown on estimates and invoices</h3>
+          {ORG_FIELDS.map(([k, label, attrs]) => (
+            <label key={k} className="field"><span>{label}</span>
+              <input {...attrs} value={String(o[k] ?? '')} onChange={(e) => setO({ ...o, [k]: e.target.value })} />
+            </label>
+          ))}
+          <label className="field"><span>Address</span>
+            <textarea rows={2} value={o.address} onChange={(e) => setO({ ...o, address: e.target.value })} />
+          </label>
+          <label className="field"><span>How customers can pay (printed on invoices)</span>
+            <textarea rows={3} placeholder={'Checks payable to Advanced Tree Service\nMail to: …'} value={o.payment_instructions ?? ''} onChange={(e) => setO({ ...o, payment_instructions: e.target.value })} />
+          </label>
+          <h4 className="label">Logo</h4>
+          {o.logo_data ? <img src={o.logo_data} alt="Company logo" style={{ maxHeight: 80, display: 'block', marginBottom: 8 }} /> : <p className="muted small">No logo yet.</p>}
+          <div className="btn-row">
+            <label className="btn sm">
+              {o.logo_data ? 'Change logo' : 'Add logo'}
+              <input type="file" accept="image/*" hidden onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) setO({ ...o, logo_data: await shrinkImage(f) });
+              }} />
+            </label>
+            {o.logo_data && <button type="button" className="btn sm" onClick={() => setO({ ...o, logo_data: '' })}>Remove</button>}
+          </div>
+        </section>
+
+        {showPrices && p && (
+          <section className="card">
+            <h3>Pricing defaults <small className="muted">owner and office only</small></h3>
+            <div className="two">
+              <label className="field"><span>Day rate</span>
+                <div className="price-input"><span>$</span>
+                  <input type="number" inputMode="decimal" min={0} step="0.01" value={p.day_rate} onChange={(e) => setP({ ...p, day_rate: num(e.target.value) })} />
+                </div>
+              </label>
+              <label className="field"><span>Equipment markup</span>
+                <div className="price-input">
+                  <input type="number" inputMode="decimal" min={0} step="1" value={Math.round((p.equipment_markup - 1) * 100)}
+                    onChange={(e) => setP({ ...p, equipment_markup: 1 + num(e.target.value) / 100 })} /><span>%</span>
+                </div>
+              </label>
+              <label className="field"><span>Tax rate</span>
+                <div className="price-input">
+                  <input type="number" inputMode="decimal" min={0} step="0.001" value={p.tax_rate} onChange={(e) => setP({ ...p, tax_rate: num(e.target.value) })} /><span>%</span>
+                </div>
+              </label>
+              <label className="field"><span>Deposit</span>
+                <div className="price-input">
+                  <input type="number" inputMode="decimal" min={0} max={100} step="1" value={p.deposit_pct} onChange={(e) => setP({ ...p, deposit_pct: num(e.target.value) })} /><span>%</span>
+                </div>
+              </label>
+              <label className="field"><span>Invoices due after</span>
+                <div className="price-input">
+                  <input type="number" inputMode="numeric" min={0} max={120} step="1" value={p.invoice_due_days ?? 15} onChange={(e) => setP({ ...p, invoice_due_days: num(e.target.value) })} /><span>days</span>
+                </div>
+              </label>
+              <label className="field"><span>Estimates valid for</span>
+                <div className="price-input">
+                  <input type="number" inputMode="numeric" min={1} step="1" value={p.valid_days} onChange={(e) => setP({ ...p, valid_days: num(e.target.value) || 30 })} /><span>days</span>
+                </div>
+              </label>
+            </div>
+            <p className="muted small">The markup is built into each equipment line on customer documents. Customers never see the rental cost.</p>
+          </section>
+        )}
+      </fieldset>
+      {editable && (
+        <div className="btn-row">
+          <button type="submit" className="btn primary">Save</button>
+          {saved && <span className="muted small" role="status" style={{ alignSelf: 'center' }}>Saved</span>}
+        </div>
+      )}
+    </form>
+  );
+}
+
+/** Shrink a logo to at most 500×250 so it syncs quickly and fits every document. */
+function shrinkImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 500 / img.width, 250 / img.height);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}

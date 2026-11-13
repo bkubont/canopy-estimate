@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0d0f0e"/>
+  <circle cx="256" cy="210" r="132" fill="#d4e12b"/>
+  <path fill="#0d0f0e" d="M256 108c-28 0-52 18-62 44-22 6-38 26-38 50 0 30 24 54 54 54h92c30 0 54-24 54-54 0-24-16-44-38-50-10-26-34-44-62-44z"/>
+  <rect x="236" y="248" width="40" height="48" rx="6" fill="#0d0f0e"/>
+  <text x="256" y="420" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="108" letter-spacing="8" fill="#d4e12b">ATS</text>
+  <rect x="96" y="448" width="320" height="10" rx="5" fill="#e0312b"/>
+</svg>

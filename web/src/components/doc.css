@@ -1,0 +1,86 @@
+/* Printed estimate: ATS black / chartreuse / red, carried over from the original PDF. */
+.doc {
+  --doc-ink: #0d0f0e;
+  --doc-muted: #5B6B73;
+  --doc-line: #DDE3EA;
+  --doc-neon: #C5D92A;
+  --doc-red: #e0312b;
+  color: var(--doc-ink);
+  background: #fff;
+  line-height: 1.35;
+  font-size: 12px;
+  /* Never wider than its container: long words wrap instead of pushing past the edge. */
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+.doc-preview { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin: 12px 0; overflow-x: auto; }
+.doc-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 4px solid var(--doc-neon); position: relative; }
+.doc-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 3px; background: var(--doc-red); }
+.doc-logo { width: 64px; height: 64px; object-fit: contain; flex: none; }
+.doc-brand { flex: 1; min-width: 0; }
+.doc-brand-name { font-size: .85em; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--doc-red); margin-bottom: 2px; }
+.doc-head h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.55em; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+.doc-company { margin-top: 6px; font-size: .92em; color: var(--doc-muted); }
+.doc-contact { font-weight: 700; color: var(--doc-ink); }
+.doc .pre { white-space: pre-line; }
+.doc-no { text-align: right; font-size: .95em; white-space: nowrap; }
+
+.doc-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.doc-cols .doc-sec { display: flex; flex-direction: column; }
+.doc-cols .doc-sec > h3 { align-self: flex-start; }
+.doc-cols .doc-sec-body { flex: 1; }
+.doc-cols-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+@media (max-width: 560px) { .doc-cols { grid-template-columns: 1fr; } }
+
+.doc-sec { margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
+.doc-sec > h3 {
+  position: relative; z-index: 1; display: inline-block; margin: 0 0 -11px 10px; padding: 3px 12px;
+  background: var(--doc-ink); color: var(--doc-neon); border-radius: 999px;
+  font-size: .9em; letter-spacing: .04em; text-transform: uppercase;
+}
+.doc-sec-body { border: 1.5px solid var(--doc-ink); border-radius: 10px; padding: 16px 12px 10px; }
+.doc-sub { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--doc-red); }
+.doc-muted, .doc-note { color: var(--doc-muted); }
+.doc .kv { display: flex; gap: 6px; padding: 3px 0; }
+.doc .kv b { white-space: nowrap; }
+.doc .kv span { flex: 1; border-bottom: 1px solid var(--doc-line); min-height: 1.3em; white-space: pre-line; }
+
+.doc-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.doc-table th { text-align: left; font-size: .9em; background: #EBF2B5; /* chartreuse tint; plain hex so the PDF maker can read it */ padding: 5px 6px; }
+.doc-table td { border-bottom: 1px solid var(--doc-line); padding: 5px 6px; vertical-align: top; }
+.doc-table .r { text-align: right; white-space: nowrap; }
+.doc-table .none { color: var(--doc-muted); }
+
+/* Totals sit under the line items, right-aligned: they can't spill past the page edge. */
+.doc-sum { width: 100%; max-width: 340px; margin: 10px 0 0 auto; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.doc-sum th { text-align: left; font-weight: 500; padding: 5px 0; border-bottom: 1px solid var(--doc-line); }
+.doc-sum td { text-align: right; padding: 5px 0 5px 12px; border-bottom: 1px solid var(--doc-line); white-space: nowrap; }
+.doc-sum .grand th, .doc-sum .grand td { font-size: 1.35em; font-weight: 800; border-bottom: 0; padding-top: 8px; }
+.doc-sum .grand td { color: var(--doc-red); }
+
+.sig-line { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--doc-ink); min-height: 50px; }
+.sig-box { flex: 1; }
+.sig-box img { display: block; max-height: 48px; max-width: 100%; }
+.sig-line > span { width: 34%; padding-bottom: 2px; }
+.sig-cap { display: flex; justify-content: space-between; font-size: .85em; color: var(--doc-muted); margin-bottom: 8px; }
+.sig-cap span:last-child { width: 34%; }
+.doc-terms { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--doc-line); font-size: .78em; color: var(--doc-muted); }
+
+/* Signature pad (app screens) */
+.sig-wrap { margin: 6px 0 10px; }
+canvas.sig { display: block; width: 100%; height: 160px; background: #fff; border: 1.5px dashed var(--line); border-radius: 10px; touch-action: none; }
+.sig-foot { display: flex; justify-content: space-between; margin-top: 4px; }
+
+/* Printing: only the document, on letter paper. */
+.print-only { display: none; }
+@media print {
+  @page { margin: 10mm; size: letter; }
+  body { background: #fff !important; }
+  #root { display: none !important; }
+  .print-only { display: block !important; }
+  .doc { font-size: 9.5pt; }
+  .doc-sec > h3, .doc-table th, .doc-head, .doc-head::after, .doc-brand-name, .doc-sum .grand td {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .doc-cols { grid-template-columns: 1fr 1fr; }
+}

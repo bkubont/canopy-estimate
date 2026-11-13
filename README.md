@@ -1,5 +1,7 @@
 # Canopy Estimate
 
+> **A new version is being built** in `web/` and `supabase/`, with logins, team sync, invoices and card payments. See [PLAN.md](PLAN.md) and [SETUP.md](SETUP.md). The app described below keeps running until the switch-over.
+
 A simple, offline-friendly estimate, calendar, and jobs app for arborists and tree-care companies (tuned for northern Michigan work). Light workspace UI with a desktop sidebar and mobile bottom nav, field estimates with on-screen signatures, an interactive calendar, and a Jobs list/Kanban for approved work.
 
 ## Use it
