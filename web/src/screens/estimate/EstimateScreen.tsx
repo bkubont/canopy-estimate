@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { Pill } from '../../components/Pill';
+import { WorkOrderNotes } from '../../components/WorkOrderNotes';
+import { isWorkOrder } from '../../lib/notes';
 import { jobStage } from '../../lib/status';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/EstimateDoc';
@@ -40,7 +42,7 @@ export function EstimateScreen() {
 
   if (draft.missing) return <Navigate to="/estimates" replace />;
   if (!draft.job || !company) return <div className="page"><p className="empty">Loading…</p></div>;
-  if (!can.seePrices(org.role)) return <JobSheet job={draft.job} />;
+  if (!can.seePrices(org.role)) return <JobSheet job={draft.job} updateJob={draft.updateJob} flush={draft.flush} />;
   if (!draft.pricing) return <div className="page"><p className="empty">Loading prices…</p></div>;
   if (draft.job.signed_at) return <SignedView {...draft} job={draft.job} pricing={draft.pricing} company={company} />;
   return <Wizard {...draft} job={draft.job} pricing={draft.pricing} company={company} step={step} />;
@@ -195,12 +197,8 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
             Signed{job.signed_by_name ? ` by ${job.signed_by_name}` : ''} on {niceDate(job.client_sig_date)}{job.signed_via === 'link' ? ' (online)' : ''} · {money(t.total)}
           </p>
         </div>
+        {isWorkOrder(job) && <WorkOrderNotes job={job} onChange={(internal_notes) => { updateJob((j) => ({ ...j, internal_notes })); void flush(); }} />}
       </div>
-      <section className="internal">
-        <Field label="Internal notes" hint="For your team only. You can still edit these after signing.">
-          <textarea rows={2} value={job.internal_notes} onChange={(e) => updateJob((j) => ({ ...j, internal_notes: e.target.value }))} />
-        </Field>
-      </section>
       <section className="card">
         <div className="row">
           <span>{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
@@ -297,7 +295,7 @@ function ChangeOrderSheet({ co, dayRate, onClose, onSave }: { co: ChangeOrder | 
 // ---------------------------------------------------------------- crew
 
 /** What crew see: the work, the site and every internal note, with no prices. */
-function JobSheet({ job }: { job: Job }) {
+function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updateJob']; flush: Draft['flush'] }) {
   const { engine, org } = useReady();
   const company = useRow(engine, 'organizations', org.org_id);
   const events = useRows(engine, 'events');
@@ -306,8 +304,11 @@ function JobSheet({ job }: { job: Job }) {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>{job.number} · {clientName(job.client)}</h2>
-        <Pill stage={jobStage(job, events ?? [])} />
+        <div>
+          <h2>{job.number} · {clientName(job.client)}</h2>
+          <Pill stage={jobStage(job, events ?? [])} />
+        </div>
+        {isWorkOrder(job) && <WorkOrderNotes job={job} onChange={(internal_notes) => { updateJob((j) => ({ ...j, internal_notes })); void flush(); }} />}
       </div>
       <section className="card">
         <b className="row-icon">{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : 'Not on the calendar yet'}</b>
@@ -317,7 +318,6 @@ function JobSheet({ job }: { job: Job }) {
         <p style={{ margin: 0 }}>{clientName(job.client)}<br />{[job.client.street, job.client.town].filter(Boolean).join(', ')}</p>
         {job.client.phone && <a className="btn sm mt" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={16} />Call {job.client.phone}</a>}
       </section>
-      {job.internal_notes && <section className="internal"><b>Internal notes</b><p style={{ margin: '4px 0 0', whiteSpace: 'pre-line' }}>{job.internal_notes}</p></section>}
       <section className="card">
         <h3>Trees</h3>
         {allTrees.map((t, i) => (
@@ -325,7 +325,6 @@ function JobSheet({ job }: { job: Job }) {
             <b>{i + 1}. {treeTitle(t)}</b>
             <div className="muted small">{treeDetails(t)}</div>
             {t.notes && <div className="small">{t.notes}</div>}
-            {t.internal_notes && <div className="small"><span className="internal-tag">internal</span> {t.internal_notes}</div>}
           </div>
         ))}
       </section>

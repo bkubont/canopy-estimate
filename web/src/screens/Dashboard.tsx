@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon, type IconName } from '../components/Icon';
 import { Pill } from '../components/Pill';
+import { NotesBadge } from '../components/WorkOrderNotes';
+import { isWorkOrder, noteSummary } from '../lib/notes';
 import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi } from '../lib/calendar';
 import { clientName, money, normalizeJob, round2 } from '../lib/estimate';
 import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
@@ -197,7 +199,7 @@ export function Dashboard() {
             {data.active.slice(0, 8).map(({ job, stage, sched, total, due }) => (
               <article key={job.id} className={`job-tile st-${stage}`}>
                 <div className="job-tile-main">
-                  <Link to={`/estimates/${job.id}`} className="job-tile-name">{clientName(job.client) || job.number}</Link>
+                  <Link to={`/estimates/${job.id}`} className="job-tile-name">{clientName(job.client) || job.number}{isWorkOrder(job) && <NotesBadge count={noteSummary(job).count} />}</Link>
                   <span className="muted small">{[job.number, job.client.town].filter(Boolean).join(' · ')}</span>
                   {job.client.phone && (
                     <a className="tel" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={15} />{job.client.phone}</a>

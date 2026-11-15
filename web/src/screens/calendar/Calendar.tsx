@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
+import { NotesBadge } from '../../components/WorkOrderNotes';
+import { isWorkOrder, noteSummary } from '../../lib/notes';
 import { Sheet } from '../../components/ui';
 import {
   allDaySpan, blankEvent, boardColumn, dayLabel, EVENT_LABEL, isActive, isTask, jobDays, monthCells, onDay, reorderDay,
@@ -92,6 +94,10 @@ export function Calendar() {
   );
   const rentals = useMemo(() => active.filter((e) => e.unscheduled && isTask(e.type)).sort((a, b) => a.title.localeCompare(b.title)), [active]);
 
+  const notesFor = (e: CalEvent) => {
+    const job = e.type === 'tree_work' && e.job_id ? (jobs ?? []).find((j) => j.id === e.job_id) : undefined;
+    return job && isWorkOrder(job) ? noteSummary(normalizeJob(job)).count : 0;
+  };
   const stageClass = (e: CalEvent) => {
     const job = e.type === 'tree_work' && e.job_id ? (jobs ?? []).find((j) => j.id === e.job_id) : undefined;
     return job ? ` st-${jobStage(job, active, invoices, payments)}` : '';
@@ -160,7 +166,7 @@ export function Calendar() {
         }}>
         <Icon name={p.kind === 'job' ? 'grip' : 'truck'} size={16} className="grip" />
         <span className="sched-text">
-          <b>{pendingName(p)}</b>
+          <b>{pendingName(p)}{p.kind === 'job' && <NotesBadge count={noteSummary(normalizeJob(p.job)).count} />}</b>
           <span className="muted small">
             {p.kind === 'job' ? [normalizeJob(p.job).client.town, daysLabel(Number(normalizeJob(p.job).days) || 1)].filter(Boolean).join(' · ') : 'Equipment rental'}
           </span>
@@ -212,7 +218,7 @@ export function Calendar() {
                     onClick={() => (picked ? void place(picked, d) : setOpenDay(d))}>
                     <span className="dom">{Number(d.slice(8))}</span>
                     {list.slice(0, 3).map((e) => (
-                      <span key={e.id} className={`mchip type-${e.type} status-${e.status}${stageClass(e)}`}>{e.title || EVENT_LABEL[e.type]}</span>
+                      <span key={e.id} className={`mchip type-${e.type} status-${e.status}${stageClass(e)}`}><NotesBadge count={notesFor(e)} />{e.title || EVENT_LABEL[e.type]}</span>
                     ))}
                     {list.length > 3 && <span className="more">+{list.length - 3} more</span>}
                   </button>
@@ -254,7 +260,7 @@ export function Calendar() {
                   <li key={e.id} className={`day-row type-${e.type}${stageClass(e)} ${isDone(e) ? 'is-done' : ''}`}>
                     <input type="checkbox" checked={isDone(e)} onChange={() => toggleDone(e)} aria-label={`Done: ${e.title || EVENT_LABEL[e.type]}`} />
                     <button type="button" className="day-row-main" onClick={() => setEditing(e)}>
-                      <b>{e.title || EVENT_LABEL[e.type]}</b>
+                      <b>{e.title || EVENT_LABEL[e.type]}<NotesBadge count={notesFor(e)} /></b>
                       <span className="muted small">{[timeLabel(e) || EVENT_LABEL[e.type], e.town].filter(Boolean).join(' · ')}</span>
                     </button>
                     <span className="day-row-move">

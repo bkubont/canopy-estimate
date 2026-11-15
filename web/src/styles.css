@@ -372,7 +372,6 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .board-col[class*=" st-"] > header .muted { color: inherit; }
 .board-col[class*=" st-"] > :not(header) { margin-left: 8px; margin-right: 8px; }
 .board-col[class*=" st-"] > header + * { margin-top: 8px; }
-.board-col .job-card { border-left: 5px solid var(--st, var(--line)); }
 .board-tabs .chip[class*=" st-"][aria-pressed="true"] { background: var(--st-bg); border-color: var(--st); color: var(--st-fg); }
 
 /* ---------- dashboard ---------- */
@@ -525,3 +524,44 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .day-row.is-done .day-row-main b { text-decoration: line-through; color: var(--muted); }
 .day-row-move { display: flex; }
 .day-row-move .icon-btn:disabled { opacity: .25; }
+
+/* ---------- jobs board cards ---------- */
+.board-page { max-width: 1600px; }
+.board-col.drop { box-shadow: 0 0 0 3px var(--st); }
+.board-empty { margin: 8px 14px 12px !important; font-size: 13px; color: var(--muted); }
+.jcard {
+  display: grid; gap: 5px; margin-bottom: 8px; padding: 11px 12px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--st, var(--line)); border-radius: 10px;
+}
+.jcard:hover { border-color: #B8BECB; border-left-color: var(--st); }
+.jcard-top { display: flex; align-items: baseline; gap: 6px; }
+.jcard-name { flex: 1; min-width: 0; font-weight: 600; font-size: 16px; text-decoration: none; color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jcard-grip { display: none; border: 0; background: none; color: #8A93A5; padding: 2px; cursor: grab; touch-action: none; align-self: center; }
+@media (min-width: 900px) { .jcard-grip { display: inline-flex; } }
+.jcard-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.jcard-links .tel { font-size: 13.5px; }
+.jcard-warn { color: #8A3C00; }
+.jcard-blocked { color: var(--danger); font-weight: 600; }
+.jcard-note { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; border-radius: 8px; background: #FCE8F0; color: #7A0E3A; font-size: 12.5px; }
+.jcard-note span:last-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.board-col, .jcard, .jcard-note { min-width: 0; }
+.jcard-total { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.jcard-actions { display: flex; gap: 6px; margin-top: 2px; }
+.jcard-actions .btn.primary { flex: 1; }
+.more-menu { position: relative; }
+.more-pop { right: 0; min-width: 180px; }
+
+/* ---------- work-order notes ---------- */
+.notes-badge {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: #C2185B; color: #fff; font-size: 12px; font-weight: 700; line-height: 1;
+}
+.notes-btn { gap: 8px; }
+.notes-btn.has-notes { border-color: #C2185B; color: #7A0E3A; background: #FCE8F0; }
+.note-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.note { background: #FFF; border: 1px solid var(--line); border-left: 4px solid #C2185B; border-radius: 10px; padding: 10px 12px; }
+.note p { margin: 2px 0 0; }
+.note-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.mchip .notes-badge { min-width: 15px; height: 15px; font-size: 10px; padding: 0 4px; margin-right: 4px; vertical-align: 1px; }
+b > .notes-badge, .job-tile-name > .notes-badge { margin-left: 6px; vertical-align: 2px; }
