@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1–4 built** (2026-11-12); **Phase 5 planned and approved** (2026-11-15), except card payments (waiting on approval for Stripe). Not yet run against a live Supabase project (see SETUP.md).
+Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15), not started.
 
 ## Decisions so far
 
