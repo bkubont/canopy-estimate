@@ -1,4 +1,5 @@
 import { Chips, MoneyInput, Stepper } from '../../components/ui';
+import { Icon } from '../../components/Icon';
 import { customerPricing, DAY_CHOICES, EQUIPMENT, internalEquipmentSummary, money, num, round2, syncEquipmentDays, totals, uid } from '../../lib/estimate';
 import { useReady, useRow } from '../../lib/session';
 import type { StepProps } from './types';
@@ -47,8 +48,8 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
         <section className="card">
           <h4 className="label">Tap to add</h4>
           <div className="chips">
-            {EQUIPMENT.map(([d]) => <button key={d} type="button" className="chip add" onClick={() => addLine(d)}>＋ {d}</button>)}
-            <button type="button" className="chip add" onClick={() => addLine('')}>＋ Other</button>
+            {EQUIPMENT.map(([d]) => <button key={d} type="button" className="chip add" onClick={() => addLine(d)}><Icon name="plus" size={16} />{d}</button>)}
+            <button type="button" className="chip add" onClick={() => addLine('')}><Icon name="plus" />Other</button>
           </div>
         </section>
         {job.equipment.map((line) => {

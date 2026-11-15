@@ -46,7 +46,7 @@ export function SyncBadge() {
         {label}
       </button>
       {open && (
-        <div className="sync-popover" role="dialog" aria-label="Sync status" style={{ position: 'absolute', right: 12, top: 'calc(var(--appbar-h) + 4px)', width: 'min(340px, calc(100vw - 24px))', zIndex: 30 }}>
+        <div className="sync-popover" role="dialog" aria-label="Sync status" style={{ position: 'fixed', right: 12, top: 'calc(var(--appbar-h) + env(safe-area-inset-top) + 4px)', width: 'min(340px, calc(100vw - 24px))', zIndex: 30 }}>
           <div className={`card ${st.failed.length ? 'sync-panel' : ''}`}>
             <p style={{ marginTop: 0 }}>
               {st.failed.length

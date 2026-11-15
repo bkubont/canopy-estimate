@@ -15,7 +15,7 @@ const o = await page(ownerCtx);
 const c = await page(crewCtx);
 
 await ownerSetup(o, { email: `owner-${stamp}@ats.test`, password: 'correct-horse-1' });
-ok('owner lands on the calendar');
+ok('owner lands on the dashboard');
 await crewJoin(o, c, { email: `crew-${stamp}@ats.test`, password: 'correct-horse-2' }, 'Sam Rivera');
 ok('crew member Sam joins');
 await syncNow(o);
@@ -28,7 +28,7 @@ await see(o, 'Approved (1)', 'the board shows it under Approved');
 await shot(o, '01-board-approved');
 
 // ---------------------------------------------------------------- schedule it from the board
-await o.getByRole('button', { name: '📅 Schedule' }).click();
+await o.getByRole('button', { name: 'Schedule', exact: true }).click();
 await see(o, 'Add to calendar', 'Schedule opens the calendar entry');
 const title = await o.getByLabel('Title').inputValue();
 if (!title.includes('Dana Smith')) await fail(o, `title should come from the job, got "${title}"`);
@@ -38,7 +38,7 @@ await o.locator('dialog').getByRole('button', { name: 'Sam Rivera' }).click();
 await shot(o, '02-schedule-sheet');
 await o.locator('dialog').getByRole('button', { name: 'Save', exact: true }).first().click();
 await see(o, 'Scheduled (1)', 'the job moves to Scheduled');
-await see(o, '👷 Sam Rivera', 'with Sam as crew');
+await see(o, 'Sam Rivera', 'with Sam as crew');
 await shot(o, '03-board-scheduled');
 
 // ---------------------------------------------------------------- same entry from the estimate and the calendar
@@ -49,7 +49,7 @@ await see(o, 'Dana Smith · Traverse City', 'the job is on the calendar');
 await shot(o, '04-calendar-week-phone');
 
 // ---------------------------------------------------------------- task list
-await o.getByRole('button', { name: '＋ Task' }).click();
+await o.getByRole('button', { name: 'Task', exact: true }).click();
 await o.locator('dialog').getByLabel('Title').fill('Dump run to county site');
 await o.locator('dialog').getByRole('button', { name: 'Save', exact: true }).first().click();
 const pool = o.locator('.cal-pool');
@@ -76,7 +76,7 @@ await shot(c, '05-crew-calendar');
 await c.goto(`${APP}#/board`);
 await see(c, 'Scheduled (1)', 'crew Jobs tab is the board');
 await notSee(c, /\$|Invoiced|Paid/, 'crew board shows no money columns or prices');
-await c.getByRole('button', { name: '▶ Start' }).click();
+await c.getByRole('button', { name: 'Start', exact: true }).click();
 await see(c, 'In progress (1)', 'crew starts the job');
 await syncNow(c);
 
@@ -87,7 +87,7 @@ await see(o, 'In progress (1)', 'the office sees it In progress');
 
 // ---------------------------------------------------------------- removing the day puts it back
 await o.getByRole('tab', { name: /In progress/ }).click();
-await o.getByRole('button', { name: '✓ Done' }).click();
+await o.getByRole('button', { name: 'Done', exact: true }).click();
 await see(o, 'Done (1)', 'marked done');
 await o.getByRole('tab', { name: /Done/ }).click();
 await o.getByRole('button', { name: 'Reopen' }).click();
@@ -99,6 +99,8 @@ await see(o, 'Approved (1)', 'removing the calendar day puts the job back to App
 // ---------------------------------------------------------------- iPad week view
 const t = await page(tabletCtx);
 await ownerSetup(t, { email: `tablet-${stamp}@ats.test`, password: 'correct-horse-3' });
+await t.goto(`${APP}#/calendar`);
+await t.locator('.cal-week .cal-day').first().waitFor({ timeout: 15000 });
 const cols = await t.locator('.cal-week .cal-day').count();
 if (cols !== 7) await fail(t, `expected 7 day columns, got ${cols}`);
 const sat = t.locator('.cal-week .cal-day').nth(6);

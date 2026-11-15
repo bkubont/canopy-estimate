@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Icon } from '../../components/Icon';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { allDaySpan, blankEvent, dayLabel, EVENT_LABEL, isActive, isTask, monthCells, onDay, timeLabel, todayMi, weekDays } from '../../lib/calendar';
 import { addDays } from '../../lib/estimate';
 import { can, useReady, useRows } from '../../lib/session';
+import { jobStage } from '../../lib/status';
 import type { CalEvent } from '../../lib/types';
 import { EventSheet } from './EventSheet';
 
@@ -27,6 +29,9 @@ export function Calendar() {
   const { engine, org, user } = useReady();
   const events = useRows(engine, 'events');
   const members = useRows(engine, 'members');
+  const jobs = useRows(engine, 'jobs');
+  const invoices = useRows(engine, 'invoices');
+  const payments = useRows(engine, 'payments');
   const [cursor, setCursor] = useState(todayMi());
   const [view, setView] = useState<View>(() => loadPref('canopy.calView', 'week'));
   // Crew start on their own schedule; owner/office see everyone.
@@ -58,8 +63,24 @@ export function Calendar() {
 
   const addOn = (ymd: string) => setEditing(blankEvent(org.org_id, { type: can.seePrices(org.role) ? 'tree_work' : 'dump_run', title: can.seePrices(org.role) ? '' : 'Dump run', ...allDaySpan(ymd, 1) }));
 
+  // "Quick Add → Calendar entry" from anywhere lands here with a new entry open.
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if ((location.state as { add?: boolean } | null)?.add) {
+      addOn(today);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
+  // Tree-work entries take their job's stage color (scheduled, in progress, blocked…).
+  const stageClass = (e: CalEvent) => {
+    const job = e.type === 'tree_work' && e.job_id ? (jobs ?? []).find((j) => j.id === e.job_id) : undefined;
+    return job ? ` st-${jobStage(job, events ?? [], invoices, payments)}` : '';
+  };
   const Entry = ({ e }: { e: CalEvent }) => (
-    <button type="button" className={`cal-entry type-${e.type} status-${e.status}`} onClick={() => setEditing(e)} title={e.title}>
+    <button type="button" className={`cal-entry type-${e.type} status-${e.status}${stageClass(e)}`} onClick={() => setEditing(e)} title={e.title}>
       <span className="cal-entry-title">{e.title || EVENT_LABEL[e.type]}</span>
       <span className="cal-entry-meta">
         {timeLabel(e) || EVENT_LABEL[e.type]}
@@ -88,7 +109,7 @@ export function Calendar() {
               Only mine
             </button>
           </div>
-          <button type="button" className="btn primary sm" onClick={() => addOn(view === 'week' && cursor !== today ? days[0]! : today)}>＋ Add</button>
+          <button type="button" className="btn primary sm" onClick={() => addOn(view === 'week' && cursor !== today ? days[0]! : today)}><Icon name="plus" />Add</button>
           <Link to="/board" className="btn sm">Jobs board</Link>
         </div>
       </div>
@@ -96,7 +117,7 @@ export function Calendar() {
       <section className="card cal-pool">
         <div className="row">
           <h3 style={{ margin: 0 }}>Tasks with no day yet</h3>
-          <button type="button" className="btn sm" onClick={() => setEditing(blankEvent(org.org_id, { type: 'dump_run', title: 'Dump run', unscheduled: true }))}>＋ Task</button>
+          <button type="button" className="btn sm" onClick={() => setEditing(blankEvent(org.org_id, { type: 'dump_run', title: 'Dump run', unscheduled: true }))}><Icon name="plus" />Task</button>
         </div>
         {pool.length ? (
           <div className="cal-pool-list">{pool.map((e) => <Entry key={e.id} e={e} />)}</div>
@@ -118,7 +139,7 @@ export function Calendar() {
                 <div className="cal-day-list">
                   {list.length ? list.map((e) => <Entry key={e.id} e={e} />) : <p className="muted small cal-empty">Nothing yet</p>}
                 </div>
-                <button type="button" className="link small cal-add" onClick={() => addOn(d)}>＋ Add</button>
+                <button type="button" className="link small cal-add" onClick={() => addOn(d)}><Icon name="plus" />Add</button>
               </section>
             );
           })}
@@ -133,7 +154,7 @@ export function Calendar() {
                 <button key={d} type="button" className={`cal-cell ${d.slice(5, 7) !== cursor.slice(5, 7) ? 'outside' : ''} ${d === today ? 'today' : ''} ${d === selected ? 'selected' : ''}`}
                   onClick={() => setSelected(d)} aria-label={`${dayLabel(d, { month: 'long', day: 'numeric' })}, ${list.length} entries`}>
                   <span className="dom">{Number(d.slice(8))}</span>
-                  {list.slice(0, 3).map((e) => <span key={e.id} className={`cal-dot type-${e.type}`}>{e.title}</span>)}
+                  {list.slice(0, 3).map((e) => <span key={e.id} className={`cal-dot type-${e.type}${stageClass(e)}`}>{e.title}</span>)}
                   {list.length > 3 && <span className="muted small">+{list.length - 3}</span>}
                 </button>
               );
@@ -142,7 +163,7 @@ export function Calendar() {
           <section className="card mt">
             <div className="row">
               <h3 style={{ margin: 0 }}>{dayLabel(selected, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
-              <button type="button" className="btn sm" onClick={() => addOn(selected)}>＋ Add</button>
+              <button type="button" className="btn sm" onClick={() => addOn(selected)}><Icon name="plus" />Add</button>
             </div>
             <div className="cal-day-list mt">
               {onDay(visible, selected).map((e) => <Entry key={e.id} e={e} />)}

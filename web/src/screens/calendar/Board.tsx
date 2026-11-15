@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { Link } from 'react-router-dom';
 import { Sheet } from '../../components/ui';
 import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, jobSchedule, todayMi, type BoardColumn } from '../../lib/calendar';
@@ -56,20 +57,20 @@ export function Board() {
       </div>
       <div className="small">
         {sched.start
-          ? <>📅 {dayLabel(sched.start)}{sched.end && sched.end !== sched.start ? ` – ${dayLabel(sched.end)}` : ''}</>
+          ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end && sched.end !== sched.start ? ` – ${dayLabel(sched.end)}` : ''}</>
           : <span className="muted">Not on the calendar</span>}
       </div>
-      {sched.crew.length > 0 && <div className="small">👷 {names(sched.crew)}</div>}
+      {sched.crew.length > 0 && <div className="small"><Icon name="users" size={15} /> {names(sched.crew)}</div>}
       {job.equipment.length > 0 && <div className="muted small">Equipment: {job.equipment.map((e) => e.desc).filter(Boolean).join(', ')}</div>}
       {col === 'blocked' && job.block_reason && <div className="small" style={{ color: 'var(--danger)' }}>Blocked: {job.block_reason}</div>}
       <div className="actions">
         {office && (col === 'approved' || col === 'scheduled') && (
-          <button type="button" className="btn sm primary" onClick={() => schedule(job)}>{col === 'approved' ? '📅 Schedule' : '＋ Add day'}</button>
+          <button type="button" className="btn sm primary" onClick={() => schedule(job)}>{col === 'approved' ? <><Icon name="calendar" />Schedule</> : <><Icon name="plus" />Add day</>}</button>
         )}
         {sched.events[0] && <button type="button" className="btn sm" onClick={() => setEditing(sched.events[0]!)}>Calendar entry</button>}
-        {(col === 'scheduled' || col === 'blocked') && <button type="button" className="btn sm" onClick={() => setStatus(job, 'in_progress')}>▶ Start</button>}
+        {(col === 'scheduled' || col === 'blocked') && <button type="button" className="btn sm" onClick={() => setStatus(job, 'in_progress')}><Icon name="play" size={16} />Start</button>}
         {(col === 'scheduled' || col === 'in_progress') && <button type="button" className="btn sm" onClick={() => setBlocking(job)}>Blocked</button>}
-        {(col === 'in_progress' || col === 'scheduled') && <button type="button" className="btn sm" onClick={() => setStatus(job, 'done')}>✓ Done</button>}
+        {(col === 'in_progress' || col === 'scheduled') && <button type="button" className="btn sm" onClick={() => setStatus(job, 'done')}><Icon name="check" />Done</button>}
         {col === 'done' && job.stage !== 'invoice' && job.stage !== 'paid' && <button type="button" className="btn sm" onClick={() => setStatus(job, 'scheduled')}>Reopen</button>}
         <Link className="btn sm" to={`/estimates/${job.id}`}>Open</Link>
       </div>
@@ -87,7 +88,7 @@ export function Board() {
       </div>
       <div className="chips board-tabs" role="tablist" aria-label="Columns">
         {columns.map((c) => (
-          <button key={c} type="button" className="chip" role="tab" aria-selected={tab === c} aria-pressed={tab === c} onClick={() => setTab(c)}>
+          <button key={c} type="button" className={`chip st-${c}`} role="tab" aria-selected={tab === c} aria-pressed={tab === c} onClick={() => setTab(c)}>
             {COLUMN_LABEL[c]} ({byColumn.get(c)?.length ?? 0})
           </button>
         ))}
@@ -95,7 +96,7 @@ export function Board() {
       {jobs === null || events === null ? <p className="empty">Loading…</p> : (
         <div className="board">
           {columns.map((c) => (
-            <section key={c} className={`board-col ${tab === c ? 'on' : ''}`} aria-label={COLUMN_LABEL[c]}>
+            <section key={c} className={`board-col st-${c} ${tab === c ? 'on' : ''}`} aria-label={COLUMN_LABEL[c]}>
               <header><span>{COLUMN_LABEL[c]}</span><span className="muted">{byColumn.get(c)?.length ?? 0}</span></header>
               {(byColumn.get(c) ?? []).map(({ job, sched }) => <Card key={job.id} job={job} sched={sched} col={c} />)}
               {!byColumn.get(c)?.length && <p className="muted small" style={{ padding: '0 6px' }}>None</p>}

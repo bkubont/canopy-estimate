@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/EstimateDoc';
 import { PrintOnly } from '../../components/ui';
 import { customerPricing, summaryText } from '../../lib/estimate';
@@ -75,11 +76,11 @@ export function SendActions({ job, pricing, company, flush }: { job: Job; pricin
   return (
     <>
       <div className="btn-grid">
-        <button type="button" className="btn primary" onClick={() => void sms()} disabled={!job.client.phone || !!busy}>💬 Text</button>
-        <button type="button" className="btn" onClick={() => void email()} disabled={!job.client.email || !!busy}>✉️ Email</button>
-        <button type="button" className="btn" onClick={() => void pdf()} disabled={!!busy}>{busy === 'pdf' ? 'Making PDF…' : '📄 PDF file'}</button>
-        <button type="button" className="btn" onClick={() => window.print()}>🖨️ Print</button>
-        <button type="button" className="btn" onClick={() => void shareLink()} disabled={!!busy}>🔗 Customer link</button>
+        <button type="button" className="btn primary" onClick={() => void sms()} disabled={!job.client.phone || !!busy}><Icon name="message" />Text</button>
+        <button type="button" className="btn" onClick={() => void email()} disabled={!job.client.email || !!busy}><Icon name="mail" />Email</button>
+        <button type="button" className="btn" onClick={() => void pdf()} disabled={!!busy}>{busy === 'pdf' ? 'Making PDF…' : <><Icon name="download" />PDF file</>}</button>
+        <button type="button" className="btn" onClick={() => window.print()}><Icon name="printer" />Print</button>
+        <button type="button" className="btn" onClick={() => void shareLink()} disabled={!!busy}><Icon name="link" />Customer link</button>
       </div>
       <p className="hint">Text and email include a link where the customer can view{job.signed_at ? '' : ' and sign'} the estimate on their phone.</p>
       {link && (

@@ -23,7 +23,7 @@ export function AcceptInvite() {
     try {
       const orgId = await acceptInvite(token, displayName);
       await reloadOrgs(orgId);
-      nav('/calendar', { replace: true });
+      nav('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);

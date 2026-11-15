@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15), not started.
+Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15); step 1 built.
 
 ## Decisions so far
 
@@ -227,7 +227,7 @@ Bids: outlined blue. Tasks: gray. Time off: gray stripes. The work-order notes b
 - Notifications are worked out from the synced data on each device; no new server piece.
 
 #### Proposed build order
-1. Look and navigation, color coding, dashboard (5a–5c)
+1. Look and navigation, color coding, dashboard (5a–5c) — **built**: black top bar with search and Quick Add, grouped menu (drawer on phones, collapsible on iPad/desktop), five-tab bottom bar, stage colors on every list, line icons instead of emoji, dashboard. The bell and Archive come with step 7. Tests: 54 unit, 5 walkthroughs (118 checks), incl. a new 17-step dashboard walkthrough
 2. Calendar month, side list with jobs and rentals (5d)
 3. Board and work-order notes (5e–5f)
 4. Photos (5g)

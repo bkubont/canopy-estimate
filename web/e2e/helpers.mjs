@@ -67,7 +67,7 @@ export async function ownerSetup(p, who) {
   await signUp(p, who);
   await p.getByLabel('Your name').fill('Joey');
   await p.getByRole('button', { name: 'Create company' }).click();
-  await p.getByText('Tasks with no day yet').first().waitFor({ timeout: 15000 });
+  await p.getByText('Needs attention').first().waitFor({ timeout: 15000 });
 }
 /** Crew member joins through an invite link made on the owner's page. */
 export async function crewJoin(owner, crewPage, who, name) {
@@ -79,22 +79,22 @@ export async function crewJoin(owner, crewPage, who, name) {
   await signUp(crewPage, who);
   await crewPage.getByLabel('Your name').fill(name);
   await crewPage.getByRole('button', { name: 'Join company' }).click();
-  await crewPage.getByText('Tasks with no day yet').first().waitFor({ timeout: 15000 });
+  await crewPage.getByText('Needs attention').first().waitFor({ timeout: 15000 });
 }
 /** A quick signed estimate: one tree, 2 days, a stump grinder; client signs on the device. */
 export async function signedEstimate(p, first, last, town) {
   await p.goto(`${APP}#/estimates`);
-  await p.getByRole('button', { name: '＋ New estimate' }).click();
+  await p.getByRole('button', { name: 'New estimate' }).click();
   await p.getByLabel('First name').fill(first);
   await p.getByLabel('Last name').fill(last);
   await p.getByLabel('Town').fill(town);
   await p.locator('.bottombar .btn.primary').click();
-  await p.getByRole('button', { name: '＋ Add tree' }).click();
+  await p.getByRole('button', { name: 'Add tree' }).click();
   await p.getByRole('button', { name: 'Ash', exact: true }).click();
   await p.getByRole('button', { name: 'Save tree' }).click();
   await p.locator('.bottombar .btn.primary').click();
   await p.getByRole('button', { name: '2 days' }).click();
-  await p.getByRole('button', { name: '＋ Stump grinder' }).click();
+  await p.getByRole('button', { name: 'Stump grinder', exact: true }).click();
   await p.locator('.bottombar .btn.primary').click();
   await draw(p, p.locator('canvas.sig').first());
   await p.getByRole('button', { name: /Client accepts/ }).click();

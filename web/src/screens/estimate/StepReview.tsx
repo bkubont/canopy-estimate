@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Chips, Field, MoneyInput } from '../../components/ui';
 import { clientName, customerPricing, DEPOSIT_CHOICES, money, niceDate, num, OTHER_COST_CHOICES, todayYmd, totals, VALID_CHOICES, validUntil } from '../../lib/estimate';
@@ -76,13 +77,13 @@ export function StepReview({ job, pricing, updateJob, updatePricing, onSigned }:
           <Field label="Client’s name"><input value={name} onChange={(e) => setName(e.target.value)} autoCapitalize="words" /></Field>
           <SignaturePad value={sig} onChange={setSig} label="Client signs above to accept the estimate" />
           {error && <p className="error-text" role="alert">{error}</p>}
-          <button type="button" className="btn primary block" onClick={sign}>✍ Client accepts {money(t.total)}</button>
+          <button type="button" className="btn primary block" onClick={sign}><Icon name="pen" />Client accepts {money(t.total)}</button>
           <p className="hint">Client not here? Skip this. On the next step, text or email them a link to sign on their own phone.</p>
         </section>
         <section className="card">
           <h4 className="label">Your signature</h4>
           {contractorSig ? <img src={contractorSig} alt="Your signature" style={{ maxHeight: 60 }} /> : (
-            <p className="muted small">Add your signature once under More → Account, and it goes on every estimate you prepare.</p>
+            <p className="muted small">Add your signature once under Account (the person icon at the top right), and it goes on every estimate you prepare.</p>
           )}
         </section>
       </div>

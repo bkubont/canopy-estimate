@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { num } from '../lib/estimate';
+import { Icon } from './Icon';
 
 type Opt<T> = T | [T, string];
 const optVal = <T,>(o: Opt<T>) => (Array.isArray(o) ? o[0] : o);
@@ -46,7 +47,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, label }: { value: 
       <button type="button" aria-label={`Less ${label}`} onClick={() => onChange(Math.max(min, num(value) - step))}>−</button>
       <input type="number" inputMode="decimal" aria-label={label} min={min} step={step} value={value}
         onChange={(e) => onChange(e.target.value === '' ? min : Math.max(min, num(e.target.value)))} />
-      <button type="button" aria-label={`More ${label}`} onClick={() => onChange(num(value) + step)}>＋</button>
+      <button type="button" aria-label={`More ${label}`} onClick={() => onChange(num(value) + step)}>+</button>
     </div>
   );
 }
@@ -75,7 +76,7 @@ export function Sheet({ open, onClose, title, children, action }: { open: boolea
       {open && (
         <>
           <div className="sheet-head">
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
             <h3>{title}</h3>
             {action ?? <span />}
           </div>
