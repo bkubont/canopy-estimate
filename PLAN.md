@@ -143,11 +143,116 @@ Port the wizard, plus these fixes:
 - Board: Approved → Scheduled → In progress → Blocked (with reason) → Done → Invoiced → Paid; the board follows a job to its new column
 - Tests: 92 database checks, 51 unit tests, 22-step calendar walkthrough (phone, crew phone, iPad)
 
-### Phase 5: Later
-- App Store and Play Store builds (Capacitor wraps the same code)
-- Photos on trees and jobs
-- QuickBooks export
-- Reports: revenue, equipment spend, and markup earned
+### Phase 5: Redesign and the next features (planned 2026-11-15, nothing built yet)
 
-## Open questions
-None right now. All six were answered on 2026-11-12 (see Decisions).
+Gathered from a walk-through of the app with a realistic week of demo data, and the owner's list of what to change. Answers to the open questions at the end come first, then the build.
+
+#### 5a. Look and navigation (modeled on Square This Up)
+- **Style:** white cards on a light gray-blue background (#F5F7FA), thin cool-gray borders, black headings, slate-gray secondary text, the phone's own font, medium (not heavy) headings, tighter spacing on phones. Each screen title appears once.
+- **One action color:** deep royal blue for the main button, links and selected items. Lime stays in the logo only.
+- **Line icons** everywhere instead of emoji.
+- **Top bar (black, every screen):** menu, logo, one search for jobs and customers, blue "+ Quick Add" (estimate, task, expense, receipt photo, hours), bell for notifications, profile.
+- **Side menu (dark, grouped, line icons):** Work: Dashboard, Jobs board, Calendar, Customers, Archive · Money: Estimates, Invoices, Expenses, Receipts · Business: Reports · Settings: Company, Team, Account. Collapses to an icon strip on iPad/desktop landscape; the choice is remembered per device.
+- **Bottom bar on phones:** Home · Calendar · Estimates · Jobs · Invoices (crew: Home · Calendar · Jobs · Contacts). Everything else is in the menu.
+- **Bell:** customer signed online, invoice paid, job blocked, change order signed.
+- **Archive:** paid and finished jobs leave the board but stay searchable.
+
+#### 5b. Universal color coding
+One color per stage, everywhere a job appears (estimates list, board columns and card stripes, calendar, dashboard, the month side list). Always shown with a word, so it works for color-blind users. Red only ever means a problem.
+
+| Stage | Color |
+|---|---|
+| Pending (waiting on customer) | Yellow |
+| Approved, not scheduled | Orange |
+| Scheduled | Sky/cyan (royal blue is reserved for "tap here") |
+| In progress | Purple |
+| Blocked | Red |
+| Done, not invoiced | Teal |
+| Invoiced, unpaid | Indigo |
+| Overdue | Red |
+| Paid | Green |
+
+Bids: outlined blue. Tasks: gray. Time off: gray stripes. The work-order notes badge has its own color, used for nothing else. Status pills: tinted background, dot, colored border and text; cards get a matching border or left stripe.
+
+#### 5c. Dashboard (new home screen)
+- **Needs attention:** blocked jobs, overdue invoices, estimates waiting on the customer, approved jobs not scheduled, change orders awaiting signature, jobs over their hours. Each row says why.
+- **Active jobs:** name, customer, tap-to-call phone, dates, status pill, total and amount still due, "+" for a photo, hours or note.
+- **Summary (owner/office):** billed, collected, owed, overdue, expenses and hours this month.
+- **Crew version:** today's and this week's jobs and jobs with new notes; no money.
+
+#### 5d. Calendar
+- **Month view only** (Week and Day views removed). Tap a day to open that day's list, in order (drag on iPad, ▲▼ on phones), with check-offs.
+- **Side list of approved, unscheduled jobs:** drag one onto a day on iPad/desktop; on phones tap the job, then the day. A job fills its estimated days from the day it's dropped, **skipping Sundays** (Saturdays count).
+- **Task shelf** in the same side list: saved repeat tasks (dump run, grease chipper, rental return…) stay on the shelf and add a copy to a day when used. One-off tasks with no day stay in "Someday."
+- One team for now; assignment is "who's going." Crew lanes per day can be added later without rework. "Only mine" hidden until there's more than one crew.
+
+#### 5e. Jobs board
+- Columns tinted in stage color with dot, uppercase title and count; cards with a colored left stripe.
+- Card: name, number, town and phone as tap-to-call / text links, dates, and small icons: camera (photos), notes badge, $ (owner/office), hours logged.
+- Tap the card to open it; one main button for the next step (Schedule, Start, Done) and a "⋯" menu for the rest. Drag between columns on iPad.
+
+#### 5f. Work-order notes
+- No big notes box at the top of the page. A notes icon opens them in a panel.
+- Only while the job is a work order (signed, not yet invoiced).
+- Badge with the number of notes, on the job, its board card and its calendar entry. The first line of the note shows on the card when there is one.
+
+#### 5g. Photos
+- Camera icon on each tree line of the estimate (for planning) and on each job (Before / During / After, with date and who took it). Crew can add job photos.
+- Shrunk on the phone to ~300 KB, saved on the device when there's no signal, uploaded later. Private Supabase storage (already set up).
+- Space: ~3,000 photos on Supabase's free plan, ~300,000 on the $25/month plan.
+
+#### 5h. Expenses and receipts
+- Expense: date, vendor, amount, category (Fuel, Dump fees, Equipment rental, Repairs & maintenance, Supplies, Subcontractors, Other; editable), paid by, optional job, note, receipt photo.
+- Receipts folder: every receipt photo by month, searchable by vendor; download a month at once.
+- Linked to a job, expenses show what the job actually cost against what it billed. Owner/office only.
+
+#### 5i. Hours per job
+- Start / Stop clock on the job (keeps running offline or with the phone locked), or type hours in afterwards. Each entry: person, job, date, hours, note.
+- Crew log their own; owner/office can fix anyone's. End-of-day reminder on days a job is on the calendar.
+- Each job shows billed days against actual crew-hours and earnings per crew-hour, so future day counts get more accurate.
+
+#### 5j. Excel bookkeeping export
+- An .xlsx file for any month, quarter or year, made in the app (no server piece), owner/office only.
+- Sheets: Summary (billed, collected, sales tax, expenses by category, profit, by month; hours per job), Payments received, Invoices, Expenses, Hours.
+
+#### 5k. Contacts import
+- Customers → Import: pick a .vcf (iPhone, Google, Outlook) or a spreadsheet (CSV), check the preview, skip anyone already there (same phone or email), import.
+
+#### Database changes this needs
+- `events`: order within a day, done check-off; task templates for the shelf.
+- New `photos` table (job, optional tree, kind: tree / before / during / after / receipt, file, taken at, by).
+- New `expenses` table (owner/office; optionally add-only for crew).
+- New `time_entries` table (crew add and edit their own; owner/office all).
+- Notifications are worked out from the synced data on each device; no new server piece.
+
+#### Proposed build order
+1. Look and navigation, color coding, dashboard (5a–5c)
+2. Calendar month, side list, task shelf (5d)
+3. Board and work-order notes (5e–5f)
+4. Photos (5g)
+5. Expenses, receipts, hours (5h–5i)
+6. Excel export and reports (5j)
+7. Contacts import, search, archive, bell (5k and the rest of 5a)
+
+Before step 1: a clickable mockup of the dashboard, board and month calendar in the new style for sign-off.
+
+Still waiting from earlier phases: Stripe card payments (owner's approval).
+
+### Phase 6: Later
+- App Store and Play Store builds (Capacitor wraps the same code)
+- QuickBooks export
+
+## Open questions (for the review of Phase 5)
+1. Internal notes written while estimating (job and per tree): move them into the work-order notes when signed? *(Recommended: yes.)*
+2. Navigation: bottom bar of five plus the grouped menu, as above?
+3. Confirm removing Week and Day views.
+4. Action color: deep royal blue, as in Square This Up?
+5. Status colors: is the table right? Any stages to add (e.g. "Waiting on materials" as its own column instead of a Blocked reason)?
+6. Tree photos: also print on the customer's estimate, or planning only? *(Default: planning only.)*
+7. Crew and receipts: let crew add a receipt without seeing expenses?
+8. Hours: per person or one crew total? Also for payroll, or only job costing? Does drive time count?
+9. Which tasks repeat every week (to fill the starter shelf)?
+10. Where do contacts live now (decides whether CSV import comes with .vcf)?
+11. Dark mode for early mornings, or light only?
+12. When does a job move to Archive: when paid, or some days after?
+13. Which events should ring the bell?
