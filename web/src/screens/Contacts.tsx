@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Icon } from '../components/Icon';
 import { Link } from 'react-router-dom';
 import { useReady, useRows } from '../lib/session';
 import type { Customer } from '../lib/types';
@@ -22,7 +23,7 @@ export function Contacts() {
     <div className="page">
       <div className="page-head">
         <h2>Contacts</h2>
-        <Link to="/contacts/new" className="btn primary">＋ New contact</Link>
+        <Link to="/contacts/new" className="btn primary"><Icon name="plus" />New contact</Link>
       </div>
       <input type="search" className="search" placeholder="Search name, phone, town" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search contacts" />
       {rows === null ? (

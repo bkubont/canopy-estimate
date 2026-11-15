@@ -71,7 +71,7 @@ await o.goto(APP);
 await signUp(o, owner);
 await o.getByLabel('Your name').fill('Joey');
 await o.getByRole('button', { name: 'Create company' }).click();
-await see(o, 'Tasks with no day yet', 'owner is in');
+await see(o, 'Needs attention', 'owner is in');
 await o.goto(`${APP}#/company`);
 await o.getByLabel('Phone').fill('231-555-0000');
 await o.getByLabel('How customers can pay').fill('Checks payable to Advanced Tree Service');
@@ -81,17 +81,17 @@ await see(o, 'Saved', 'owner adds payment instructions and 6% tax');
 
 // ---------------------------------------------------------------- a signed estimate
 await o.goto(`${APP}#/estimates`);
-await o.getByRole('button', { name: '＋ New estimate' }).click();
+await o.getByRole('button', { name: 'New estimate' }).click();
 await o.getByLabel('First name').fill('Dana');
 await o.getByLabel('Last name').fill('Smith');
 await o.getByLabel('Phone').fill('231-555-0101');
 await o.locator('.bottombar .btn.primary').click();
-await o.getByRole('button', { name: '＋ Add tree' }).click();
+await o.getByRole('button', { name: 'Add tree' }).click();
 await o.getByRole('button', { name: 'Ash', exact: true }).click();
 await o.getByRole('button', { name: 'Save tree' }).click();
 await o.locator('.bottombar .btn.primary').click();
 await o.getByRole('button', { name: '2 days' }).click();
-await o.getByRole('button', { name: '＋ Stump grinder' }).click();
+await o.getByRole('button', { name: 'Stump grinder', exact: true }).click();
 await o.locator('.bottombar .btn.primary').click();
 await o.getByRole('button', { name: '25%' }).click();
 await see(o, '$4,965.04', 'estimate total with 6% tax ($4,684 + $281.04)');
@@ -101,12 +101,12 @@ await see(o, 'Signed by Dana Smith', 'client signs on the device');
 await see(o, 'deposit asked: $1,241.26', 'the 25% deposit is shown');
 
 // ---------------------------------------------------------------- deposit, then invoice
-await o.getByRole('button', { name: '＋ Record deposit' }).click();
+await o.getByRole('button', { name: 'Record deposit' }).click();
 await o.getByLabel('Amount received').fill('500');
 await o.getByLabel('Check number').fill('1042');
 await o.getByRole('button', { name: 'Save payment' }).click();
 await see(o, '$500.00', 'a $500 check deposit is recorded');
-await o.getByRole('button', { name: '🧾 Create invoice' }).click();
+await o.getByRole('button', { name: 'Create invoice' }).click();
 await see(o, 'Draft. Check it, then send.', 'invoice starts as a draft from the estimate');
 await see(o, 'INV-1001', 'it gets the first invoice number');
 await see(o, 'Tree work — 2 days', 'with the labor line');
@@ -136,7 +136,7 @@ try {
 }
 await see(o, 'Partly paid', 'sent invoice shows Partly paid because of the deposit');
 await see(o, '$3,405.04', 'balance due counts the deposit');
-await o.getByRole('button', { name: '🔗 Customer link' }).click();
+await o.getByRole('button', { name: 'Customer link' }).click();
 const link = await o.getByLabel('Invoice link').inputValue();
 ok('invoice link created');
 await shot(o, '02-invoice-sent');
@@ -151,7 +151,7 @@ await notSee(cp, /SECRET|1042|285|markup/i, 'customer never sees internal notes,
 await shot(cp, '03-customer-invoice');
 
 // ---------------------------------------------------------------- final payment
-await o.getByRole('button', { name: '＋ Record payment' }).click();
+await o.getByRole('button', { name: 'Record payment' }).click();
 await o.getByRole('button', { name: 'Cash' }).click();
 await o.getByRole('button', { name: 'Save payment' }).click();
 await see(o, 'Paid', 'paying the balance marks the invoice Paid');
@@ -175,7 +175,7 @@ await c.goto(invite);
 await signUp(c, crew);
 await c.getByLabel('Your name').fill('Sam');
 await c.getByRole('button', { name: 'Join company' }).click();
-await see(c, 'Tasks with no day yet', 'crew joins');
+await see(c, 'Needs attention', 'crew joins');
 if (await c.locator('nav.tabnav a[href="#/invoices"]').count()) await fail(c, 'crew has an Invoices tab');
 ok('crew has no Invoices tab');
 await c.goto(`${APP}#/invoices`);

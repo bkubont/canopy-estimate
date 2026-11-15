@@ -1,4 +1,7 @@
+import { Pill } from '../../components/Pill';
+import { INVOICE_STAGE } from '../../lib/status';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { toCustomerCompany } from '../../components/EstimateDoc';
 import { InvoiceDoc, toCustomerInvoice } from '../../components/InvoiceDoc';
@@ -137,7 +140,7 @@ export function InvoiceScreen() {
         <div>
           <h2>{inv.number}</h2>
           <p className="muted small" style={{ margin: '4px 0 0' }}>
-            <span className={`status inv-${status}`}>{INVOICE_STATUS_LABEL[status]}</span>{' '}
+            <Pill stage={INVOICE_STAGE[status]!} label={INVOICE_STATUS_LABEL[status]} />{' '}
             {clientName(j.client)} · <Link to={`/estimates/${j.id}`}>{j.number}</Link>
           </p>
         </div>
@@ -148,7 +151,7 @@ export function InvoiceScreen() {
         <div className="sum-line"><span>Paid</span><span>{money(paid)}</span></div>
         <div className="sum-line grand"><span>Balance due</span><span>{money(balance)}</span></div>
         {!draft && inv.status !== 'void' && (
-          <button type="button" className="btn primary block mt" onClick={() => setPaying(true)}>＋ Record payment</button>
+          <button type="button" className="btn primary block mt" onClick={() => setPaying(true)}><Icon name="plus" />Record payment</button>
         )}
       </section>
 
@@ -183,7 +186,7 @@ export function InvoiceScreen() {
               </div>
             </div>
           ))}
-          <button type="button" className="btn block" onClick={() => update((i) => ({ ...i, lines: [...i.lines, { id: uid(), desc: '', qty: 1, unit: 0, taxable: true }] }))}>＋ Add line</button>
+          <button type="button" className="btn block" onClick={() => update((i) => ({ ...i, lines: [...i.lines, { id: uid(), desc: '', qty: 1, unit: 0, taxable: true }] }))}><Icon name="plus" />Add line</button>
           <div className="row mt">
             <span>Tax rate</span>
             <div className="price-input" style={{ maxWidth: 140 }}>
@@ -206,11 +209,11 @@ export function InvoiceScreen() {
       {!draft && (
         <>
           <div className="btn-grid">
-            <button type="button" className="btn primary" onClick={() => void sms()} disabled={!j.client.phone || busy}>💬 Text</button>
-            <button type="button" className="btn" onClick={() => void email()} disabled={!j.client.email || busy}>✉️ Email</button>
-            <button type="button" className="btn" onClick={() => void pdf()} disabled={busy}>📄 PDF file</button>
-            <button type="button" className="btn" onClick={() => window.print()}>🖨️ Print</button>
-            <button type="button" className="btn" onClick={() => void getLink()} disabled={busy || inv.status === 'void'}>🔗 Customer link</button>
+            <button type="button" className="btn primary" onClick={() => void sms()} disabled={!j.client.phone || busy}><Icon name="message" />Text</button>
+            <button type="button" className="btn" onClick={() => void email()} disabled={!j.client.email || busy}><Icon name="mail" />Email</button>
+            <button type="button" className="btn" onClick={() => void pdf()} disabled={busy}><Icon name="download" />PDF file</button>
+            <button type="button" className="btn" onClick={() => window.print()}><Icon name="printer" />Print</button>
+            <button type="button" className="btn" onClick={() => void getLink()} disabled={busy || inv.status === 'void'}><Icon name="link" />Customer link</button>
           </div>
           {link && <div className="copy-box mt"><input readOnly value={link} aria-label="Invoice link" onFocus={(e) => e.currentTarget.select()} /></div>}
           {msg && <p className="hint" role="status">{msg}</p>}

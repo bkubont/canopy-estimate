@@ -8,6 +8,7 @@ import { ContactEdit } from './screens/ContactEdit';
 import { Board } from './screens/calendar/Board';
 import { Calendar } from './screens/calendar/Calendar';
 import { Contacts } from './screens/Contacts';
+import { Dashboard } from './screens/Dashboard';
 import { CustomerInvoicePage } from './screens/CustomerInvoicePage';
 import { CustomerPage } from './screens/CustomerPage';
 import { InvoiceScreen } from './screens/invoice/InvoiceScreen';
@@ -44,7 +45,7 @@ export function App() {
         {phase === 'noOrg' && <Route path="*" element={<Onboarding />} />}
         {phase === 'ready' && (
           <Route element={<Shell />}>
-            <Route path="/" element={<Navigate to="/calendar" replace />} />
+            <Route path="/" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/board" element={<Board />} />
             <Route path="/estimates" element={<Estimates />} />
@@ -57,7 +58,7 @@ export function App() {
             <Route path="/company" element={<Company />} />
             <Route path="/team" element={<Team />} />
             <Route path="/account" element={<Account />} />
-            <Route path="*" element={<Navigate to="/calendar" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         )}
       </Routes>

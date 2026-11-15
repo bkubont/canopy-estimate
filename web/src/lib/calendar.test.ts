@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allDaySpan, blankEvent, boardColumn, crewConflicts, eventDays, jobSchedule, miToIso, monthCells, onDay, weekDays, ymdOf } from './calendar';
+import { allDaySpan, blankEvent, boardColumn, crewConflicts, eventDays, jobSchedule, miToIso, monthCells, onDay, reorderDay, scheduleJob, weekDays, workDays, ymdOf } from './calendar';
 
 const ev = (patch: Parameters<typeof blankEvent>[1]) => blankEvent('o1', patch);
 
@@ -63,5 +63,39 @@ describe('calendar', () => {
     const bid3 = ev({ all_day: false, assigned_to: ['sam'], starts: miToIso('2026-11-20', '10:00'), ends: miToIso('2026-11-20', '12:00') });
     expect(crewConflicts(bid1, [bid2])).toEqual([]);
     expect(crewConflicts(bid1, [bid3]).length).toBe(1);
+  });
+});
+
+describe('scheduling from the month view', () => {
+  const job = (days: number) => ({
+    id: 'j1', org_id: 'o1', number: 'E-1001', days, change_orders: [], equipment: [{ id: 'e', desc: 'Stump grinder', qty: 1 }],
+    client: { firstName: 'Dana', lastName: 'Smith', town: 'Kingsley', street: '1 Main' }, trees: [], site: {},
+  }) as never;
+
+  it('skips Sundays and only Sundays', () => {
+    // 2026-11-20 is a Friday
+    expect(workDays('2026-11-20', 3)).toEqual(['2026-11-20', '2026-11-21', '2026-11-23']);
+    expect(workDays('2026-11-22', 1)).toEqual(['2026-11-23']); // dropped on a Sunday → Monday
+  });
+
+  it('a 3-day job dropped on Friday becomes Fri–Sat and Monday', () => {
+    const evs = scheduleJob('o1', job(3), '2026-11-20');
+    expect(evs.map((e) => [e.starts, e.ends])).toEqual([['2026-11-20', '2026-11-22'], ['2026-11-23', '2026-11-24']]);
+    expect(evs.every((e) => e.type === 'tree_work' && e.job_id === 'j1' && e.title === 'Dana Smith · Kingsley')).toBe(true);
+    expect(jobSchedule('j1', evs).days).toEqual(['2026-11-20', '2026-11-21', '2026-11-23']);
+  });
+
+  it('a half-day job still takes one day', () => {
+    expect(scheduleJob('o1', job(0.5), '2026-11-18').map((e) => [e.starts, e.ends])).toEqual([['2026-11-18', '2026-11-19']]);
+  });
+
+  it('moving an entry down swaps it with the next one and keeps the order on the day', () => {
+    const day = '2026-11-16';
+    const a = ev({ id: 'a', title: 'A', ...allDaySpan(day, 1), type: 'tree_work' });
+    const b = ev({ id: 'b', title: 'B', ...allDaySpan(day, 1), type: 'equipment_rental' });
+    const changed = reorderDay(onDay([a, b], day), 0, 1);
+    const after = onDay([a, b].map((e) => changed.find((c) => c.id === e.id) ?? e), day);
+    expect(after.map((e) => e.id)).toEqual(['b', 'a']);
+    expect(reorderDay(after, 0, -1)).toEqual([]); // already first
   });
 });

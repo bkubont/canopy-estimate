@@ -66,7 +66,7 @@ await signUp(o, owner);
 await expectText(o, 'Set up your company', 'new account is asked to set up a company');
 await o.getByLabel('Your name').fill('Joey');
 await o.getByRole('button', { name: 'Create company' }).click();
-await expectText(o, 'Tasks with no day yet', 'owner lands in the app');
+await expectText(o, 'Needs attention', 'owner lands in the app');
 await expectText(o, 'Synced', 'sync badge reports synced');
 await shot(o, '02-home');
 
@@ -98,7 +98,7 @@ await signUp(c, crew);
 await expectText(c, 'Join your team', 'after sign-up the invite is offered');
 await c.getByLabel('Your name').fill('Sam');
 await c.getByRole('button', { name: 'Join company' }).click();
-await expectText(c, 'Tasks with no day yet', 'crew member joins the company');
+await expectText(c, 'Needs attention', 'crew member joins the company');
 
 await c.goto(`${APP}#/contacts`);
 await expectText(c, 'Dana Smith', 'crew sees the contact the owner added (second device)');
@@ -115,7 +115,7 @@ await shot(c, '06-crew-company');
 // ---------------------------------------------------------------- offline + sync back
 await c.goto(`${APP}#/contacts`);
 await setOffline(crewCtx, true);
-await c.getByRole('link', { name: '＋ New contact' }).click();
+await c.getByRole('link', { name: 'New contact' }).click();
 await c.getByLabel('First name').fill('Offline');
 await c.getByLabel('Last name').fill('Lead');
 await c.getByRole('button', { name: 'Save contact' }).click();

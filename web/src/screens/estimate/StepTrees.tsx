@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { Chips, Field, MultiChips, Sheet, Stepper } from '../../components/ui';
 import {
   ALL_SPECIES, blankTree, CONDITIONS, DEFAULT_COMMON_SPECIES, LOCATIONS, SIZES, SPECIES_GROUPS, treeCount, treeDetails, treeTitle, uid, WORK,
@@ -96,7 +97,7 @@ export function TreeList({ trees, onChange }: { trees: Tree[]; onChange: (trees:
       </div>
       <button type="button" className="btn primary block" style={{ minHeight: 56 }}
         onClick={() => setEditing({ tree: { ...blankTree(), work: trees.at(-1)?.work ?? [] }, index: -1 })}>
-        ＋ Add tree
+        <Icon name="plus" />Add tree
       </button>
       <TreeSheet
         tree={editing?.tree ?? null}

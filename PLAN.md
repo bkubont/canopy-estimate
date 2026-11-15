@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). Not yet run against a live Supabase project (see SETUP.md).
+Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15); steps 1–2 built.
 
 ## Decisions so far
 
@@ -143,11 +143,119 @@ Port the wizard, plus these fixes:
 - Board: Approved → Scheduled → In progress → Blocked (with reason) → Done → Invoiced → Paid; the board follows a job to its new column
 - Tests: 92 database checks, 51 unit tests, 22-step calendar walkthrough (phone, crew phone, iPad)
 
-### Phase 5: Later
-- App Store and Play Store builds (Capacitor wraps the same code)
-- Photos on trees and jobs
-- QuickBooks export
-- Reports: revenue, equipment spend, and markup earned
+### Phase 5: Redesign and the next features (planned 2026-11-15, nothing built yet)
 
-## Open questions
-None right now. All six were answered on 2026-11-12 (see Decisions).
+Gathered from a walk-through of the app with a realistic week of demo data, and the owner's list of what to change. Answers to the open questions at the end come first, then the build.
+
+#### 5a. Look and navigation (modeled on Square This Up)
+- **Style:** white cards on a light gray-blue background (#F5F7FA), thin cool-gray borders, black headings, slate-gray secondary text, the phone's own font, medium (not heavy) headings, tighter spacing on phones. Each screen title appears once.
+- **One action color:** deep royal blue for the main button, links and selected items. Lime stays in the logo only.
+- **Line icons** everywhere instead of emoji.
+- **Top bar (black, every screen):** menu, logo, one search for jobs and customers, blue "+ Quick Add" (estimate, task, expense, receipt photo, hours), bell for notifications, profile.
+- **Side menu (dark, grouped, line icons):** Work: Dashboard, Jobs board, Calendar, Customers, Archive · Money: Estimates, Invoices, Expenses, Receipts · Business: Reports · Settings: Company, Team, Account. Collapses to an icon strip on iPad/desktop landscape; the choice is remembered per device.
+- **Bottom bar on phones:** Home · Calendar · Estimates · Jobs · Invoices (crew: Home · Calendar · Jobs · Contacts). Everything else is in the menu.
+- **Bell (starter set, adjustable later):** customer signed online, change order signed, payment recorded, invoice went overdue, job blocked.
+- **Archive:** a job leaves the board once it's paid, and stays searchable.
+
+#### 5b. Universal color coding
+One color per stage, everywhere a job appears (estimates list, board columns and card stripes, calendar, dashboard, the month side list). Always shown with a word, so it works for color-blind users. Red only ever means a problem.
+
+| Stage | Color |
+|---|---|
+| Pending (waiting on customer) | Yellow |
+| Approved, not scheduled | Orange |
+| Scheduled | Sky/cyan (royal blue is reserved for "tap here") |
+| In progress | Purple |
+| Blocked | Red |
+| Done, not invoiced | Teal |
+| Invoiced, unpaid | Indigo |
+| Overdue | Red |
+| Paid | Green |
+
+Bids: outlined blue. Tasks: gray. Time off: gray stripes. The work-order notes badge has its own color, used for nothing else. Status pills: tinted background, dot, colored border and text; cards get a matching border or left stripe.
+
+#### 5c. Dashboard (new home screen)
+- **Needs attention:** blocked jobs, overdue invoices, estimates waiting on the customer, approved jobs not scheduled, change orders awaiting signature, jobs over their hours. Each row says why.
+- **Active jobs:** name, customer, tap-to-call phone, dates, status pill, total and amount still due, "+" for a photo, hours or note.
+- **Summary (owner/office):** billed, collected, owed, overdue, expenses and hours this month.
+- **Crew version:** today's and this week's jobs and jobs with new notes; no money.
+
+#### 5d. Calendar
+- **Month view only** (Week and Day views removed). Tap a day to open that day's list, in order (drag on iPad, ▲▼ on phones), with check-offs.
+- **Side list of approved, unscheduled jobs:** drag one onto a day on iPad/desktop; on phones tap the job, then the day. A job fills its estimated days from the day it's dropped, **skipping Sundays** (Saturdays count).
+- **Rentals** are the only other thing in the side list: an equipment rental (pick-up and return) can be dragged onto a day like a job. No task shelf and no other task types (dump runs, maintenance) — they're removed.
+- One team for now; assignment is "who's going." Crew lanes per day can be added later without rework. "Only mine" hidden until there's more than one crew.
+
+#### 5e. Jobs board
+- Columns tinted in stage color with dot, uppercase title and count; cards with a colored left stripe.
+- Card: name, number, town and phone as tap-to-call / text links, dates, and small icons: camera (photos), notes badge, $ (owner/office), hours logged.
+- Tap the card to open it; one main button for the next step (Schedule, Start, Done) and a "⋯" menu for the rest. Drag between columns on iPad.
+
+#### 5f. Work-order notes
+- No big notes box at the top of the page. A notes icon opens them in a panel.
+- Only while the job is a work order (signed, not yet invoiced).
+- Badge with the number of notes, on the job, its board card and its calendar entry. The first line of the note shows on the card when there is one.
+
+#### 5g. Photos
+- Camera icon on each tree line of the estimate (for planning) and on each job (Before / During / After, with date and who took it). Crew can add job photos.
+- Shrunk on the phone to ~300 KB, saved on the device when there's no signal, uploaded later. Private Supabase storage (already set up).
+- Space: ~3,000 photos on Supabase's free plan, ~300,000 on the $25/month plan.
+
+#### 5h. Expenses and receipts
+- Expense: date, vendor, amount, category (Fuel, Dump fees, Equipment rental, Repairs & maintenance, Supplies, Subcontractors, Other; editable), paid by, optional job, note, receipt photo.
+- Receipts folder: every receipt photo by month, searchable by vendor; download a month at once.
+- Linked to a job, expenses show what the job actually cost against what it billed. Owner/office only.
+
+#### 5i. Hours per job
+- **One crew total per job per day, for accounting (not payroll). Drive time counts.**
+- Start / Stop clock on the job (keeps running offline or with the phone locked; it asks how many people when stopped, so 9 h × 3 people = 27 crew-hours), or type the crew-hours in afterwards. Each entry: job, date, crew-hours, who entered it, note.
+- Anyone on the team can log; owner/office can fix any entry. End-of-day reminder on days a job is on the calendar.
+- Each job shows billed days against actual crew-hours and earnings per crew-hour, so future day counts get more accurate.
+
+#### 5j. Excel bookkeeping export
+- An .xlsx file for any month, quarter or year, made in the app (no server piece), owner/office only.
+- Sheets: Summary (billed, collected, sales tax, expenses by category, profit, by month; hours per job), Payments received, Invoices, Expenses, Hours.
+
+#### 5k. Contacts import
+- Customers → Import: on the iPhone, select contacts in Contacts and share them as a contact card (.vcf), then pick that file in the app; check the preview, skip anyone already there (same phone or email), import. No spreadsheet import.
+
+#### Database changes this needs
+- `events`: order within a day, done check-off; event types narrowed to tree work, bid, equipment rental, time off.
+- New `photos` table (job, optional tree, kind: tree / before / during / after / receipt, file, taken at, by).
+- New `expenses` table (owner/office; optionally add-only for crew).
+- New `time_entries` table (job, date, crew-hours; anyone adds, owner/office edit all).
+- Notifications are worked out from the synced data on each device; no new server piece.
+
+#### Proposed build order
+1. Look and navigation, color coding, dashboard (5a–5c) — **built**: black top bar with search and Quick Add, grouped menu (drawer on phones, collapsible on iPad/desktop), five-tab bottom bar, stage colors on every list, line icons instead of emoji, dashboard. The bell and Archive come with step 7. Tests: 54 unit, 5 walkthroughs (118 checks), incl. a new 17-step dashboard walkthrough
+2. Calendar month, side list with jobs and rentals (5d) — **built**: Month view only; a To schedule list (signed jobs not on the calendar) and a Rentals list beside the month; drag onto a day on iPad/computer, or tap then tap the day on phones; a job fills its days skipping Sundays (split around them), with Undo; tap a day for its list, in order (▲▼), with check-offs (also on the dashboard's Today). Schedule buttons on the board and estimate open the month. Database: `20261116000000_day_order.sql`. Tests: 58 unit, 5 walkthroughs (124 checks) incl. a rewritten 28-step calendar walkthrough, 93 database checks
+3. Board and work-order notes (5e–5f)
+4. Photos (5g)
+5. Expenses, receipts, hours (5h–5i)
+6. Excel export and reports (5j)
+7. Contacts import, search, archive, bell (5k and the rest of 5a)
+
+Mockup of the dashboard, board and month calendar: https://claude.ai/artifact/2vMPUDGokX8fQPp3fzWDh3 (approved 2026-11-15).
+
+Still waiting from earlier phases: Stripe card payments (owner's approval).
+
+### Phase 6: Later
+- App Store and Play Store builds (Capacitor wraps the same code)
+- QuickBooks export
+
+## Decisions for Phase 5 (2026-11-15)
+| Question | Answer |
+|---|---|
+| Estimating notes when signed | Move into the work-order notes |
+| Navigation | Bottom bar of five plus the grouped menu |
+| Week and Day views | Removed; Month only |
+| Action color | Deep royal blue |
+| Status colors | As in the table; no extra stages |
+| Tree photos | Planning only, never on the customer's estimate |
+| Crew and receipts | Crew can add a receipt, can't see expenses |
+| Hours | One crew total per job per day, for accounting; drive time counts |
+| Calendar tasks | Only equipment rentals can be scheduled; drop the other task types |
+| Contacts | From the iPhone (.vcf only) |
+| Appearance | Light only |
+| Archive | When the job is paid |
+| Bell | Starter set (see 5a), adjust after using it |

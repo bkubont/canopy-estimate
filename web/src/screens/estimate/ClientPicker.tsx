@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/ui';
 import { blankClient, clientName } from '../../lib/estimate';
 import { useReady, useRows } from '../../lib/session';
@@ -82,7 +83,7 @@ export function ClientPicker({ open, onClose, onPick }: { open: boolean; onClose
     <Sheet open={open} onClose={onClose} title="Choose client">
       <input type="search" placeholder="Search name, phone, address" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search clients" autoFocus />
       <div className="btn-row mt">
-        <button type="button" className="btn sm" onClick={fromPhone}>📇 From this phone’s contacts</button>
+        <button type="button" className="btn sm" onClick={fromPhone}><Icon name="contact" />From this phone’s contacts</button>
       </div>
       {!canPickNative && (
         <p className="hint">On iPhone: in Contacts, open the person → Share Contact → Save to Files, then tap the button above and pick the file.</p>

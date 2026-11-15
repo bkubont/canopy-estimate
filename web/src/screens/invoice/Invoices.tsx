@@ -1,3 +1,5 @@
+import { Pill } from '../../components/Pill';
+import { INVOICE_STAGE } from '../../lib/status';
 import { useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { clientName, money, niceDate } from '../../lib/estimate';
@@ -51,7 +53,7 @@ export function Invoices() {
               <div className="row"><b>{clientName(job?.client) || 'No name'}</b><b>{money(status === 'paid' || status === 'void' || status === 'draft' ? total : balance)}</b></div>
               <div className="row muted small">
                 <span>{inv.number} · due {niceDate(inv.due_date)}</span>
-                <span className={`status inv-${status}`}>{INVOICE_STATUS_LABEL[status]}</span>
+                <Pill stage={INVOICE_STAGE[status]!} label={INVOICE_STATUS_LABEL[status]} />
               </div>
             </Link>
           ))}

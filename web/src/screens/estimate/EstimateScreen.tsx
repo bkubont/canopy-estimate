@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
+import { Icon } from '../../components/Icon';
+import { Pill } from '../../components/Pill';
+import { jobStage } from '../../lib/status';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/EstimateDoc';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
-  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, money, niceDate, normalizeJob, STATUS_LABEL, todayYmd, totals, treeDetails, treeTitle,
+  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, money, niceDate, normalizeJob, todayYmd, totals, treeDetails, treeTitle,
 } from '../../lib/estimate';
 import { invoiceFromJob, paidForJob } from '../../lib/invoice';
 import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
 import { reserveNumbers, voidSignature } from '../../lib/supabase';
 import { PaymentSheet } from '../invoice/PaymentSheet';
-import { EventSheet, eventForJob } from '../calendar/EventSheet';
-import { blankEvent, dayLabel, jobSchedule, todayMi } from '../../lib/calendar';
+import { EventSheet } from '../calendar/EventSheet';
+import { dayLabel, jobSchedule } from '../../lib/calendar';
 import type { ChangeOrder, Job, JobPricing, Organization } from '../../lib/types';
 import { useJobDraft } from '../../lib/useJobDraft';
 import { SendActions } from './SendActions';
@@ -49,9 +52,11 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
   const nav = useNavigate();
   const { engine } = useReady();
   const i = Math.max(0, STEPS.findIndex((s) => s.id === step));
+  // Save first, then move on, unless the user already went somewhere else meanwhile.
   const go = async (to: string) => {
+    const from = window.location.hash;
     await flush();
-    nav(to);
+    if (window.location.hash === from) nav(to);
   };
 
   useEffect(() => {
@@ -79,7 +84,7 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
     <div className="page" style={{ maxWidth: 1200 }}>
       <div className="row" style={{ marginBottom: 6 }}>
         <b>{job.number}{clientName(job.client) ? ` · ${clientName(job.client)}` : ''}</b>
-        <span className={`status ${job.status}`}>{STATUS_LABEL[job.status]}</span>
+        <Pill stage={jobStage(job, [])} />
       </div>
       <nav className="steps" aria-label="Estimate steps">
         {STEPS.map((s, n) => (
@@ -126,7 +131,7 @@ function DangerZone({ job }: { job: Job }) {
         if (!confirm(`Delete ${job.number}? It disappears for the whole team.`)) return;
         await engine.remove('jobs', job);
         nav('/estimates');
-      }}>🗑 Delete estimate</button>
+      }}><Icon name="trash" />Delete estimate</button>
     </div>
   );
 }
@@ -186,7 +191,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         <div>
           <h2>{job.number} · {clientName(job.client)}</h2>
           <p className="muted small" style={{ margin: '4px 0 0' }}>
-            <span className={`status ${job.status}`}>{STATUS_LABEL[job.status]}</span>{' '}
+            <Pill stage={jobStage(job, events ?? [], invoices, payments)} />{' '}
             Signed{job.signed_by_name ? ` by ${job.signed_by_name}` : ''} on {niceDate(job.client_sig_date)}{job.signed_via === 'link' ? ' (online)' : ''} · {money(t.total)}
           </p>
         </div>
@@ -198,9 +203,9 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
       </section>
       <section className="card">
         <div className="row">
-          <span>{sched.start ? <>📅 {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
-          <button type="button" className="btn sm" onClick={() => setScheduling(sched.events[0] ?? eventForJob(blankEvent(job.org_id), job, todayMi()))}>
-            {sched.start ? 'Change dates' : '📅 Schedule'}
+          <span>{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
+          <button type="button" className="btn sm" onClick={() => (sched.events[0] ? setScheduling(sched.events[0]) : nav('/calendar', { state: { pick: job.id } }))}>
+            {sched.start ? 'Change dates' : <><Icon name="calendar" />Schedule</>}
           </button>
         </div>
       </section>
@@ -210,13 +215,13 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         <div className="btn-row mt">
           {invoice
             ? <Link className="btn primary" to={`/invoices/${invoice.id}`}>Open invoice {invoice.number}</Link>
-            : <button type="button" className="btn primary" onClick={() => void createInvoice()}>🧾 Create invoice</button>}
-          {!invoice && <button type="button" className="btn" onClick={() => setDepositOpen(true)}>＋ Record deposit</button>}
+            : <button type="button" className="btn primary" onClick={() => void createInvoice()}><Icon name="dollar" />Create invoice</button>}
+          {!invoice && <button type="button" className="btn" onClick={() => setDepositOpen(true)}><Icon name="plus" />Record deposit</button>}
         </div>
         {invError && <p className="error-text">{invError}</p>}
       </section>
       <div className="btn-row" style={{ marginBottom: 12 }}>
-        <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}>＋ Change order</button>
+        <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}><Icon name="plus" />Change order</button>
         {can.seePrices(org.role) && <button type="button" className="btn danger" onClick={() => void voidSig()} disabled={voiding === 'working'}>Remove signature</button>}
       </div>
       {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
@@ -302,15 +307,15 @@ function JobSheet({ job }: { job: Job }) {
     <div className="page">
       <div className="page-head">
         <h2>{job.number} · {clientName(job.client)}</h2>
-        <span className={`status ${job.status}`}>{STATUS_LABEL[job.status]}</span>
+        <Pill stage={jobStage(job, events ?? [])} />
       </div>
       <section className="card">
-        <b>{sched.start ? `📅 ${dayLabel(sched.start)}${sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}` : 'Not on the calendar yet'}</b>
+        <b className="row-icon">{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : 'Not on the calendar yet'}</b>
       </section>
       <section className="card">
         <h3>Client</h3>
         <p style={{ margin: 0 }}>{clientName(job.client)}<br />{[job.client.street, job.client.town].filter(Boolean).join(', ')}</p>
-        {job.client.phone && <a className="btn sm mt" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}>📞 Call {job.client.phone}</a>}
+        {job.client.phone && <a className="btn sm mt" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={16} />Call {job.client.phone}</a>}
       </section>
       {job.internal_notes && <section className="internal"><b>Internal notes</b><p style={{ margin: '4px 0 0', whiteSpace: 'pre-line' }}>{job.internal_notes}</p></section>}
       <section className="card">

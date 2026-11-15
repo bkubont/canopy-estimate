@@ -1,24 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Chips, Field, Sheet, Stepper } from '../../components/ui';
-import { allDaySpan, BID_HOURS, crewConflicts, dayLabel, EVENT_TYPES, eventDays, hmOf, isTask, miToIso, todayMi, ymdOf } from '../../lib/calendar';
+import { allDaySpan, BID_HOURS, crewConflicts, dayLabel, EVENT_LABEL, EVENT_TYPES, eventDays, eventForJob, hmOf, isTask, miToIso, todayMi, ymdOf } from '../../lib/calendar';
 import { clientName, daysLabel, normalizeJob, num } from '../../lib/estimate';
 import { useReady, useRows } from '../../lib/session';
 import type { CalEvent, Job } from '../../lib/types';
 
 const STATUSES: [string, string][] = [['tentative', 'Tentative'], ['confirmed', 'Confirmed'], ['completed', 'Completed'], ['cancelled', 'Cancelled']];
 
-/** Fill a calendar entry from a job: title, place, equipment, and as many days as the job takes. */
-export function eventForJob(e: CalEvent, job: Job, start?: string): CalEvent {
-  const j = normalizeJob(job);
-  const days = num(j.days) + j.change_orders.reduce((s, c) => s + num(c.days), 0);
-  return {
-    ...e, type: 'tree_work', job_id: j.id, all_day: true, unscheduled: false,
-    title: e.title || `${clientName(j.client) || j.number}${j.client.town ? ` · ${j.client.town}` : ''}`,
-    address: e.address || j.client.street, town: e.town || j.client.town,
-    equipment: e.equipment.length ? e.equipment : j.equipment.map((l) => l.desc).filter(Boolean),
-    ...allDaySpan(start ?? (e.starts.slice(0, 10) || todayMi()), days),
-  };
-}
+export { eventForJob } from '../../lib/calendar';
 
 export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null; onClose: () => void; onSaved?: (e: CalEvent) => void }) {
   const { engine } = useReady();
@@ -53,7 +42,7 @@ export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null
   function setType(type: string) {
     if (type === 'estimate_visit') return set({ type, all_day: false, unscheduled: false, ...timed(day, startHm, BID_HOURS), title: e!.title || 'Bid visit' });
     const next: Partial<CalEvent> = { type, all_day: true, ...(e!.all_day ? {} : allDaySpan(day, 1)) };
-    if (!e!.title || EVENT_TYPES.some(([, l]) => l === e!.title)) next.title = type === 'tree_work' ? '' : EVENT_TYPES.find(([id]) => id === type)?.[1] ?? '';
+    if (!e!.title || Object.values(EVENT_LABEL).includes(e!.title)) next.title = type === 'tree_work' ? '' : EVENT_LABEL[type] ?? '';
     if (!isTask(type)) next.unscheduled = false;
     set(next);
   }
@@ -61,7 +50,7 @@ export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null
   async function save() {
     if (!e) return;
     const out = e.unscheduled ? { ...e, starts: '', ends: '' } : e.starts ? e : { ...e, ...allDaySpan(todayMi(), 1) };
-    if (!out.title.trim()) out.title = EVENT_TYPES.find(([id]) => id === out.type)?.[1] ?? 'Entry';
+    if (!out.title.trim()) out.title = EVENT_LABEL[out.type] ?? 'Entry';
     await engine.save('events', out);
     onSaved?.(out);
     onClose();
@@ -71,7 +60,7 @@ export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null
     <Sheet open={!!event} onClose={onClose} title={isNew ? 'Add to calendar' : 'Calendar entry'}
       action={<button type="button" className="btn primary sm" onClick={() => void save()}>Save</button>}>
       <h4 className="label">What</h4>
-      <Chips label="Type" options={EVENT_TYPES} value={e.type} onChange={(v) => v && setType(v)} required />
+      <Chips label="Type" options={EVENT_TYPES.some(([id]) => id === e.type) ? EVENT_TYPES : [...EVENT_TYPES, [e.type, EVENT_LABEL[e.type] ?? e.type]]} value={e.type} onChange={(v) => v && setType(v)} required />
 
       {(e.type === 'tree_work' || e.type === 'estimate_visit') && (
         <Field label={e.type === 'tree_work' ? 'Job' : 'Estimate (optional)'}>
@@ -95,7 +84,7 @@ export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null
       {isTask(e.type) && (
         <label className="check">
           <input type="checkbox" checked={e.unscheduled} onChange={(ev) => set(ev.target.checked ? { unscheduled: true } : { unscheduled: false, ...allDaySpan(day, 1) })} />
-          <span>No day yet: keep it in the task list</span>
+          <span>No day yet: keep it in the Rentals list</span>
         </label>
       )}
 

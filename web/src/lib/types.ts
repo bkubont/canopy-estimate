@@ -187,6 +187,8 @@ export interface CalEvent extends SyncCols {
   notes: string;
   /** User ids of the crew members on this entry. */
   assigned_to: string[];
+  /** Position within its day; lower comes first. */
+  sort_order: number;
 }
 
 export interface InvoiceLine {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { Chips, Field, MultiChips } from '../../components/ui';
 import { clientName, DEBRIS, SITE_CONDITIONS } from '../../lib/estimate';
 import type { Client } from '../../lib/types';
@@ -23,7 +24,7 @@ export function StepClient({ job, updateJob }: StepProps) {
       <div>
         <h2 className="step-title">Client</h2>
         <button type="button" className="btn block" onClick={() => setPicking(true)} style={{ marginBottom: 12 }}>
-          👤 {clientName(job.client) ? 'Choose a different client' : 'Choose client'}
+          <Icon name="user" /> {clientName(job.client) ? 'Choose a different client' : 'Choose client'}
         </button>
         <section className="card">
           <div className="two">
