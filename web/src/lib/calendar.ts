@@ -1,15 +1,16 @@
-import { addDays, uid } from './estimate';
+import { addDays, clientName, normalizeJob, num, uid } from './estimate';
 import type { CalEvent, Job } from './types';
 
 export const TZ = 'America/Detroit';
 
+/** What can be put on the calendar. */
 export const EVENT_TYPES: [string, string][] = [
-  ['tree_work', 'Tree work'], ['estimate_visit', 'Bid visit'], ['dump_run', 'Dump run'],
-  ['equipment_rental', 'Equipment rental'], ['maintenance', 'Maintenance'], ['time_off', 'Time off'], ['other', 'Other'],
+  ['tree_work', 'Tree work'], ['estimate_visit', 'Bid visit'], ['equipment_rental', 'Equipment rental'], ['time_off', 'Time off'],
 ];
-export const EVENT_LABEL = Object.fromEntries(EVENT_TYPES) as Record<string, string>;
-/** Day tasks have no clock time and can wait in the task pool until someone picks a day. */
-export const TASK_TYPES = new Set(['dump_run', 'equipment_rental', 'maintenance']);
+/** Labels for everything, including older entries made before the list was narrowed. */
+export const EVENT_LABEL = Object.fromEntries([...EVENT_TYPES, ['dump_run', 'Dump run'], ['maintenance', 'Maintenance'], ['other', 'Other']]) as Record<string, string>;
+/** Rentals have no clock time and can wait in the side list until someone picks a day. */
+export const TASK_TYPES = new Set(['equipment_rental']);
 export const isTask = (t: string) => TASK_TYPES.has(t);
 export const BID_HOURS = 2;
 
@@ -73,10 +74,11 @@ export function eventDays(e: CalEvent): string[] {
 }
 
 const ORDER: Record<string, number> = { tree_work: 0, estimate_visit: 1 };
+/** A day's entries in the order the team set, then jobs first, then bids by time. */
 export function onDay(events: CalEvent[], ymd: string) {
   return events
     .filter((e) => isActive(e) && eventDays(e).includes(ymd))
-    .sort((a, b) => (ORDER[a.type] ?? 2) - (ORDER[b.type] ?? 2) || (a.all_day ? '' : a.starts).localeCompare(b.all_day ? '' : b.starts) || a.title.localeCompare(b.title));
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (ORDER[a.type] ?? 2) - (ORDER[b.type] ?? 2) || (a.all_day ? '' : a.starts).localeCompare(b.all_day ? '' : b.starts) || a.title.localeCompare(b.title));
 }
 
 export const timeLabel = (e: CalEvent) => {
@@ -129,9 +131,63 @@ export function crewConflicts(candidate: CalEvent, events: CalEvent[]) {
 export function blankEvent(orgId: string, patch: Partial<CalEvent> = {}): CalEvent {
   return {
     id: uid(), org_id: orgId, type: 'other', title: '', status: 'confirmed', all_day: true, unscheduled: false,
-    starts: '', ends: '', job_id: null, address: '', town: '', crew: '', equipment: [], notes: '', assigned_to: [], deleted_at: null, ...patch,
+    starts: '', ends: '', job_id: null, address: '', town: '', crew: '', equipment: [], notes: '', assigned_to: [], sort_order: 0, deleted_at: null, ...patch,
   };
 }
 
 /** All-day span covering `days` work days from `start` (½ day still takes the day). */
 export const allDaySpan = (start: string, days: number) => ({ starts: start, ends: addDays(start, Math.max(1, Math.ceil(days))) });
+
+// ---------------------------------------------------------------- scheduling from the month view
+
+/** Work days needed for a job, change orders included (½ day still takes the day). */
+export const jobDays = (job: Job) => {
+  const j = normalizeJob(job);
+  return Math.max(1, Math.ceil(num(j.days) + j.change_orders.reduce((s, c) => s + num(c.days), 0)));
+};
+
+/** `count` work days from `start`, skipping Sundays (dropped on a Sunday, it starts Monday). */
+export function workDays(start: string, count: number): string[] {
+  const out: string[] = [];
+  for (let d = start; out.length < Math.max(1, count); d = addDays(d, 1)) if (weekday(d) !== 0) out.push(d);
+  return out;
+}
+
+/** Back-to-back days grouped into all-day spans (end exclusive): Fri, Sat, Mon → [Fri–Sun), [Mon–Tue). */
+export function spans(days: string[]) {
+  const out: { starts: string; ends: string }[] = [];
+  for (const d of [...days].sort()) {
+    const last = out.at(-1);
+    if (last && last.ends === d) last.ends = addDays(d, 1);
+    else out.push({ starts: d, ends: addDays(d, 1) });
+  }
+  return out;
+}
+
+/** Fill a calendar entry from a job: title, place, equipment, and as many days as the job takes. */
+export function eventForJob(e: CalEvent, job: Job, start?: string): CalEvent {
+  const j = normalizeJob(job);
+  return {
+    ...e, type: 'tree_work', job_id: j.id, all_day: true, unscheduled: false,
+    title: e.title || `${clientName(j.client) || j.number}${j.client.town ? ` · ${j.client.town}` : ''}`,
+    address: e.address || j.client.street, town: e.town || j.client.town,
+    equipment: e.equipment.length ? e.equipment : j.equipment.map((l) => l.desc).filter(Boolean),
+    ...allDaySpan(start ?? (e.starts.slice(0, 10) || todayMi()), jobDays(j)),
+  };
+}
+
+/** The tree-work entries for a job dropped on `start`: one per run of days, never on a Sunday. */
+export function scheduleJob(orgId: string, job: Job, start: string): CalEvent[] {
+  return spans(workDays(start, jobDays(job))).map((span) => ({ ...eventForJob(blankEvent(orgId, { status: 'confirmed' }), job, span.starts), ...span }));
+}
+
+/** Move one entry up or down within a day; every entry on that day gets a fresh order. */
+export function reorderDay(list: CalEvent[], index: number, dir: -1 | 1): CalEvent[] {
+  const to = index + dir;
+  if (to < 0 || to >= list.length) return [];
+  const before = new Map(list.map((e) => [e.id, e.sort_order ?? 0]));
+  const next = [...list];
+  [next[index], next[to]] = [next[to]!, next[index]!];
+  // Only the entries whose position number actually changed need saving.
+  return next.map((e, i) => ({ ...e, sort_order: (i + 1) * 10 })).filter((e) => e.sort_order !== before.get(e.id));
+}

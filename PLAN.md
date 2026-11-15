@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15); step 1 built.
+Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15); steps 1–2 built.
 
 ## Decisions so far
 
@@ -228,7 +228,7 @@ Bids: outlined blue. Tasks: gray. Time off: gray stripes. The work-order notes b
 
 #### Proposed build order
 1. Look and navigation, color coding, dashboard (5a–5c) — **built**: black top bar with search and Quick Add, grouped menu (drawer on phones, collapsible on iPad/desktop), five-tab bottom bar, stage colors on every list, line icons instead of emoji, dashboard. The bell and Archive come with step 7. Tests: 54 unit, 5 walkthroughs (118 checks), incl. a new 17-step dashboard walkthrough
-2. Calendar month, side list with jobs and rentals (5d)
+2. Calendar month, side list with jobs and rentals (5d) — **built**: Month view only; a To schedule list (signed jobs not on the calendar) and a Rentals list beside the month; drag onto a day on iPad/computer, or tap then tap the day on phones; a job fills its days skipping Sundays (split around them), with Undo; tap a day for its list, in order (▲▼), with check-offs (also on the dashboard's Today). Schedule buttons on the board and estimate open the month. Database: `20261116000000_day_order.sql`. Tests: 58 unit, 5 walkthroughs (124 checks) incl. a rewritten 28-step calendar walkthrough, 93 database checks
 3. Board and work-order notes (5e–5f)
 4. Photos (5g)
 5. Expenses, receipts, hours (5h–5i)

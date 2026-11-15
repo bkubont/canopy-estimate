@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../../components/Icon';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Sheet } from '../../components/ui';
 import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, jobSchedule, todayMi, type BoardColumn } from '../../lib/calendar';
 import { clientName, daysLabel, normalizeJob, num } from '../../lib/estimate';
@@ -47,7 +47,10 @@ export function Board() {
     const next = NEXT_TAB[status];
     if (next) setTab(next);
   };
-  const schedule = (job: Job) => setEditing(eventForJob(blankEvent(org.org_id), job, todayMi()));
+  const navigate = useNavigate();
+  // A job with no days yet is scheduled on the month calendar (tap a day, Sundays skipped).
+  const schedule = (job: Job, col: BoardColumn) =>
+    col === 'approved' ? navigate('/calendar', { state: { pick: job.id } }) : setEditing(eventForJob(blankEvent(org.org_id), job, todayMi()));
 
   const Card = ({ job, sched, col }: { job: Job; sched: ReturnType<typeof jobSchedule>; col: BoardColumn }) => (
     <article className="job-card">
@@ -65,7 +68,7 @@ export function Board() {
       {col === 'blocked' && job.block_reason && <div className="small" style={{ color: 'var(--danger)' }}>Blocked: {job.block_reason}</div>}
       <div className="actions">
         {office && (col === 'approved' || col === 'scheduled') && (
-          <button type="button" className="btn sm primary" onClick={() => schedule(job)}>{col === 'approved' ? <><Icon name="calendar" />Schedule</> : <><Icon name="plus" />Add day</>}</button>
+          <button type="button" className="btn sm primary" onClick={() => schedule(job, col)}>{col === 'approved' ? <><Icon name="calendar" />Schedule</> : <><Icon name="plus" />Add day</>}</button>
         )}
         {sched.events[0] && <button type="button" className="btn sm" onClick={() => setEditing(sched.events[0]!)}>Calendar entry</button>}
         {(col === 'scheduled' || col === 'blocked') && <button type="button" className="btn sm" onClick={() => setStatus(job, 'in_progress')}><Icon name="play" size={16} />Start</button>}

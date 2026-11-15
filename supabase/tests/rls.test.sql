@@ -326,6 +326,8 @@ select t.login(:crew, 'crew@ats.test');
 select t.ok((select count(*) = 1 from public.events where assigned_to ? auth.uid()::text), 'crew can find the days they are assigned to');
 update public.events set status = 'completed', notes = 'Done early' where id = :ev;
 select t.ok((select status = 'completed' from public.events where id = :ev), 'crew can update a calendar entry');
+update public.events set sort_order = 20 where id = :ev;
+select t.ok((select sort_order = 20 from public.events where id = :ev), 'crew can put a day''s entries in order');
 insert into public.events (id, org_id, type, title, all_day, starts, ends) select gen_random_uuid(), v::uuid, 'maintenance', 'Sharpen chains', true, '2026-11-17', '2026-11-18' from t.ids where k = 'org';
 select t.ok(true, 'crew can add maintenance and dump runs');
 

@@ -8,6 +8,7 @@ import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
 import { can, useReady, useRow, useRows } from '../lib/session';
 import { jobStage, liveInvoice, type Stage } from '../lib/status';
 import type { CalEvent, Job } from '../lib/types';
+import { useDoneToggle } from '../lib/useDoneToggle';
 
 const daysSince = (ymd: string | null | undefined, today: string) =>
   ymd ? Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${ymd.slice(0, 10)}T12:00:00Z`)) / 86_400_000) : 0;
@@ -25,6 +26,7 @@ export function Dashboard() {
   const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const office = can.seePrices(org.role);
   const today = todayMi();
+  const { isDone, toggle } = useDoneToggle(engine, events);
 
   const data = useMemo(() => {
     const evs = events ?? [];
@@ -164,15 +166,20 @@ export function Dashboard() {
               {data.todays.map((e) => {
                 const job = jobFor(e);
                 const stage = job ? jobStage(job, events ?? [], invoices, payments, today) : null;
+                const done = isDone(e);
                 return (
-                  <Link key={e.id} to={job ? `/estimates/${job.id}` : '/calendar'} className="today-row">
-                    <span className={`today-dot ${stage ? `st-${stage}` : `type-${e.type}`}`} aria-hidden="true" />
-                    <span className="today-text">
-                      <b>{e.title || EVENT_LABEL[e.type]}</b>
-                      <span className="muted small">{[timeLabel(e) || EVENT_LABEL[e.type], e.town].filter(Boolean).join(' · ')}</span>
-                    </span>
-                    {stage && <Pill stage={stage} />}
-                  </Link>
+                  <div key={e.id} className={`today-row ${done ? 'is-done' : ''}`}>
+                    <input type="checkbox" checked={done} aria-label={`Done: ${e.title || EVENT_LABEL[e.type]}`}
+                      onChange={() => toggle(e)} />
+                    <Link to={job ? `/estimates/${job.id}` : '/calendar'} className="today-link">
+                      <span className={`today-dot ${stage ? `st-${stage}` : `type-${e.type}`}`} aria-hidden="true" />
+                      <span className="today-text">
+                        <b>{e.title || EVENT_LABEL[e.type]}</b>
+                        <span className="muted small">{[timeLabel(e) || EVENT_LABEL[e.type], e.town].filter(Boolean).join(' · ')}</span>
+                      </span>
+                      {stage && <Pill stage={stage} />}
+                    </Link>
+                  </div>
                 );
               })}
             </div>

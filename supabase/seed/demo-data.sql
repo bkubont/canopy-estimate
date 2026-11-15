@@ -138,16 +138,16 @@ begin
   insert into public.events (id, org_id, type, title, status, all_day, starts, ends, job_id, address, town, equipment, notes, assigned_to) values ('de0de000-0000-4000-8000-000000000311'::uuid, v_org, 'tree_work', 'Glen Arbor Inn · Glen Arbor', 'completed', true, to_char(t + -8, 'YYYY-MM-DD'), to_char(t + -7, 'YYYY-MM-DD'), 'de0de000-0000-4000-8000-000000000211'::uuid, '6250 Western Ave', 'Glen Arbor', '["Wood chipper"]'::jsonb, '', v_crew);
   insert into public.events (id, org_id, type, title, status, all_day, starts, ends, job_id, address, town, equipment, notes, assigned_to) values ('de0de000-0000-4000-8000-000000000312'::uuid, v_org, 'tree_work', 'Dave Kerr · Traverse City', 'completed', true, to_char(t + -20, 'YYYY-MM-DD'), to_char(t + -19, 'YYYY-MM-DD'), 'de0de000-0000-4000-8000-000000000212'::uuid, '1702 Hammond Rd', 'Traverse City', '[]'::jsonb, '', v_crew);
 
-  -- Calendar: bids, maintenance, a day off, and tasks waiting for a day
+  -- Calendar: bids, a rental pick-up, a day off, and rentals waiting for a day
   insert into public.events (id, org_id, type, title, status, all_day, starts, ends, job_id, address, town, notes, assigned_to) values
     ('de0de000-0000-4000-8000-000000000320'::uuid, v_org, 'estimate_visit', 'Bid · Nadia Kowalski', 'completed', false, pg_temp.mi(t - 4, '10:00'), pg_temp.mi(t - 4, '12:00'), 'de0de000-0000-4000-8000-000000000201'::uuid, '4120 Peninsula Dr', 'Traverse City', '', v_crew),
     ('de0de000-0000-4000-8000-000000000321'::uuid, v_org, 'estimate_visit', 'Bid · Jim Peterson (new lead)', 'confirmed', false, pg_temp.mi(t + 2, '07:00'), pg_temp.mi(t + 2, '08:30'), null, '310 Benzie Blvd', 'Beulah', 'Wants 3 spruce down before snow. Called from the yard sign.', v_crew),
     ('de0de000-0000-4000-8000-000000000322'::uuid, v_org, 'estimate_visit', 'Bid · Northport church', 'tentative', false, pg_temp.mi(t + 3, '13:00'), pg_temp.mi(t + 3, '15:00'), null, '', 'Northport', '', '[]'::jsonb);
   insert into public.events (id, org_id, type, title, status, all_day, starts, ends, notes, assigned_to) values
-    ('de0de000-0000-4000-8000-000000000323'::uuid, v_org, 'maintenance', 'Sharpen chains / grease the chipper', 'confirmed', true, to_char(t + 1, 'YYYY-MM-DD'), to_char(t + 2, 'YYYY-MM-DD'), '', v_crew),
+    ('de0de000-0000-4000-8000-000000000323'::uuid, v_org, 'equipment_rental', 'Pick up boom lift from Smith', 'confirmed', true, to_char(t + 1, 'YYYY-MM-DD'), to_char(t + 2, 'YYYY-MM-DD'), '', v_crew),
     ('de0de000-0000-4000-8000-000000000324'::uuid, v_org, 'time_off', 'Crew day off', 'confirmed', true, to_char(t + 6, 'YYYY-MM-DD'), to_char(t + 7, 'YYYY-MM-DD'), '', '[]'::jsonb);
   insert into public.events (id, org_id, type, title, status, unscheduled, all_day, starts, ends, notes, assigned_to) values
-    ('de0de000-0000-4000-8000-000000000325'::uuid, v_org, 'dump_run', 'Dump run: county transfer station', 'tentative', true, true, '', '', 'Two loads of brush from the Martinez job.', '[]'::jsonb),
+    ('de0de000-0000-4000-8000-000000000325'::uuid, v_org, 'equipment_rental', 'Pick up stump grinder from Smith', 'tentative', true, true, '', '', 'For the Barrett stumps.', '[]'::jsonb),
     ('de0de000-0000-4000-8000-000000000326'::uuid, v_org, 'equipment_rental', 'Return boom lift to Smith', 'tentative', true, true, '', '', 'Due back before the weekend rate kicks in.', '[]'::jsonb);
 
   -- Money: a deposit, three invoices (overdue / unpaid / paid), payments

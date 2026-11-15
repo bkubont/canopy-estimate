@@ -14,8 +14,8 @@ import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
 import { reserveNumbers, voidSignature } from '../../lib/supabase';
 import { PaymentSheet } from '../invoice/PaymentSheet';
-import { EventSheet, eventForJob } from '../calendar/EventSheet';
-import { blankEvent, dayLabel, jobSchedule, todayMi } from '../../lib/calendar';
+import { EventSheet } from '../calendar/EventSheet';
+import { dayLabel, jobSchedule } from '../../lib/calendar';
 import type { ChangeOrder, Job, JobPricing, Organization } from '../../lib/types';
 import { useJobDraft } from '../../lib/useJobDraft';
 import { SendActions } from './SendActions';
@@ -52,9 +52,11 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
   const nav = useNavigate();
   const { engine } = useReady();
   const i = Math.max(0, STEPS.findIndex((s) => s.id === step));
+  // Save first, then move on, unless the user already went somewhere else meanwhile.
   const go = async (to: string) => {
+    const from = window.location.hash;
     await flush();
-    nav(to);
+    if (window.location.hash === from) nav(to);
   };
 
   useEffect(() => {
@@ -202,7 +204,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
       <section className="card">
         <div className="row">
           <span>{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
-          <button type="button" className="btn sm" onClick={() => setScheduling(sched.events[0] ?? eventForJob(blankEvent(job.org_id), job, todayMi()))}>
+          <button type="button" className="btn sm" onClick={() => (sched.events[0] ? setScheduling(sched.events[0]) : nav('/calendar', { state: { pick: job.id } }))}>
             {sched.start ? 'Change dates' : <><Icon name="calendar" />Schedule</>}
           </button>
         </div>
