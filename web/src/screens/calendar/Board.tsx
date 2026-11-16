@@ -39,15 +39,17 @@ function MoreMenu({ actions, label }: { actions: Action[]; label: string }) {
     const away = (e: Event) => !btn.current?.contains(e.target as Node) && !menu.current?.contains(e.target as Node) && setOpen(false);
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     const close = () => setOpen(false); // the button moved: don't leave the menu floating somewhere else
+    // Scrolling the page or board moves the button, so close; scrolling a long menu itself doesn't.
+    const scrolled = (e: Event) => { if (!menu.current?.contains(e.target as Node)) close(); };
     document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', esc);
     window.addEventListener('resize', close);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', scrolled, true);
     return () => {
       document.removeEventListener('pointerdown', away);
       document.removeEventListener('keydown', esc);
       window.removeEventListener('resize', close);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', scrolled, true);
     };
   }, [open]);
   // Place it once it's on screen and its height is known.
