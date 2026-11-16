@@ -57,7 +57,7 @@ export function Dashboard() {
         const n = daysSince(job.signed_at, today);
         attention.push({ key: job.id, to, title: name, why: `Signed ${ago(n)}, not on the calendar`, stage, icon: 'calendar', rank: 3 });
       } else if (office && stage === 'new' && !visitForJob(job.id, evs)) {
-        attention.push({ key: job.id, to: '/board', title: name, why: 'New lead, no visit scheduled', stage, icon: 'calendar', rank: 3 });
+        attention.push({ key: job.id, to: '/board?tab=new', title: name, why: 'New lead, no visit scheduled', stage, icon: 'calendar', rank: 3 });
       } else if (office && stage === 'pending' && job.client.firstName + job.client.lastName + job.client.company) {
         const n = daysSince(job.estimate_date, today);
         if (n >= 7) attention.push({ key: job.id, to, title: name, why: `Estimate from ${n} days ago, not signed yet`, stage, icon: 'file', rank: 4 });

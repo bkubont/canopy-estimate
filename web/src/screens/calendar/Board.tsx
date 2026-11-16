@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { NotesBadge } from '../../components/WorkOrderNotes';
 import { JobQuickIcons } from '../../components/JobQuickIcons';
@@ -66,7 +66,10 @@ export function Board() {
   // Paid jobs leave the board for the Archive.
   // Office starts with New: leads that need a visit before there's an estimate.
   const columns: BoardColumn[] = office ? ['new', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced'] : ['scheduled', 'in_progress', 'blocked', 'done'];
-  const [tab, setTab] = useState<BoardColumn>(office ? 'approved' : 'scheduled');
+  // A link can pick the column to show on phones (e.g. the dashboard's new-lead alert: ?tab=new).
+  const [params] = useSearchParams();
+  const asked = params.get('tab') as BoardColumn | null;
+  const [tab, setTab] = useState<BoardColumn>(asked && (asked !== 'new' || office) && COLUMN_LABEL[asked] ? asked : office ? 'approved' : 'scheduled');
   const [editing, setEditing] = useState<CalEvent | null>(null);
   const [blocking, setBlocking] = useState<Job | null>(null);
   const [toast, setToast] = useState('');

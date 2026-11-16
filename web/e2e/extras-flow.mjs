@@ -117,8 +117,9 @@ await o.getByLabel('Town').fill('Beulah');
 await o.waitForTimeout(600); // the draft saves itself after typing stops
 await o.goto(`${APP}#/`);
 await see(o, 'New lead, no visit scheduled', 'the dashboard flags a new lead with no visit');
-await o.goto(`${APP}#/board`);
-await o.getByRole('tab', { name: /^New/ }).click();
+await o.getByText('New lead, no visit scheduled').click();
+await o.locator('[role=tab][aria-selected=true]', { hasText: /^New/ }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'the alert did not open the board on New'));
+ok('tapping the alert opens the board on the New column (phone)');
 const jim = o.locator('.board-col[data-col="new"] .jcard', { hasText: 'Jim Peterson' });
 await jim.waitFor({ timeout: 5000 }).catch(() => fail(o, 'lead not in the New column'));
 ok('the lead is in the New column');
