@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { can, useReady } from '../lib/session';
 import { useCreateEstimate } from '../lib/useCreateEstimate';
+import { ExpenseSheet, blankExpense } from './ExpenseSheet';
 import { Icon } from './Icon';
 
 /** The blue "+" in the top bar: start the common things from anywhere. */
@@ -9,6 +10,8 @@ export function QuickAdd() {
   const { org } = useReady();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
+  const [expense, setExpense] = useState<ReturnType<typeof blankExpense> | null>(null);
+  const [sent, setSent] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
   const { pathname } = useLocation();
@@ -53,12 +56,17 @@ export function QuickAdd() {
           <button type="button" role="menuitem" className="pop-item row-item" onClick={() => nav('/calendar', { state: { add: true } })}>
             <Icon name="calendar" /><span><b>Calendar entry</b></span>
           </button>
+          <button type="button" role="menuitem" className="pop-item row-item" onClick={() => { setOpen(false); setExpense(blankExpense(org.org_id)); }}>
+            <Icon name="receipt" /><span><b>{can.seePrices(org.role) ? 'Expense or receipt' : 'Receipt'}</b></span>
+          </button>
           <button type="button" role="menuitem" className="pop-item row-item" onClick={() => nav('/contacts/new')}>
             <Icon name="users" /><span><b>New customer</b></span>
           </button>
           {error && <p className="error-text" role="alert" style={{ margin: 10 }}>{error}</p>}
         </div>
       )}
+      <ExpenseSheet expense={expense} onClose={() => setExpense(null)} onSaved={() => { if (!can.seePrices(org.role)) { setSent(true); setTimeout(() => setSent(false), 5000); } }} />
+      {sent && <div className="toast" role="status"><span>Receipt sent to the office.</span></div>}
     </div>
   );
 }

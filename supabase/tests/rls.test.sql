@@ -375,3 +375,45 @@ select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
 set role authenticated;
 select t.ok((select count(*) = 0 from public.photos), 'another company sees none of these photos');
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- Expenses, receipts and hours (Phase 5, step 5)
+-- ---------------------------------------------------------------------------
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+insert into public.expenses (id, org_id, vendor, amount, category, paid_with, job_id, entered_by)
+  select 'eeeeeeee-0000-0000-0000-000000000001', v::uuid, 'Marathon', 64.20, 'Fuel', 'card', :job, auth.uid() from t.ids where k = 'org';
+select t.ok((select count(*) = 0 from public.expenses), 'crew can add an expense (fuel) but never see expenses');
+insert into public.photos (id, org_id, kind, path, expense_id, taken_by)
+  select 'cccccccc-0000-0000-0000-000000000003', v::uuid, 'receipt', v || '/receipts/r2.jpg', 'eeeeeeee-0000-0000-0000-000000000001', auth.uid() from t.ids where k = 'org';
+select t.ok(true, 'and attach a picture of the receipt to it');
+select t.ok((select jsonb_array_length(public.sync_pull(v::uuid) -> 'expenses') = 0 from t.ids where k = 'org'), 'crew sync gets no expenses');
+insert into public.time_entries (id, org_id, job_id, work_date, hours, entered_by, entered_by_name)
+  select 'dddddddd-0000-0000-0000-000000000001', v::uuid, :job, '2026-11-16', 27, auth.uid(), 'Sam' from t.ids where k = 'org';
+select t.ok((select count(*) = 1 from public.time_entries), 'crew log crew-hours on a job');
+update public.time_entries set hours = 26.5 where id = 'dddddddd-0000-0000-0000-000000000001';
+select t.ok((select hours = 26.5 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000001'), 'and can fix their own entry');
+select t.fails($$ insert into public.time_entries (id, org_id, job_id, hours) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 0 from t.ids where k = 'org' $$,
+  'check', 'hours must be more than zero');
+
+reset role;
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+select t.ok((select count(*) = 1 and sum(amount) = 64.20 from public.expenses), 'office sees the crew''s expense');
+select t.ok((select count(*) = 1 from public.photos where expense_id = 'eeeeeeee-0000-0000-0000-000000000001'), 'with its receipt picture');
+update public.expenses set category = 'Fuel & oil' where id = 'eeeeeeee-0000-0000-0000-000000000001';
+select t.ok((select category = 'Fuel & oil' from public.expenses), 'office can edit an expense');
+insert into public.time_entries (id, org_id, job_id, hours, entered_by) select 'dddddddd-0000-0000-0000-000000000002', v::uuid, :job, 8, auth.uid() from t.ids where k = 'org';
+reset role;
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+update public.time_entries set hours = 1 where id = 'dddddddd-0000-0000-0000-000000000002';
+select t.ok((select hours = 8 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000002'), 'crew can''t change someone else''s hours');
+update public.expenses set amount = 1 where id = 'eeeeeeee-0000-0000-0000-000000000001';
+reset role;
+select t.ok((select amount = 64.20 from public.expenses where id = 'eeeeeeee-0000-0000-0000-000000000001'), 'or any expense');
+
+select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
+set role authenticated;
+select t.ok((select count(*) = 0 from public.time_entries) and (select count(*) = 0 from public.expenses), 'another company sees none of these hours or expenses');
+reset role;

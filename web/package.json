@@ -15,16 +15,20 @@
     "e2e:invoice": "node e2e/invoice-flow.mjs",
     "e2e:calendar": "node e2e/calendar-flow.mjs",
     "e2e:dashboard": "node e2e/dashboard-flow.mjs",
-    "e2e:photos": "E2E_FAKE=1 node e2e/photos-flow.mjs"
+    "e2e:photos": "E2E_FAKE=1 node e2e/photos-flow.mjs",
+    "e2e:money": "E2E_FAKE=1 node e2e/money-flow.mjs",
+    "e2e:phone-fit": "node e2e/phone-fit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
+    "fflate": "0.8.3",
     "html2canvas": "^1.4.1",
     "idb": "^8.0.0",
     "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "write-excel-file": "4.1.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

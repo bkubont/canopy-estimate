@@ -252,6 +252,35 @@ export interface Photo extends SyncCols {
   taken_by: string | null;
   taken_by_name: string;
   note: string;
+  /** Set for a receipt: the expense it belongs to. */
+  expense_id?: string | null;
+}
+
+export type PaidWith = 'cash' | 'card' | 'check' | 'other';
+export interface Expense extends SyncCols {
+  id: string;
+  org_id: string;
+  spent_on: string;
+  vendor: string;
+  amount: number;
+  category: string;
+  paid_with: PaidWith;
+  job_id: string | null;
+  note: string;
+  entered_by: string | null;
+  entered_by_name: string;
+}
+
+/** One crew total for a job on a day (drive time included), for job costing. */
+export interface TimeEntry extends SyncCols {
+  id: string;
+  org_id: string;
+  job_id: string;
+  work_date: string;
+  hours: number;
+  note: string;
+  entered_by: string | null;
+  entered_by_name: string;
 }
 
 export interface TableRows {
@@ -265,6 +294,8 @@ export interface TableRows {
   payments: Payment;
   events: CalEvent;
   photos: Photo;
+  expenses: Expense;
+  time_entries: TimeEntry;
 }
 export type TableName = keyof TableRows;
 
@@ -284,7 +315,9 @@ export const TABLES: { name: TableName; keyCols: string[]; push: 'update' | 'ups
   { name: 'invoices', keyCols: ['id'], push: 'upsert' },
   { name: 'payments', keyCols: ['id'], push: 'upsert' },
   { name: 'events', keyCols: ['id'], push: 'upsert' },
+  { name: 'expenses', keyCols: ['id'], push: 'upsert' }, // before photos: a receipt points at its expense
   { name: 'photos', keyCols: ['id'], push: 'upsert' },
+  { name: 'time_entries', keyCols: ['id'], push: 'upsert' },
 ];
 
 export const TABLE_NAMES = TABLES.map((t) => t.name);

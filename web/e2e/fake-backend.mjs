@@ -12,7 +12,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 export function createFakeBackend() {
   const users = new Map(); // email -> {id,email,password}
   const tokens = new Map(); // access token -> user
-  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], invites: [] };
+  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], expenses: [], time_entries: [], invites: [] };
   const files = new Map(); // storage path -> { bytes, type }
   let seq = 1;
   const keyCols = { organizations: ['id'], org_pricing: ['org_id'], members: ['org_id', 'user_id'], job_pricing: ['job_id'] };
@@ -33,6 +33,7 @@ export function createFakeBackend() {
     if (!role) return false;
     if (['org_pricing', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew') return false;
     if (table === 'photos' && row.kind === 'receipt' && role === 'crew') return false;
+    if (table === 'expenses' && role === 'crew') return false;
     return true;
   };
   const strip = ({ _seq, ...r }) => r;
@@ -243,7 +244,7 @@ export function createFakeBackend() {
         if (!roleOf(body.p_org, user)) return json(400, { code: 'P0001', message: 'Not a member of this company' });
         const since = Number(body.p_since ?? 0);
         const out = { cursor: String(seq) };
-        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'invoices', 'payments', 'events', 'photos']) {
+        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'invoices', 'payments', 'events', 'expenses', 'photos', 'time_entries']) {
           out[table] = t[table].filter((r) => (r.org_id ?? r.id) === body.p_org && r._seq >= since && visible(table, r, user)).map(strip);
         }
         return json(200, out);

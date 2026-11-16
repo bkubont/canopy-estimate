@@ -4,8 +4,9 @@ import { Icon, type IconName } from '../components/Icon';
 import { Pill } from '../components/Pill';
 import { NotesBadge } from '../components/WorkOrderNotes';
 import { isWorkOrder, noteSummary } from '../lib/notes';
-import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi } from '../lib/calendar';
-import { clientName, money, normalizeJob, round2 } from '../lib/estimate';
+import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi, weekday } from '../lib/calendar';
+import { expensesInMonth, hoursLabel, hoursTotal, total } from '../lib/expenses';
+import { addDays, clientName, money, normalizeJob, round2 } from '../lib/estimate';
 import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
 import { can, useReady, useRow, useRows } from '../lib/session';
 import { jobStage, liveInvoice, type Stage } from '../lib/status';
@@ -25,6 +26,8 @@ export function Dashboard() {
   const invoices = useRows(engine, 'invoices');
   const payments = useRows(engine, 'payments');
   const pricing = useRows(engine, 'job_pricing');
+  const expenses = useRows(engine, 'expenses');
+  const timeEntries = useRows(engine, 'time_entries');
   const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const office = can.seePrices(org.role);
   const today = todayMi();
@@ -95,8 +98,11 @@ export function Dashboard() {
     const pending = withStage.filter((x) => x.stage === 'pending' && x.job.trees.length);
     const pendingValue = pending.reduce((s, x) => s + (totalById.get(x.job.id) ?? 0), 0);
 
-    return { attention, todays, active, owed: round2(owed), overdue: round2(overdue), overdueCount, openCount, collected: round2(collected), pendingCount: pending.length, pendingValue };
-  }, [jobsRaw, events, invoices, payments, pricing, office, today]);
+    const spent = total(expensesInMonth(expenses, month));
+    const weekStart = addDays(today, -weekday(today));
+    const weekHours = hoursTotal((timeEntries ?? []).filter((e) => !e.deleted_at && e.work_date >= weekStart && e.work_date <= today));
+    return { spent, weekHours, attention, todays, active, owed: round2(owed), overdue: round2(overdue), overdueCount, openCount, collected: round2(collected), pendingCount: pending.length, pendingValue };
+  }, [jobsRaw, events, invoices, payments, pricing, office, today, expenses, timeEntries]);
 
   const loading = jobsRaw === null || events === null;
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Detroit', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
@@ -132,6 +138,16 @@ export function Dashboard() {
             <span className="tile-label">Estimates out</span>
             <span className="tile-value">{money(data.pendingValue)}</span>
             <span className="tile-sub">{data.pendingCount === 1 ? '1 waiting to be signed' : `${data.pendingCount} waiting to be signed`}</span>
+          </Link>
+          <Link to="/expenses" className="tile">
+            <span className="tile-label">Spent in {dayLabel(today, { month: 'long' })}</span>
+            <span className="tile-value">{money(data.spent)}</span>
+            <span className="tile-sub">Expenses</span>
+          </Link>
+          <Link to="/board" className="tile">
+            <span className="tile-label">Hours this week</span>
+            <span className="tile-value">{hoursLabel(data.weekHours)}</span>
+            <span className="tile-sub">Crew-hours on jobs</span>
           </Link>
         </section>
       )}

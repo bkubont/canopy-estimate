@@ -14,7 +14,7 @@ export interface OutboxEntry {
 }
 
 // Bump when tables are added; the upgrade adds any missing stores.
-const VERSION = 3;
+const VERSION = 4;
 
 /**
  * Each signed-in person gets their own on-device database, so two people

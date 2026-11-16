@@ -7,6 +7,7 @@ import { Sheet } from '../../components/ui';
 import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, eventForJob, jobSchedule, todayMi, type BoardColumn } from '../../lib/calendar';
 import { clientName, daysLabel, money, normalizeJob, num } from '../../lib/estimate';
 import { invoiceFromJob } from '../../lib/invoice';
+import { hoursLabel, hoursTotal, jobEntries } from '../../lib/expenses';
 import { isWorkOrder, noteSummary } from '../../lib/notes';
 import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
@@ -56,6 +57,7 @@ export function Board() {
   const members = useRows(engine, 'members');
   const invoices = useRows(engine, 'invoices');
   const pricings = useRows(engine, 'job_pricing');
+  const timeEntries = useRows(engine, 'time_entries');
   const orgPricing = useRow(engine, 'org_pricing', org.org_id);
   const office = can.seePrices(org.role);
   const navigate = useNavigate();
@@ -210,7 +212,10 @@ export function Board() {
           <div className="jcard-note"><NotesBadge count={notes.count} /><span>{notes.first}</span></div>
         )}
         <div className="jcard-meta">
-          <PhotoCount jobId={job.id} />
+          <span className="jcard-counts">
+            <PhotoCount jobId={job.id} />
+            {(() => { const h = hoursTotal(jobEntries(timeEntries, job.id)); return h > 0 ? <span className="photo-count" aria-label={`${hoursLabel(h)} logged`}><Icon name="clock" size={14} />{hoursLabel(h)}</span> : null; })()}
+          </span>
           {office && total != null && <span className="jcard-total">{money(total)}</span>}
         </div>
         {(main || more.length > 0) && (
