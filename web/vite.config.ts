@@ -19,7 +19,7 @@ export default defineConfig({
         scope: './',
         display: 'standalone',
         background_color: '#F5F7FA',
-        theme_color: '#F5F7FA',
+        theme_color: '#000000', // the installed window's title bar matches the black top bar
         icons: [
           { src: 'brand/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'brand/icon-512.png', sizes: '512x512', type: 'image/png' },
