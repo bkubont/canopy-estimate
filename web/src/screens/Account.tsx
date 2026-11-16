@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
+import { CalendarLink } from '../components/CalendarLink';
 import { SignaturePad } from '../components/SignaturePad';
 import { useInstall } from '../lib/install';
 import { can, useReady, useRow } from '../lib/session';
@@ -34,6 +35,7 @@ export function Account() {
           </>
         )}
       </section>
+      <CalendarLink />
       <section className="card">
         <h3>You</h3>
         <p className="muted small" style={{ marginTop: 0 }}>{user.email} · {org.role} at {org.name}</p>

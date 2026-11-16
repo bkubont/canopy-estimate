@@ -12,6 +12,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 export function createFakeBackend() {
   const users = new Map(); // email -> {id,email,password}
   const tokens = new Map(); // access token -> user
+  const feeds = new Map(); // calendar links: org|user → token
   const batches = []; // batch inserts seen, for walkthroughs to check
   const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], expenses: [], time_entries: [], invites: [] };
   const files = new Map(); // storage path -> { bytes, type }
@@ -197,6 +198,12 @@ export function createFakeBackend() {
         return json(200, t.members.filter((m) => m.user_id === user.id && !m.deleted_at).map((m) => ({
           org_id: m.org_id, name: t.organizations.find((o) => o.id === m.org_id).name, role: m.role,
         })));
+      }
+      if (fn === 'my_calendar_feed' || fn === 'reset_calendar_feed') {
+        if (!roleOf(body.p_org, user)) return json(400, { code: 'P0001', message: 'Not a member of this company' });
+        const key = `${body.p_org}|${user.id}`;
+        if (fn === 'reset_calendar_feed' || !feeds.has(key)) feeds.set(key, uuid());
+        return json(200, feeds.get(key));
       }
       if (fn === 'create_organization') {
         const id = uuid();

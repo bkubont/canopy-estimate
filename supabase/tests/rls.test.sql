@@ -462,3 +462,39 @@ set role authenticated;
 update public.jobs set cancelled_at = null, cancel_reason = '' where id = '44444444-4444-4444-4444-444444444444';
 reset role;
 select t.ok((select (public.customer_view(v::uuid) -> 'job' ->> 'number') = 'E-4444' from t.ids where k = 'token4'), 'reopened, the link works again');
+
+-- ---------------------------------------------------------------------------
+-- Calendar subscription links
+-- ---------------------------------------------------------------------------
+insert into public.events (id, org_id, type, title, all_day, starts, ends)
+  select 'eeeeeeee-cccc-0000-0000-000000000001', v::uuid, 'tree_work', 'Feed test · Dana', true,
+    to_char(current_date + 3, 'YYYY-MM-DD'), to_char(current_date + 5, 'YYYY-MM-DD') from t.ids where k = 'org';
+insert into public.events (id, org_id, type, title, all_day, starts, ends, status)
+  select 'eeeeeeee-cccc-0000-0000-000000000002', v::uuid, 'tree_work', 'Called off · Pat', true,
+    to_char(current_date + 4, 'YYYY-MM-DD'), to_char(current_date + 5, 'YYYY-MM-DD'), 'cancelled' from t.ids where k = 'org';
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+insert into t.ids select 'feed', public.my_calendar_feed(v::uuid) from t.ids where k = 'org';
+select t.ok((select public.my_calendar_feed(o.v::uuid)::text = f.v from t.ids o, t.ids f where o.k = 'org' and f.k = 'feed'), 'everyone gets one calendar link, the same each time');
+reset role;
+select set_config('request.jwt.claims', '', false);
+set role anon;
+select t.ok((select public.calendar_feed_events(v::uuid)::text like '%Feed test · Dana%' from t.ids where k = 'feed'), 'the link serves the calendar without an account');
+select t.ok((select public.calendar_feed_events(v::uuid)::text not like '%Called off%' from t.ids where k = 'feed'), 'cancelled entries are left out');
+select t.ok((select public.calendar_feed_events(v::uuid)::text not like '%day_rate%' and public.calendar_feed_events(v::uuid)::text not like '%total%' from t.ids where k = 'feed'), 'and there are no prices in it');
+select t.fails($$ select public.calendar_feed_events(gen_random_uuid()) $$, 'no longer works', 'a made-up link shows nothing');
+select t.fails($$ select public.my_calendar_feed(v::uuid) from t.ids where k = 'org' $$, 'permission denied', 'no link without signing in');
+reset role;
+select t.login(:stranger, 'stranger@other.test');
+set role authenticated;
+select t.fails($$ select public.my_calendar_feed(v::uuid) from t.ids where k = 'org' $$, 'Not a member', 'another company can''t get a link to this calendar');
+reset role;
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+insert into t.ids select 'feed2', public.reset_calendar_feed(v::uuid) from t.ids where k = 'org';
+reset role;
+select t.ok((select a.v <> b.v from t.ids a, t.ids b where a.k = 'feed' and b.k = 'feed2'), 'Reset gives a new link');
+select t.fails($$ select public.calendar_feed_events(v::uuid) from t.ids where k = 'feed' $$, 'no longer works', 'and the old one stops working');
+update public.members set deleted_at = now() where user_id = :crew;
+select t.fails($$ select public.calendar_feed_events(v::uuid) from t.ids where k = 'feed2' $$, 'no longer works', 'a link stops working when that person leaves the team');
+update public.members set deleted_at = null where user_id = :crew;

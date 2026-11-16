@@ -125,3 +125,22 @@ The two-device test creates two throwaway accounts. Against a real project, conf
 ## The old app
 
 The original app at the repo root keeps running at its current address and is untouched by these deploys. Once the team is on the new one, we can retire it.
+
+## Calendar on your phone (one-time)
+
+The **Calendar on your phone** button on the Account page gives each person a private
+link to subscribe to the schedule from the iPhone/Mac Calendar app or Google Calendar.
+The link is served by a small Supabase function, set up once:
+
+1. Run `supabase/migrations/20261121000000_calendar_feeds.sql` in the SQL Editor.
+2. In Supabase, open **Edge Functions** → **Deploy a new function** → **Via Editor**.
+3. Name it exactly `calendar-feed`, replace the sample code with the whole of
+   `supabase/functions/calendar-feed/index.ts`, and click **Deploy**.
+4. In the function's **Details** (or settings), turn **Enforce JWT verification** (Verify JWT) **off**.
+   Calendar apps can't sign in; the private token in the link is the key.
+
+No keys or secrets are needed: Supabase functions can already reach the database.
+(With the Supabase CLI instead: `supabase functions deploy calendar-feed --no-verify-jwt`.)
+
+To check it: on the Account page tap **Set up calendar link**, then **Copy link** and open
+it in a browser. A file starting with `BEGIN:VCALENDAR` means it works.

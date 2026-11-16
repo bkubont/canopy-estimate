@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useReady, useRow } from '../lib/session';
 import type { Customer } from '../lib/types';
+import { customerAsClient, SaveToContacts } from '../components/SaveToContacts';
 import { customerName } from './Contacts';
 
 function blank(orgId: string): Customer {
@@ -52,6 +53,7 @@ export function ContactEdit() {
     <form className="page" onSubmit={save}>
       <div className="page-head">
         <h2>{isNew ? 'New contact' : customerName(draft)}</h2>
+        {!isNew && <SaveToContacts client={customerAsClient(draft)} />}
       </div>
       <section className="card">
         <div className="two">

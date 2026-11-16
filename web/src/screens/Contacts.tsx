@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ImportContacts } from '../components/ImportContacts';
+import { exportAllContacts } from '../components/SaveToContacts';
 import { Link } from 'react-router-dom';
 import { useReady, useRows } from '../lib/session';
 import type { Customer } from '../lib/types';
@@ -27,6 +28,7 @@ export function Contacts() {
         <h1>Customers</h1>
         <div className="btn-row">
           <ImportContacts />
+          {!!rows?.length && <button type="button" className="btn" onClick={() => exportAllContacts(rows)}><Icon name="download" />Export all</button>}
           <Link to="/contacts/new" className="btn primary"><Icon name="plus" />New contact</Link>
         </div>
       </div>

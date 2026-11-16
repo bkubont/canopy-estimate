@@ -62,6 +62,19 @@ export const supabaseRemote: Remote = {
   },
 };
 
+/** Your private calendar link's token (made the first time). Needs to be online. */
+export async function myCalendarFeed(orgId: string, reset = false): Promise<string> {
+  const { data, error } = await supabase.rpc(reset ? 'reset_calendar_feed' : 'my_calendar_feed', { p_org: orgId });
+  if (error) throw new Error(/fetch|network/i.test(error.message) ? 'You’re offline. Try again with a connection.' : error.message);
+  return data as string;
+}
+
+/** The calendar link for a token: https for Google Calendar, webcal to open the iPhone/Mac Calendar app. */
+export function calendarFeedUrls(token: string) {
+  const https = `${(url || '').replace(/\/+$/, '')}/functions/v1/calendar-feed?t=${token}`;
+  return { https, webcal: https.replace(/^https?:/, 'webcal:') };
+}
+
 export interface MyOrg {
   org_id: string;
   name: string;

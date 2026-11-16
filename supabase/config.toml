@@ -380,3 +380,8 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+
+# The calendar subscription link is opened by calendar apps, which can't sign in:
+# the private token in the link is the key.
+[functions.calendar-feed]
+verify_jwt = false
