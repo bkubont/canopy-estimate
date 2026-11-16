@@ -215,6 +215,17 @@ await see(o, 'Jim Peterson', 'onto the board');
 // A signed job with a deposit, from the board menu.
 await o.getByRole('tab', { name: /^Approved/ }).click();
 await o.locator('.jcard', { hasText: 'Lee Park' }).getByRole('button', { name: /More actions/ }).click();
+const menuOk = await o.evaluate(() => {
+  const items = [...document.querySelectorAll('[role=menu] [role=menuitem]')];
+  return items.length > 0 && items.every((el) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return r.top >= 0 && r.bottom <= window.innerHeight && (hit === el || el.contains(hit));
+  });
+});
+if (!menuOk) await fail(o, 'the card menu is cut off or covered');
+ok('the card\u2019s \u22ef menu shows every item in full, nothing cut off');
+await shot(o, '08-card-menu');
 await o.getByRole('menuitem', { name: 'Cancel job…' }).click();
 await see(o, '$500.00 has been paid on this job', 'cancelling a job with a deposit says money was paid');
 await o.locator('dialog[open]').getByRole('button', { name: 'Cancel this job' }).click();

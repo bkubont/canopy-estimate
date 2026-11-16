@@ -498,3 +498,6 @@ select t.fails($$ select public.calendar_feed_events(v::uuid) from t.ids where k
 update public.members set deleted_at = now() where user_id = :crew;
 select t.fails($$ select public.calendar_feed_events(v::uuid) from t.ids where k = 'feed2' $$, 'no longer works', 'a link stops working when that person leaves the team');
 update public.members set deleted_at = null where user_id = :crew;
+update public.events set assigned_to = jsonb_build_array(:crew::text) where id = 'eeeeeeee-cccc-0000-0000-000000000001';
+select t.ok((select (select x ->> 'crew' from jsonb_array_elements(public.calendar_feed_events(v::uuid) -> 'events') x where x ->> 'title' = 'Feed test · Dana') =
+  (select display_name from public.members where user_id = :crew) from t.ids where k = 'feed2'), 'the feed names the crew picked in the calendar');

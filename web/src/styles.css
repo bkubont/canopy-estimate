@@ -554,6 +554,7 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .jcard-actions .btn.primary { flex: 1; }
 .more-menu { position: relative; }
 .more-pop { right: 0; min-width: 180px; }
+.more-pop.floating { position: fixed; left: auto; z-index: 60; max-height: calc(100vh - 16px); overflow-y: auto; }
 
 /* ---------- work-order notes ---------- */
 .notes-badge {

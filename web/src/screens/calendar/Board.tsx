@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { NotesBadge } from '../../components/WorkOrderNotes';
@@ -23,30 +24,59 @@ const BLOCK_REASONS = ['Weather', 'Equipment rental', 'Access', 'Waiting on cust
 type Action = { id: string; label: string; run: () => void };
 type Row = { job: Job; sched: ReturnType<typeof jobSchedule> };
 
-/** Small "⋯" menu for the less common actions on a card. */
+/**
+ * Small "⋯" menu for the less common actions on a card. It is drawn over the page
+ * (not inside the card), so the board column can't cut it off, and it opens
+ * upward when there isn't room below the button.
+ */
 function MoreMenu({ actions, label }: { actions: Action[]; label: string }) {
   const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number; up: boolean } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const away = (e: Event) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    const away = (e: Event) => !btn.current?.contains(e.target as Node) && !menu.current?.contains(e.target as Node) && setOpen(false);
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const close = () => setOpen(false); // the button moved: don't leave the menu floating somewhere else
     document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
   }, [open]);
+  // Place it once it's on screen and its height is known.
+  useLayoutEffect(() => {
+    if (!open || !btn.current || !menu.current) return;
+    const r = btn.current.getBoundingClientRect();
+    const h = menu.current.offsetHeight;
+    // On phones the bottom tab bar covers the foot of the screen: treat its top as the bottom.
+    const tabs = document.querySelector('.tabnav')?.getBoundingClientRect();
+    const floor = tabs && tabs.height > 0 && tabs.top < window.innerHeight ? tabs.top : window.innerHeight;
+    const bottomGap = floor - r.bottom;
+    const up = bottomGap < h + 12 && r.top > bottomGap;
+    setPos({ top: up ? Math.max(8, r.top - h - 6) : r.bottom + 6, right: Math.max(8, window.innerWidth - r.right), up });
+  }, [open, actions.length]);
   if (!actions.length) return null;
   return (
-    <div className="more-menu" ref={wrap}>
-      <button type="button" className="btn sm icon-only" aria-label={`More actions for ${label}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+    <div className="more-menu">
+      <button ref={btn} type="button" className="btn sm icon-only" aria-label={`More actions for ${label}`} aria-expanded={open}
+        onClick={() => { setPos(null); setOpen(!open); }}>
         <Icon name="more" />
       </button>
-      {open && (
-        <div className="popover more-pop" role="menu">
+      {open && createPortal(
+        <div ref={menu} className={`popover more-pop floating ${pos?.up ? 'up' : ''}`} role="menu"
+          style={pos ? { top: pos.top, right: pos.right } : { top: 0, right: 0, visibility: 'hidden' }}>
           {actions.map((a) => (
             <button key={a.id} type="button" role="menuitem" className="pop-item" onClick={() => { setOpen(false); a.run(); }}>{a.label}</button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
