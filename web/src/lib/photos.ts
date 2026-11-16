@@ -101,3 +101,13 @@ export function usePhotoSrc(db: LocalDb, photo: Pick<Photo, 'id' | 'path'> | nul
   }, [db, photo?.id, photo?.path, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   return src;
 }
+
+/** The picture itself: from this device if it hasn't uploaded yet, otherwise downloaded from storage. */
+export async function photoBlob(db: LocalDb, photo: Pick<Photo, 'id' | 'path'>): Promise<Blob | null> {
+  const local = (await db.get(STORE, photo.id)) as Pending | undefined;
+  if (local) return local.blob;
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(photo.path, 600);
+  if (!data?.signedUrl) return null;
+  const res = await fetch(data.signedUrl);
+  return res.ok ? res.blob() : null;
+}

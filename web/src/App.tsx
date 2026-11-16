@@ -11,6 +11,7 @@ import { Contacts } from './screens/Contacts';
 import { Dashboard } from './screens/Dashboard';
 import { Expenses } from './screens/money/Expenses';
 import { Receipts } from './screens/money/Receipts';
+import { Reports } from './screens/money/Reports';
 import { CustomerInvoicePage } from './screens/CustomerInvoicePage';
 import { CustomerPage } from './screens/CustomerPage';
 import { InvoiceScreen } from './screens/invoice/InvoiceScreen';
@@ -57,6 +58,7 @@ export function App() {
             <Route path="/invoices/:id" element={<InvoiceScreen />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/receipts" element={<Receipts />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/contacts/:id" element={<ContactEdit />} />
             <Route path="/company" element={<Company />} />

@@ -116,5 +116,31 @@ await o.goto(`${APP}#/board`);
 await o.getByLabel('40 h logged').first().waitFor({ timeout: 5000 }).catch(() => fail(o, 'board card has no hours'));
 ok('the board card shows 40 h');
 
+// ---------------------------------------------------------------- reports and the Excel file
+const { unzipSync, strFromU8 } = await import('fflate');
+const { readFileSync } = await import('node:fs');
+await o.goto(`${APP}#/reports`);
+await see(o, 'Money out', 'Reports opens on this month');
+await see(o, '$94.20', 'money out is $94.20');
+await see(o, '40 h', 'with 40 crew-hours');
+await o.locator('.report-table', { hasText: 'Dana Smith' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'job missing from the report'));
+ok('the Dana Smith job is in the jobs table');
+await shot(o, '03-reports');
+const [xlsx] = await Promise.all([o.waitForEvent('download'), o.getByRole('button', { name: 'Download Excel' }).click()]);
+const files = unzipSync(new Uint8Array(readFileSync(await xlsx.path())));
+const wb = strFromU8(files['xl/workbook.xml']);
+for (const name of ['Summary', 'Payments received', 'Invoices', 'Expenses', 'Hours', 'Jobs']) if (!wb.includes(`name="${name}"`)) await fail(o, `workbook missing sheet ${name}`);
+ok(`Download Excel gives a real workbook (${xlsx.suggestedFilename()}) with all six sheets`);
+const cells = Object.entries(files).filter(([k]) => k.startsWith('xl/')).map(([, v]) => strFromU8(v)).join('');
+if (!cells.includes('Home Depot') || !cells.includes('Marathon')) await fail(o, 'expenses missing from the workbook');
+ok('and both expenses are in it');
+
+await o.goto(`${APP}#/receipts`);
+await o.locator('.receipt img').first().waitFor();
+const [zip] = await Promise.all([o.waitForEvent('download'), o.getByRole('button', { name: 'Download all' }).click()]);
+const inZip = Object.keys(unzipSync(new Uint8Array(readFileSync(await zip.path()))));
+if (inZip.length !== 2 || !inZip.some((n) => n.includes('Marathon_64.20'))) await fail(o, `receipts zip has ${inZip.join(', ')}`);
+ok(`Download all gives a zip of the month’s 2 receipts (${inZip.join(', ')})`);
+
 await browser.close();
 done('money');

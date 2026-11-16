@@ -35,6 +35,7 @@ function menu(role: string): [string, Item[]][] {
     { to: '/expenses', label: 'Expenses', icon: 'wallet' },
     { to: '/receipts', label: 'Receipts', icon: 'receipt' },
   ]]);
+  if (office) groups.push(['Business', [{ to: '/reports', label: 'Reports', icon: 'chart' }]]);
   groups.push(['Settings', [
     { to: '/company', label: 'Company', icon: 'building' },
     ...(can.manageTeam(role) ? [{ to: '/team', label: 'Team', icon: 'users' } as Item] : []),

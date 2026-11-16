@@ -44,7 +44,7 @@ export async function elementToPdf(el: HTMLElement): Promise<Blob> {
 
 /** Share the PDF from the phone (Messages, Mail, Files…), or download it on a computer. */
 export async function shareOrDownload(blob: Blob, filename: string, text: string) {
-  const file = new File([blob], filename, { type: 'application/pdf' });
+  const file = new File([blob], filename, { type: blob.type || 'application/pdf' });
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: filename, text });
