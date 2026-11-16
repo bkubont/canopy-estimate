@@ -48,10 +48,12 @@ export function useInstall() {
     platform: platform(),
     async install() {
       if (!deferred) return 'unavailable' as const;
+      // The browser's offer works once: drop it whatever the answer, so a "no thanks"
+      // doesn't leave a dead button. Chrome sends a fresh offer later if it wants to.
       const e = deferred;
+      deferred = null;
       await e.prompt();
       const { outcome } = await e.userChoice;
-      if (outcome === 'accepted') deferred = null;
       notify();
       return outcome;
     },

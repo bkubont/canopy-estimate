@@ -100,6 +100,15 @@ if (!(await d.evaluate(() => window.__prompted))) await fail(d, 'Install app did
 ok('when Chrome or Edge offers it, Install app opens the browser\u2019s own install prompt');
 await d.getByRole('button', { name: 'Install app' }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => fail(d, 'button stayed after installing'));
 ok('and the button goes away once it\u2019s accepted');
+// Saying no: the offer can't be shown twice, so the button must not stay behind doing nothing.
+await d.evaluate(() => {
+  const e = new Event('beforeinstallprompt');
+  Object.assign(e, { prompt: async () => {}, userChoice: Promise.resolve({ outcome: 'dismissed' }) });
+  window.dispatchEvent(e);
+});
+await d.getByRole('button', { name: 'Install app' }).click();
+await d.getByRole('button', { name: 'Install app' }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => fail(d, 'a dead Install button stayed after saying no'));
+await see(d, 'install icon at the right end of the address bar', 'if they say no, the dead button goes and the address-bar steps show instead');
 
 await browser.close();
 done('dashboard');
