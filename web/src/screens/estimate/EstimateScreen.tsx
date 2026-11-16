@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { Pill } from '../../components/Pill';
 import { WorkOrderNotes } from '../../components/WorkOrderNotes';
+import { JobPhotos } from '../../components/Photos';
 import { isWorkOrder } from '../../lib/notes';
 import { jobStage } from '../../lib/status';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
@@ -207,6 +208,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
           </button>
         </div>
       </section>
+      <JobPhotos jobId={job.id} />
       <section className="card">
         <div className="sum-line"><span>Signed total{job.change_orders.length ? ' (with change orders)' : ''}</span><b>{money(t.total)}</b></div>
         <div className="sum-line"><span>Paid so far{t.deposit ? ` (deposit asked: ${money(t.deposit)})` : ''}</span><span>{money(paid)}</span></div>
@@ -238,6 +240,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         }}
       />
       <ChangeOrderSheet
+        jobId={job.id}
         co={co}
         dayRate={customerPricing(job, pricing).day_rate}
         onClose={() => setCo(null)}
@@ -251,7 +254,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
   );
 }
 
-function ChangeOrderSheet({ co, dayRate, onClose, onSave }: { co: ChangeOrder | null; dayRate: number; onClose: () => void; onSave: (c: ChangeOrder) => void }) {
+function ChangeOrderSheet({ co, dayRate, onClose, onSave, jobId }: { co: ChangeOrder | null; dayRate: number; onClose: () => void; onSave: (c: ChangeOrder) => void; jobId: string }) {
   const [c, setC] = useState<ChangeOrder | null>(co);
   const [error, setError] = useState('');
   const [openedId, setOpenedId] = useState(co?.id);
@@ -282,7 +285,7 @@ function ChangeOrderSheet({ co, dayRate, onClose, onSave }: { co: ChangeOrder | 
       <Chips label="Reason" options={CHANGE_REASONS} value={c.reason} onChange={(v) => set('reason', v)} required />
       {c.reason === 'Other' && <input className="mt" aria-label="Describe the reason" placeholder="Describe the reason…" value={c.reason_other} onChange={(e) => set('reason_other', e.target.value)} />}
       <h4 className="label">Add trees <small className="muted">optional</small></h4>
-      <TreeList trees={c.trees} onChange={(trees) => set('trees', trees)} />
+      <TreeList jobId={jobId} trees={c.trees} onChange={(trees) => set('trees', trees)} />
       <h4 className="label">Client signature</h4>
       <Field label="Client’s name"><input value={c.signed_by_name} onChange={(e) => set('signed_by_name', e.target.value)} autoCapitalize="words" /></Field>
       <SignaturePad value={c.client_sig} onChange={(v) => set('client_sig', v)} label="Client signs to approve the change" />
@@ -318,6 +321,7 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
         <p style={{ margin: 0 }}>{clientName(job.client)}<br />{[job.client.street, job.client.town].filter(Boolean).join(', ')}</p>
         {job.client.phone && <a className="btn sm mt" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={16} />Call {job.client.phone}</a>}
       </section>
+      <JobPhotos jobId={job.id} />
       <section className="card">
         <h3>Trees</h3>
         {allTrees.map((t, i) => (

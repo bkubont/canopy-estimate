@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { uploadPending } from '../lib/photos';
 import { can, useReady } from '../lib/session';
 import { Icon, type IconName } from './Icon';
 import { QuickAdd } from './QuickAdd';
@@ -59,8 +60,17 @@ function tabs(role: string): Item[] {
 }
 
 export function Shell() {
-  const { org, user } = useReady();
+  const { org, user, engine } = useReady();
   const { pathname } = useLocation();
+
+  // Photos taken with no signal go up when it's back (and every minute, just in case).
+  useEffect(() => {
+    const go = () => void uploadPending(engine.db);
+    go();
+    const t = setInterval(go, 60_000);
+    window.addEventListener('online', go);
+    return () => { clearInterval(t); window.removeEventListener('online', go); };
+  }, [engine]);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [drawer, setDrawer] = useState(false);
 

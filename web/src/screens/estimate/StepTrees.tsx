@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PhotoCount, PhotoStrip } from '../../components/Photos';
 import { Icon } from '../../components/Icon';
 import { Chips, Field, MultiChips, Sheet, Stepper } from '../../components/ui';
 import {
@@ -19,8 +20,8 @@ function useCommonSpecies() {
   }, [jobs]);
 }
 
-export function TreeSheet({ tree, isNew, onSave, onDelete, onClose }: {
-  tree: Tree | null; isNew: boolean; onSave: (t: Tree) => void; onDelete?: () => void; onClose: () => void;
+export function TreeSheet({ tree, isNew, onSave, onDelete, onClose, jobId }: {
+  tree: Tree | null; isNew: boolean; onSave: (t: Tree) => void; onDelete?: () => void; onClose: () => void; jobId?: string;
 }) {
   const [t, setT] = useState<Tree | null>(tree);
   const [more, setMore] = useState(false);
@@ -60,6 +61,12 @@ export function TreeSheet({ tree, isNew, onSave, onDelete, onClose }: {
       <Chips label="Trunk diameter" options={SIZES} value={t.size} onChange={(v) => set('size', v)} />
       <h4 className="label">Condition</h4>
       <Chips label="Condition" options={CONDITIONS} value={t.condition} onChange={(v) => set('condition', v)} />
+      {jobId && (
+        <>
+          <h4 className="label">Photo <small className="muted">for planning, never printed</small></h4>
+          <PhotoStrip jobId={jobId} treeId={t.id} kind="tree" label="Tree photo" />
+        </>
+      )}
       <h4 className="label">How many trees like this?</h4>
       <Stepper label="How many" value={t.qty} min={1} onChange={(v) => set('qty', v)} />
       <div className="mt" />
@@ -77,7 +84,7 @@ export function TreeSheet({ tree, isNew, onSave, onDelete, onClose }: {
   );
 }
 
-export function TreeList({ trees, onChange }: { trees: Tree[]; onChange: (trees: Tree[]) => void }) {
+export function TreeList({ trees, onChange, jobId }: { trees: Tree[]; onChange: (trees: Tree[]) => void; jobId?: string }) {
   const [editing, setEditing] = useState<{ tree: Tree; index: number } | null>(null);
   return (
     <>
@@ -85,7 +92,7 @@ export function TreeList({ trees, onChange }: { trees: Tree[]; onChange: (trees:
         {trees.length ? trees.map((t, i) => (
           <div className="tree-card" key={t.id}>
             <button type="button" className="list-item" onClick={() => setEditing({ tree: t, index: i })}>
-              <b>{i + 1}. {treeTitle(t)}</b>
+              <b>{i + 1}. {treeTitle(t)} {jobId && <PhotoCount jobId={jobId} treeId={t.id} />}</b>
               <span className="muted small">{treeDetails(t) || 'Tap to add details'}</span>
               {t.notes && <div className="small">{t.notes}</div>}
               {t.internal_notes && <div className="small"><span className="internal-tag">internal</span> {t.internal_notes}</div>}
@@ -100,6 +107,7 @@ export function TreeList({ trees, onChange }: { trees: Tree[]; onChange: (trees:
         <Icon name="plus" />Add tree
       </button>
       <TreeSheet
+        jobId={jobId}
         tree={editing?.tree ?? null}
         isNew={(editing?.index ?? -1) < 0}
         onClose={() => setEditing(null)}
@@ -121,7 +129,7 @@ export function StepTrees({ job, updateJob }: import('./types').StepProps) {
     <div>
       <h2 className="step-title">Trees <small className="muted">{treeCount(job.trees)} total</small></h2>
       <p className="hint">One line per kind of tree. Several the same? Use one line and set “How many”. ⧉ Copy starts a similar tree.</p>
-      <TreeList trees={job.trees} onChange={(trees) => updateJob((j) => ({ ...j, trees }))} />
+      <TreeList jobId={job.id} trees={job.trees} onChange={(trees) => updateJob((j) => ({ ...j, trees }))} />
     </div>
   );
 }

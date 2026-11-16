@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { NotesBadge } from '../../components/WorkOrderNotes';
+import { PhotoCount } from '../../components/Photos';
 import { Sheet } from '../../components/ui';
 import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, eventForJob, jobSchedule, todayMi, type BoardColumn } from '../../lib/calendar';
 import { clientName, daysLabel, money, normalizeJob, num } from '../../lib/estimate';
@@ -208,7 +209,10 @@ export function Board() {
         {notes.count > 0 && (
           <div className="jcard-note"><NotesBadge count={notes.count} /><span>{notes.first}</span></div>
         )}
-        {office && total != null && <div className="jcard-total">{money(total)}</div>}
+        <div className="jcard-meta">
+          <PhotoCount jobId={job.id} />
+          {office && total != null && <span className="jcard-total">{money(total)}</span>}
+        </div>
         {(main || more.length > 0) && (
           <div className="jcard-actions">
             {main && <button type="button" className="btn sm primary" onClick={main.run}>{main.label}</button>}

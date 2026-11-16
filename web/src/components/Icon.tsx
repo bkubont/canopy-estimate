@@ -30,6 +30,7 @@ const PATHS = {
   play: <path d="M7 4v16l13-8z" />,
   chevronLeft: <path d="m15 18-6-6 6-6" />,
   chevronRight: <path d="m9 18 6-6-6-6" />,
+  camera: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" /><circle cx="12" cy="13" r="3.5" /></>,
   chevronUp: <path d="m18 15-6-6-6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   grip: <><circle cx="9" cy="6" r="1" /><circle cx="15" cy="6" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="9" cy="18" r="1" /><circle cx="15" cy="18" r="1" /></>,

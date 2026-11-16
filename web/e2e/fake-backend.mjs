@@ -12,7 +12,8 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 export function createFakeBackend() {
   const users = new Map(); // email -> {id,email,password}
   const tokens = new Map(); // access token -> user
-  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], invites: [] };
+  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], invites: [] };
+  const files = new Map(); // storage path -> { bytes, type }
   let seq = 1;
   const keyCols = { organizations: ['id'], org_pricing: ['org_id'], members: ['org_id', 'user_id'], job_pricing: ['job_id'] };
   const keysOf = (table) => keyCols[table] ?? ['id'];
@@ -31,6 +32,7 @@ export function createFakeBackend() {
     const role = roleOf(orgId, user);
     if (!role) return false;
     if (['org_pricing', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew') return false;
+    if (table === 'photos' && row.kind === 'receipt' && role === 'crew') return false;
     return true;
   };
   const strip = ({ _seq, ...r }) => r;
@@ -67,12 +69,50 @@ export function createFakeBackend() {
 
   const offline = new WeakSet();
 
+  // ---- file storage: upload, signed links, download (bucket rules are tested in supabase/tests)
+  async function storage(route, req, url, method) {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+    if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    const headers = await req.allHeaders();
+    const user = tokens.get(headers['authorization']?.replace(/^Bearer /, ''));
+    const p = decodeURIComponent(url.pathname.replace('/storage/v1/', ''));
+    const reply = (status, data) => route.fulfill({ status, contentType: 'application/json', headers: cors, body: JSON.stringify(data) });
+    if (p.startsWith('object/sign/org-files/') && method === 'GET') {
+      const f = files.get(p.replace('object/sign/org-files/', ''));
+      return f ? route.fulfill({ status: 200, headers: { ...cors, 'content-type': f.type }, body: f.bytes }) : reply(404, { error: 'not_found', message: 'Object not found' });
+    }
+    if (!user) return reply(401, { message: 'JWT required' });
+    if (p.startsWith('object/sign/org-files/')) {
+      const path = p.replace('object/sign/org-files/', '');
+      if (!files.has(path)) return reply(400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+      return reply(200, { signedURL: `/object/sign/org-files/${path}?token=t` });
+    }
+    if (p.startsWith('object/org-files/') && (method === 'POST' || method === 'PUT')) {
+      const path = p.replace('object/org-files/', '');
+      if (!roleOf(path.split('/')[0], user)) return reply(403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+      let bytes = req.postDataBuffer() ?? Buffer.alloc(0);
+      let type = headers['content-type'] ?? 'application/octet-stream';
+      const boundary = type.match(/boundary=(.+)$/)?.[1];
+      if (boundary) {
+        // multipart: keep the file part only
+        const raw = bytes.toString('latin1');
+        const part = raw.split(`--${boundary}`).find((x) => /content-type:\s*image\//i.test(x)) ?? '';
+        type = part.match(/content-type:\s*([^\r\n]+)/i)?.[1] ?? 'image/jpeg';
+        bytes = Buffer.from(part.slice(part.indexOf('\r\n\r\n') + 4).replace(/\r\n$/, ''), 'latin1');
+      }
+      files.set(path, { bytes, type });
+      return reply(200, { Key: `org-files/${path}`, Id: uuid() });
+    }
+    return reply(404, { message: `storage: ${method} ${p} not supported` });
+  }
+
   async function handle(route, context) {
     // Playwright still routes requests for an "offline" context; drop them like a real network would.
     if (offline.has(context)) return route.abort('internetdisconnected');
     const req = route.request();
     const url = new URL(req.url());
     const method = req.method();
+    if (url.pathname.startsWith('/storage/v1/')) return storage(route, req, url, method);
     const body = req.postData() ? JSON.parse(req.postData()) : undefined;
     const auth = (await req.allHeaders())['authorization']?.replace(/^Bearer /, '');
     const user = tokens.get(auth);
@@ -203,7 +243,7 @@ export function createFakeBackend() {
         if (!roleOf(body.p_org, user)) return json(400, { code: 'P0001', message: 'Not a member of this company' });
         const since = Number(body.p_since ?? 0);
         const out = { cursor: String(seq) };
-        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'invoices', 'payments', 'events']) {
+        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'invoices', 'payments', 'events', 'photos']) {
           out[table] = t[table].filter((r) => (r.org_id ?? r.id) === body.p_org && r._seq >= since && visible(table, r, user)).map(strip);
         }
         return json(200, out);
@@ -266,5 +306,6 @@ export function createFakeBackend() {
       await context.setOffline(value);
     },
     tables: t,
+    files,
   };
 }

@@ -14,7 +14,7 @@ export interface OutboxEntry {
 }
 
 // Bump when tables are added; the upgrade adds any missing stores.
-const VERSION = 2;
+const VERSION = 3;
 
 /**
  * Each signed-in person gets their own on-device database, so two people
@@ -32,6 +32,8 @@ export async function openLocalDb(name: string): Promise<LocalDb> {
       for (const t of TABLE_NAMES) if (!db.objectStoreNames.contains(t)) db.createObjectStore(t);
       if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
+      // Photos taken on this device that haven't reached file storage yet.
+      if (!db.objectStoreNames.contains('photo_blobs')) db.createObjectStore('photo_blobs');
     },
   });
 }

@@ -545,7 +545,7 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .jcard-note { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; border-radius: 8px; background: #FCE8F0; color: #7A0E3A; font-size: 12.5px; }
 .jcard-note span:last-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .board-col, .jcard, .jcard-note { min-width: 0; }
-.jcard-total { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.jcard-total { font-weight: 600; font-variant-numeric: tabular-nums; }
 .jcard-actions { display: flex; gap: 6px; margin-top: 2px; }
 .jcard-actions .btn.primary { flex: 1; }
 .more-menu { position: relative; }
@@ -565,3 +565,21 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .note-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
 .mchip .notes-badge { min-width: 15px; height: 15px; font-size: 10px; padding: 0 4px; margin-right: 4px; vertical-align: 1px; }
 b > .notes-badge, .job-tile-name > .notes-badge { margin-left: 6px; vertical-align: 2px; }
+
+/* ---------- photos ---------- */
+.photo-strip { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.thumb {
+  width: 84px; height: 84px; flex: none; padding: 0; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg); display: grid; place-items: center;
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-wait { font-size: 11px; color: var(--muted); padding: 4px; text-align: center; }
+.thumb.add { gap: 2px; border: 1.5px dashed #A3AAB8; color: var(--accent); font-size: 12px; font-weight: 600; text-align: center; place-content: center; }
+.thumb.add:hover { background: #F0F2FF; border-color: var(--accent); }
+.thumb.add.busy { opacity: .6; cursor: progress; }
+.thumb.add:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.photo-group + .photo-group { margin-top: 4px; }
+.photo-full { width: 100%; height: auto; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #000; display: block; margin-bottom: 8px; }
+.photo-count { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 500; color: var(--muted); vertical-align: 1px; }
+.jcard-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jcard-meta .jcard-total { margin-left: auto; }
