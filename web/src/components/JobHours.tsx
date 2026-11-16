@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { dayLabel, hmOf, timeLabel, todayMi } from '../lib/calendar';
 import { money, round2 } from '../lib/estimate';
-import { clockHours, hoursLabel, hoursTotal, jobEntries, jobExpenses, perCrewHour, total } from '../lib/expenses';
+import { clockHours, hoursLabel, hoursTotal, jobEntries, jobExpenses, MAX_ENTRY_HOURS, perCrewHour, total } from '../lib/expenses';
 import { can, useReady, useRow, useRows } from '../lib/session';
 import type { TimeEntry } from '../lib/types';
 import { Icon } from './Icon';
@@ -33,6 +33,8 @@ export function JobHours({ jobId, billed }: { jobId: string; billed?: number }) 
   const hours = hoursTotal(entries);
   const key = clockKey(user.id, jobId);
   const [started, setStarted] = useState(() => readClock(key));
+  // The same card can be reused when going straight from one job to another: show that job's clock.
+  useEffect(() => setStarted(readClock(key)), [key]);
   const [, tick] = useState(0);
   const [stopping, setStopping] = useState(false);
   const [people, setPeople] = useState(2);
@@ -48,6 +50,7 @@ export function JobHours({ jobId, billed }: { jobId: string; billed?: number }) 
   async function stop() {
     if (!started) return;
     const h = clockHours(started, new Date().toISOString(), people);
+    if (h > MAX_ENTRY_HOURS) return; // the sheet explains; the clock stays until it's fixed or discarded
     await engine.save('time_entries', {
       id: crypto.randomUUID(), org_id: org.org_id, job_id: jobId, work_date: todayMi(), hours: h,
       note: `Clock ${clockTime(started)}–${clockTime(new Date().toISOString())}, ${people} ${people === 1 ? 'person' : 'people'}`,
@@ -100,7 +103,9 @@ export function JobHours({ jobId, billed }: { jobId: string; billed?: number }) 
         {started && <p>Clock ran {elapsed(started)} (since {clockTime(started)}), drive time included.</p>}
         <div className="field"><span>How many people were working?</span><Stepper label="People" value={people} min={1} onChange={setPeople} /></div>
         {started && <p className="muted">That’s <b>{hoursLabel(clockHours(started, new Date().toISOString(), people))}</b> crew-hours.</p>}
-        <button type="button" className="btn primary block" onClick={() => void stop()}>Save hours</button>
+        {started && clockHours(started, new Date().toISOString(), people) > MAX_ENTRY_HOURS ? (
+          <p className="error-text" role="alert">That’s more than {MAX_ENTRY_HOURS} crew-hours, so the clock was probably left running. Discard it and use <b>Add hours</b> to enter the real hours for each day.</p>
+        ) : <button type="button" className="btn primary block" onClick={() => void stop()}>Save hours</button>}
         <button type="button" className="btn block mt" onClick={() => { writeClock(key, null); setStarted(null); setStopping(false); }}>Discard this clock</button>
       </Sheet>
       <HoursSheet entry={editing} onClose={() => setEditing(null)} isNew={!!editing && !entries.some((x) => x.id === editing.id)} />
@@ -112,15 +117,23 @@ function HoursSheet({ entry, onClose, isNew }: { entry: TimeEntry | null; onClos
   const { engine } = useReady();
   const [e, setE] = useState<TimeEntry | null>(entry);
   const [openedId, setOpenedId] = useState(entry?.id);
-  if (entry?.id !== openedId) { setOpenedId(entry?.id); setE(entry); }
+  const [error, setError] = useState('');
+  if (entry?.id !== openedId) { setOpenedId(entry?.id); setE(entry); setError(''); }
   if (!e) return <Sheet open={false} onClose={onClose} title="">{null}</Sheet>;
-  const save = async () => { if (Number(e.hours) > 0) { await engine.save('time_entries', { ...e, hours: round2(Number(e.hours)) }); onClose(); } };
+  const save = async () => {
+    const h = round2(Number(e.hours));
+    if (!(h > 0)) return setError('Enter the crew-hours.');
+    if (h > MAX_ENTRY_HOURS) return setError(`One entry can be at most ${MAX_ENTRY_HOURS} crew-hours. Add a separate entry for each day.`);
+    await engine.save('time_entries', { ...e, hours: h });
+    onClose();
+  };
   return (
     <Sheet open={!!entry} onClose={onClose} title={isNew ? 'Add hours' : 'Hours'} action={<button type="button" className="btn primary sm" onClick={() => void save()}>Save</button>}>
       <Field label="Day"><input type="date" value={e.work_date} onChange={(ev) => ev.target.value && setE({ ...e, work_date: ev.target.value })} /></Field>
       <Field label="Crew-hours" hint="Everyone together, drive time included: 3 people × 9 hours = 27.">
-        <input type="number" inputMode="decimal" min={0.25} step={0.25} value={e.hours} onChange={(ev) => setE({ ...e, hours: Number(ev.target.value) })} />
+        <input type="number" inputMode="decimal" min={0.25} max={MAX_ENTRY_HOURS} step={0.25} value={e.hours} onChange={(ev) => setE({ ...e, hours: Number(ev.target.value) })} />
       </Field>
+      {error && <p className="error-text" role="alert">{error}</p>}
       <Field label="Note"><input value={e.note} onChange={(ev) => setE({ ...e, note: ev.target.value })} placeholder="Storm cleanup, extra chipper time…" /></Field>
       <button type="button" className="btn primary block" onClick={() => void save()}>Save hours</button>
       {!isNew && <button type="button" className="btn danger block mt" onClick={async () => {

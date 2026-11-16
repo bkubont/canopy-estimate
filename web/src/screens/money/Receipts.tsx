@@ -26,7 +26,8 @@ export function Receipts() {
     return (photos ?? [])
       .filter((p) => p.kind === 'receipt' && !p.deleted_at)
       .map((p) => ({ p, e: p.expense_id ? byId.get(p.expense_id) : undefined }))
-      .filter(({ p, e }) => !e?.deleted_at && (e?.spent_on ?? p.created_at ?? '').startsWith(ym))
+      // A receipt shows only with its expense: a removed expense takes its receipt with it.
+      .filter(({ p, e }) => (!p.expense_id || (e && !e.deleted_at)) && (e?.spent_on ?? p.created_at ?? '').startsWith(ym))
       .filter(({ e }) => !needle || [e?.vendor, e?.category, e?.note].join(' ').toLowerCase().includes(needle))
       .sort((a, b) => (b.e?.spent_on ?? '').localeCompare(a.e?.spent_on ?? ''));
   }, [photos, expenses, ym, q]);

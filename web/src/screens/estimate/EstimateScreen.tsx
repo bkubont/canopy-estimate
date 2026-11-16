@@ -274,7 +274,7 @@ function ChangeOrderSheet({ co, dayRate, onClose, onSave, jobId }: { co: ChangeO
     if (c.reason === 'Other' && !c.reason_other.trim()) return setError('Describe the reason.');
     if (!c.signed_by_name.trim()) return setError('Type the client’s name.');
     if (!c.client_sig) return setError('The client needs to sign.');
-    onSave({ ...c, client_sig_date: c.client_sig_date || todayYmd() });
+    onSave({ ...c, client_sig_date: c.client_sig_date || todayYmd(), signed_at: new Date().toISOString() });
   }
 
   return (

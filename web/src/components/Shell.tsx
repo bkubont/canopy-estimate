@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { uploadPending } from '../lib/photos';
 import { can, useReady } from '../lib/session';
+import { Bell } from './Bell';
 import { Icon, type IconName } from './Icon';
 import { QuickAdd } from './QuickAdd';
 import { SearchBox } from './SearchBox';
@@ -26,6 +27,7 @@ function menu(role: string): [string, Item[]][] {
     { to: '/board', label: 'Jobs board', icon: 'board' },
     { to: '/calendar', label: 'Calendar', icon: 'calendar' },
     { to: '/contacts', label: 'Customers', icon: 'users' },
+    { to: '/archive', label: 'Archive', icon: 'archive' },
   ];
   if (!office) work.push({ to: '/estimates', label: 'Job details', icon: 'file' });
   const groups: [string, Item[]][] = [['Work', work]];
@@ -112,6 +114,7 @@ export function Shell() {
         </NavLink>
         <SearchBox />
         <QuickAdd />
+        <Bell />
         <SyncBadge />
         <NavLink to="/account" className="top-icon" aria-label="Account" title={user.email ?? ''}>
           <Icon name="user" size={21} />

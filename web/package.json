@@ -17,7 +17,8 @@
     "e2e:dashboard": "node e2e/dashboard-flow.mjs",
     "e2e:photos": "E2E_FAKE=1 node e2e/photos-flow.mjs",
     "e2e:money": "E2E_FAKE=1 node e2e/money-flow.mjs",
-    "e2e:phone-fit": "node e2e/phone-fit.mjs"
+    "e2e:phone-fit": "node e2e/phone-fit.mjs",
+    "e2e:extras": "E2E_FAKE=1 node e2e/extras-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

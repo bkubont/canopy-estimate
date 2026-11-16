@@ -17,7 +17,6 @@ export function SearchBox() {
   const wrap = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
   const { pathname } = useLocation();
-  const narrow = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 599px)').matches;
 
   useEffect(() => {
     setOpen(false);
@@ -55,7 +54,7 @@ export function SearchBox() {
     <div className="top-search" ref={wrap}>
       <label>
         <Icon name="search" size={17} />
-        <input type="search" value={q} placeholder={narrow ? 'Search' : 'Search jobs & customers'} aria-label="Search jobs and customers"
+        <input type="search" value={q} placeholder="Search jobs & customers" aria-label="Search jobs and customers"
           onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') setOpen(false);

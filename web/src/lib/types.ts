@@ -156,6 +156,8 @@ export interface ChangeOrder {
   client_sig: string;
   client_sig_date: string;
   signed_by_name: string;
+  /** When the client signed it (exact time; older change orders have only the date). */
+  signed_at?: string;
 }
 
 /** What the customer is charged: equipment as marked-up unit prices, never cost. */

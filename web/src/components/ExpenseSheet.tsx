@@ -120,7 +120,9 @@ export function ExpenseSheet({ expense, onClose, onSaved }: { expense: Expense |
       {office && !isNew && (
         <button type="button" className="btn danger block mt" onClick={async () => {
           if (!confirm('Remove this expense?')) return;
-          await engine.save('expenses', { ...e, deleted_at: new Date().toISOString() });
+          const gone = new Date().toISOString();
+          await engine.save('expenses', { ...e, deleted_at: gone });
+          for (const p of receipts) await engine.save('photos', { ...p, deleted_at: gone }); // its receipt goes too
           onClose();
         }}>Remove expense</button>
       )}
