@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { NotesBadge } from '../../components/WorkOrderNotes';
+import { CancelJobSheet } from '../../components/CancelJob';
 import { JobQuickIcons } from '../../components/JobQuickIcons';
 import { Sheet } from '../../components/ui';
 import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, eventForJob, jobSchedule, timeLabel, todayMi, visitEventFor, visitForJob, ymdOf, type BoardColumn } from '../../lib/calendar';
@@ -71,6 +72,7 @@ export function Board() {
   const asked = params.get('tab') as BoardColumn | null;
   const [tab, setTab] = useState<BoardColumn>(asked && (asked !== 'new' || office) && COLUMN_LABEL[asked] ? asked : office ? 'approved' : 'scheduled');
   const [editing, setEditing] = useState<CalEvent | null>(null);
+  const [cancelling, setCancelling] = useState<Job | null>(null);
   const [blocking, setBlocking] = useState<Job | null>(null);
   const [toast, setToast] = useState('');
   const [drag, setDrag] = useState<{ label: string; x: number; y: number; over: BoardColumn | null } | null>(null);
@@ -84,7 +86,7 @@ export function Board() {
   const byColumn = useMemo(() => {
     const out = new Map<BoardColumn, Row[]>();
     for (const raw of jobs ?? []) {
-      if (raw.deleted_at) continue;
+      if (raw.deleted_at || raw.cancelled_at) continue;
       const job = normalizeJob(raw);
       let col = boardColumn(job, events ?? []);
       if (col === 'paid') continue;
@@ -130,7 +132,9 @@ export function Board() {
     const open = a('open', 'Open job', () => navigate(`/estimates/${job.id}`));
     const inv = liveInvoice(invoices, job.id);
     const entry = sched.events[0] ? a('entry', 'Calendar entry', () => setEditing(sched.events[0]!)) : null;
-    const more = (...xs: (Action | null | false)[]) => xs.filter(Boolean) as Action[];
+    // Owner/office can cancel anything not yet invoiced (the customer said no or backed out).
+    const cancel = office && !inv && a('cancel', job.signed_at ? 'Cancel job…' : 'Cancel estimate…', () => setCancelling(job));
+    const more = (...xs: (Action | null | false)[]) => [...xs, cancel].filter(Boolean) as Action[];
     switch (col) {
       case 'new': {
         const visit = visitForJob(job.id, events ?? []);
@@ -299,6 +303,10 @@ export function Board() {
         </div>
       </Sheet>
       <EventSheet event={editing} onClose={() => setEditing(null)} />
+      {cancelling && (
+        <CancelJobSheet job={cancelling} open onClose={() => setCancelling(null)}
+          apply={async (p) => { await engine.save('jobs', { ...cancelling, ...p }); setToast(`${cancelling.number} cancelled. It’s under Estimates → Cancelled.`); }} />
+      )}
     </div>
   );
 }

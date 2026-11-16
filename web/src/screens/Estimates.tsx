@@ -9,7 +9,7 @@ import { jobStage, STAGE_LABEL, type Stage } from '../lib/status';
 import { reserveNumbers } from '../lib/supabase';
 import { useCreateEstimate } from '../lib/useCreateEstimate';
 
-const FILTERS: [string, string][] = [['all', 'All'], ...(['new', 'pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'overdue', 'paid'] as Stage[]).map((s) => [s, STAGE_LABEL[s]] as [string, string])];
+const FILTERS: [string, string][] = [['all', 'All'], ...(['new', 'pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'overdue', 'paid', 'cancelled'] as Stage[]).map((s) => [s, STAGE_LABEL[s]] as [string, string])];
 
 export function Estimates() {
   const { engine, org } = useReady();
@@ -36,7 +36,7 @@ export function Estimates() {
     return (jobs ?? [])
       .filter((j) => j.stage !== 'archived')
       .map((j) => ({ ...j, st: jobStage(j, events ?? [], invoices, payments) }))
-      .filter((j) => filter === 'all' || j.st === filter)
+      .filter((j) => (filter === 'all' ? j.st !== 'cancelled' : j.st === filter)) // cancelled ones only under their own filter
       .filter((j) => !needle || [j.number, clientName(j.client), j.client?.phone, j.client?.street, j.client?.town].join(' ').toLowerCase().includes(needle))
       .sort((a, b) => (b.updated_at ?? b.created_at ?? '').localeCompare(a.updated_at ?? a.created_at ?? ''));
   }, [jobs, q, filter, events, invoices, payments]);

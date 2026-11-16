@@ -6,7 +6,7 @@ import { JobQuickIcons } from '../components/JobQuickIcons';
 import { NotesBadge } from '../components/WorkOrderNotes';
 import { isWorkOrder, noteSummary } from '../lib/notes';
 import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi, visitForJob, weekday } from '../lib/calendar';
-import { expensesInMonth, hoursLabel, hoursTotal, total } from '../lib/expenses';
+import { expensesInMonth, hoursLabel, hoursTotal, isOpen, total, workerOf } from '../lib/expenses';
 import { addDays, clientName, money, normalizeJob, round2 } from '../lib/estimate';
 import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
 import { can, useReady, useRow, useRows } from '../lib/session';
@@ -36,7 +36,7 @@ export function Dashboard() {
 
   const data = useMemo(() => {
     const evs = events ?? [];
-    const jobs = (jobsRaw ?? []).filter((j) => j.stage !== 'archived' && !j.deleted_at).map(normalizeJob);
+    const jobs = (jobsRaw ?? []).filter((j) => j.stage !== 'archived' && !j.deleted_at && !j.cancelled_at).map(normalizeJob);
     const totalById = new Map((pricing ?? []).map((p) => [p.job_id, p.total]));
     const withStage = jobs.map((j) => ({ job: j, stage: jobStage(j, evs, invoices, payments, today) }));
 
@@ -150,10 +150,31 @@ export function Dashboard() {
           <Link to="/board" className="tile">
             <span className="tile-label">Hours this week</span>
             <span className="tile-value">{hoursLabel(data.weekHours)}</span>
-            <span className="tile-sub">Crew-hours on jobs</span>
+            <span className="tile-sub">Hours worked on jobs</span>
           </Link>
         </section>
       )}
+
+      {(() => {
+        const clocks = (timeEntries ?? []).filter(isOpen).sort((a, b) => (a.clock_in ?? '').localeCompare(b.clock_in ?? ''));
+        if (!clocks.length) return null;
+        return (
+          <section className="card on-clock-card" aria-label="On the clock">
+            <h3 className="row-icon" style={{ margin: 0 }}><Icon name="clock" />On the clock</h3>
+            <ul className="on-clock">
+              {clocks.map((e) => {
+                const j = (jobsRaw ?? []).find((x) => x.id === e.job_id);
+                const at = timeLabel({ all_day: false, starts: e.clock_in!, ends: e.clock_in! } as never).split('–')[0];
+                return (
+                  <li key={e.id}><span className="live-dot" aria-hidden />
+                    <span>{e.worker_id === user.id ? 'You' : workerOf(e)} · <Link to={`/estimates/${e.job_id}`}>{j ? clientName(j.client) || j.number : 'a job'}</Link> · since {at}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })()}
 
       <div className="dash-cols">
         <section className="dash-section">

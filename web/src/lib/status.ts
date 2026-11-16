@@ -6,16 +6,16 @@ import type { CalEvent, Invoice, Job, Payment } from './types';
  * One color per stage, used everywhere a job appears (lists, board, calendar,
  * dashboard). Red only ever means a problem: Blocked or Overdue.
  */
-export type Stage = 'new' | 'pending' | 'approved' | 'scheduled' | 'in_progress' | 'blocked' | 'done' | 'invoiced' | 'overdue' | 'paid';
+export type Stage = 'cancelled' | 'new' | 'pending' | 'approved' | 'scheduled' | 'in_progress' | 'blocked' | 'done' | 'invoiced' | 'overdue' | 'paid';
 
 export const STAGE_LABEL: Record<Stage, string> = {
-  new: 'New', pending: 'Pending', approved: 'Approved', scheduled: 'Scheduled', in_progress: 'In progress', blocked: 'Blocked',
+  cancelled: 'Cancelled', new: 'New', pending: 'Pending', approved: 'Approved', scheduled: 'Scheduled', in_progress: 'In progress', blocked: 'Blocked',
   done: 'Done', invoiced: 'Invoiced', overdue: 'Overdue', paid: 'Paid',
 };
 
 /** What each stage asks of you, for the dashboard and tooltips. */
 export const STAGE_MEANS: Record<Stage, string> = {
-  new: 'Needs a visit', pending: 'Waiting on the customer', approved: 'Needs scheduling', scheduled: 'On the calendar', in_progress: 'Crew is on it',
+  cancelled: 'Off: the customer said no', new: 'Needs a visit', pending: 'Waiting on the customer', approved: 'Needs scheduling', scheduled: 'On the calendar', in_progress: 'Crew is on it',
   blocked: 'Problem', done: 'Needs an invoice', invoiced: 'Waiting on payment', overdue: 'Payment is late', paid: 'Finished',
 };
 
@@ -28,12 +28,13 @@ export const liveInvoice = (invoices: Invoice[] | null | undefined, jobId: strin
  * invoiced job simply shows as Invoiced (from the job's own stage) and never Overdue.
  */
 export function jobStage(
-  job: Pick<Job, 'id' | 'signed_at' | 'status' | 'stage'> & { trees?: unknown[] | null },
+  job: Pick<Job, 'id' | 'signed_at' | 'status' | 'stage'> & { trees?: unknown[] | null; cancelled_at?: string | null },
   events: CalEvent[],
   invoices?: Invoice[] | null,
   payments?: Payment[] | null,
   today?: string,
 ): Stage {
+  if (job.cancelled_at) return 'cancelled';
   const col = boardColumn(job, events);
   // A lead: nobody has written the estimate yet (no trees), so it needs a visit.
   if (col === 'pending' && !(job.trees ?? []).length) return 'new';

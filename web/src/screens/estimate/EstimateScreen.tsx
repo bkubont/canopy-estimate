@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { Pill } from '../../components/Pill';
+import { CancelJobButton, CancelledBanner, type CancelPatch } from '../../components/CancelJob';
 import { WorkOrderNotes } from '../../components/WorkOrderNotes';
 import { JobPhotos } from '../../components/Photos';
 import { JobHours } from '../../components/JobHours';
@@ -81,15 +82,19 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
   }
 
   const props = { job, pricing, updateJob, updatePricing };
+  // Through the draft, so its autosave can't put back the old (not cancelled) copy.
+  const cancelApply = (p: CancelPatch) => { updateJob((j) => ({ ...j, ...p })); void flush(); };
   const next = STEPS[i + 1];
   const prev = STEPS[i - 1];
 
   return (
     <div className="page" style={{ maxWidth: 1200 }}>
-      <div className="row" style={{ marginBottom: 6 }}>
-        <b>{job.number}{clientName(job.client) ? ` · ${clientName(job.client)}` : ''}</b>
+      <div className="row" style={{ marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
+        <b style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{job.number}{clientName(job.client) ? ` · ${clientName(job.client)}` : ''}</b>
         <Pill stage={jobStage(job, [])} />
+        <span style={{ marginLeft: 'auto' }}><CancelJobButton small job={job} apply={cancelApply} /></span>
       </div>
+      <CancelledBanner job={job} apply={cancelApply} />
       <nav className="steps" aria-label="Estimate steps">
         {STEPS.map((s, n) => (
           <Link key={s.id} to={`/estimates/${job.id}/${s.id}`} className={`${n === i ? 'on' : ''} ${n < i ? 'done' : ''}`} aria-current={n === i ? 'step' : undefined}
@@ -158,6 +163,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
   const events = useRows(engine, 'events');
   const sched = jobSchedule(job.id, events ?? []);
   const [scheduling, setScheduling] = useState<import('../../lib/types').CalEvent | null>(null);
+  const cancelApply = (p: CancelPatch) => { updateJob((j) => ({ ...j, ...p })); void flush(); };
   const paid = paidForJob(payments ?? [], job.id);
 
   async function createInvoice() {
@@ -201,6 +207,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         </div>
         {isWorkOrder(job) && <WorkOrderNotes job={job} onChange={(internal_notes) => { updateJob((j) => ({ ...j, internal_notes })); void flush(); }} />}
       </div>
+      <CancelledBanner job={job} apply={cancelApply} />
       <section className="card">
         <div className="row">
           <span>{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
@@ -227,6 +234,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
       <div className="btn-row" style={{ marginBottom: 12 }}>
         <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}><Icon name="plus" />Change order</button>
         {can.seePrices(org.role) && <button type="button" className="btn danger" onClick={() => void voidSig()} disabled={voiding === 'working'}>Remove signature</button>}
+        <CancelJobButton job={job} apply={cancelApply} />
       </div>
       {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
 
@@ -316,6 +324,7 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
         </div>
         {isWorkOrder(job) && <WorkOrderNotes job={job} onChange={(internal_notes) => { updateJob((j) => ({ ...j, internal_notes })); void flush(); }} />}
       </div>
+      <CancelledBanner job={job} apply={() => undefined} />
       <section className="card">
         <b className="row-icon">{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : 'Not on the calendar yet'}</b>
       </section>

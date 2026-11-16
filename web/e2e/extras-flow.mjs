@@ -47,6 +47,32 @@ await see(o, 'Already in Customers as Nadia Kowalski', 'and says who each one al
 if (await o.getByRole('button', { name: /^Import \d+ contact/ }).isEnabled()) await fail(o, 'import button should be off with nothing picked');
 ok('so nothing gets doubled up');
 await o.getByRole('button', { name: 'Close' }).click();
+await syncNow(o);
+for (let i = 0; i < 30 && fake.tables.customers.filter((c) => !c.deleted_at).length < 3; i++) await o.waitForTimeout(200);
+if (fake.tables.customers.length < 3) await fail(o, 'imported contacts never reached the server');
+ok('the 3 imported contacts reach the server');
+
+// A whole iPhone address book: 450 contacts, with photos, goes up in batches.
+const big = Array.from({ length: 450 }, (_, i) => [
+  'BEGIN:VCARD', 'VERSION:3.0', `N:Person${i};Test;;;`, `FN:Test Person${i}`, `item1.TEL;type=pref:(231) 600-${String(1000 + i).slice(-4)}`, 'item1.X-ABLabel:_$!<Mobile>!$_',
+  'PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAA', ' MqADAAQAAAABAAAAMgAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs', 'END:VCARD',
+].join('\n')).join('\n');
+const before = fake.batches.length;
+await o.getByRole('button', { name: 'Import' }).click();
+await o.getByLabel('Contacts file').setInputFiles({ name: 'All Contacts.vcf', mimeType: 'text/x-vcard', buffer: Buffer.from(big) });
+await see(o, '450 new', 'a 450-contact iPhone export (with photos) reads fine');
+await o.getByRole('button', { name: 'Import 450 contacts' }).click();
+await see(o, '450 contacts added to Customers', 'and imports in one go');
+await syncNow(o);
+for (let i = 0; i < 50 && fake.tables.customers.length < 453; i++) await o.waitForTimeout(200);
+if (fake.tables.customers.length < 453) await fail(o, `only ${fake.tables.customers.length - 3} of 450 reached the server`);
+const sizes = fake.batches.slice(before).filter((b) => b.table === 'customers').map((b) => b.count);
+if (sizes.join(',') !== '200,200,50') await fail(o, `uploaded in batches of ${sizes.join(',')}`);
+ok('all 450 reach the server in 3 batches (not 450 separate uploads)');
+await o.getByRole('button', { name: 'Import' }).click();
+await o.getByLabel('Contacts file').setInputFiles({ name: 'IMG_0014.jpeg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]) });
+await see(o, 'isn’t a contacts file', 'picking the wrong file says so plainly');
+await o.getByRole('button', { name: 'Close' }).click();
 
 // ---------------------------------------------------------------- the bell: crew mark a job blocked
 await signedEstimate(o, 'Dana', 'Smith', 'Traverse City');
@@ -109,6 +135,31 @@ ok('the card\u2019s notes icon now shows 1');
 if (!o.url().includes('#/board')) await fail(o, 'opening notes left the board');
 ok('all without leaving the board');
 
+// ---------------------------------------------------------------- deposits and payments from a card
+await lee.getByRole('button', { name: 'Payments' }).click();
+await see(o, 'Nothing recorded yet', 'the $ icon on the card opens the job\u2019s payments');
+await see(o, 'Left on the estimate', 'with what\u2019s left to pay');
+await o.locator('dialog[open]').getByRole('button', { name: 'Record deposit' }).click();
+const dep = o.locator('dialog[open]').last();
+await dep.getByLabel('Amount received').fill('500');
+await dep.getByLabel('Check number').fill('1042');
+await dep.getByRole('button', { name: 'Save payment' }).click();
+await see(o, 'Check #1042 · deposit', 'a $500 deposit by check is recorded right there');
+await see(o, '$4,184.00', 'and the amount left drops to $4,184.00');
+await shot(o, '05-card-payments');
+await o.locator('dialog[open]').getByRole('button', { name: 'Close' }).click();
+await lee.getByRole('button', { name: 'Payments, 1' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'card $ icon did not show 1'));
+ok('the card\u2019s $ icon now shows 1 payment');
+await syncNow(o);
+await c.goto(`${APP}#/`);
+await syncNow(c);
+for (const where of ['#/', '#/board', '#/calendar']) {
+  await c.goto(`${APP}${where}`);
+  await c.waitForTimeout(400);
+  if (await c.getByRole('button', { name: /^Payments/ }).count()) await fail(c, `crew see a $ icon on ${where}`);
+}
+ok('crew never get the $ icon');
+
 // ---------------------------------------------------------------- a new lead: schedule the visit, then write the estimate
 await o.getByRole('button', { name: 'New lead' }).click();
 await o.getByLabel('First name').fill('Jim');
@@ -138,6 +189,41 @@ await jim.getByRole('button', { name: 'Write estimate' }).click();
 await see(o, 'Client & Site', 'after the visit, Write estimate opens the estimate');
 await o.goto(`${APP}#/`);
 await notSee(o, /New lead, no visit scheduled/, 'and the dashboard no longer flags it');
+
+// ---------------------------------------------------------------- cancel: the customer said no
+await o.goBack();
+await o.getByRole('button', { name: 'Cancel estimate' }).click();
+await o.locator('dialog[open]').getByRole('button', { name: 'Went with someone else' }).click();
+await see(o, 'calendar entry is cancelled too', 'cancelling warns that the visit is cancelled too');
+await o.locator('dialog[open]').getByRole('button', { name: 'Cancel this estimate' }).click();
+await see(o, 'Went with someone else', 'the estimate shows it was cancelled, and why');
+await shot(o, '06-cancelled');
+await o.goto(`${APP}#/board`);
+await o.getByRole('tab', { name: /^New/ }).click();
+await notSee(o, /Jim Peterson/, 'it leaves the board');
+await o.goto(`${APP}#/estimates`);
+await see(o, 'Lee Park', 'Estimates shows the open jobs');
+await notSee(o, /Jim Peterson/, 'but not cancelled ones');
+await o.getByRole('button', { name: 'Cancelled', exact: true }).click();
+await see(o, 'Jim Peterson', 'they are under Cancelled');
+await o.getByText('Jim Peterson').first().click();
+await o.getByRole('button', { name: 'Reopen' }).click();
+await notSee(o, /Went with someone else/, 'Reopen brings it back');
+await o.goto(`${APP}#/board`);
+await o.getByRole('tab', { name: /^New/ }).click();
+await see(o, 'Jim Peterson', 'onto the board');
+// A signed job with a deposit, from the board menu.
+await o.getByRole('tab', { name: /^Approved/ }).click();
+await o.locator('.jcard', { hasText: 'Lee Park' }).getByRole('button', { name: /More actions/ }).click();
+await o.getByRole('menuitem', { name: 'Cancel job…' }).click();
+await see(o, '$500.00 has been paid on this job', 'cancelling a job with a deposit says money was paid');
+await o.locator('dialog[open]').getByRole('button', { name: 'Cancel this job' }).click();
+await o.locator('.jcard', { hasText: 'Lee Park' }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => fail(o, 'Lee Park still on the board'));
+ok('and the job leaves the board');
+await syncNow(o);
+const lee2 = fake.tables.jobs.find((x) => x.client?.firstName === 'Lee');
+if (!lee2?.cancelled_at) await fail(o, 'cancel did not reach the server');
+ok('the cancel reaches the server');
 
 await browser.close();
 done('extras');

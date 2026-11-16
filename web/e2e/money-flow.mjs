@@ -28,28 +28,23 @@ const jobUrl = o.url();
 
 // ---------------------------------------------------------------- hours typed in, then by the clock
 await o.getByRole('button', { name: 'Add hours' }).click();
-await o.locator('dialog[open]').getByLabel('Crew-hours').fill('27');
+if (!(await o.locator('dialog[open]').getByLabel('Whose hours').count())) await fail(o, 'owner can\u2019t choose whose hours');
+ok('the owner can add hours for anyone (Whose hours)');
+await o.locator('dialog[open]').getByRole('spinbutton').fill('27');
 await o.locator('dialog[open]').getByRole('button', { name: 'Save hours' }).click();
-await see(o, '27 h', 'owner logs 27 crew-hours');
-await see(o, '$173.48', 'and sees it earned $173.48 per crew-hour ($4,684 ÷ 27)');
+await see(o, '27 h', 'owner logs 27 hours');
+await see(o, '$173.48', 'and sees it earned $173.48 per hour worked ($4,684 ÷ 27)');
 
-await o.getByRole('button', { name: 'Start clock' }).click();
-await see(o, 'Stop clock', 'the clock starts');
-// Pretend it was started 3 hours ago.
-await o.evaluate(() => {
-  const k = Object.keys(localStorage).find((x) => x.startsWith('canopy.clock.'));
-  localStorage.setItem(k, new Date(Date.now() - 3 * 3600_000).toISOString());
-});
+// A fake clock stands in for hours passing.
+await o.clock.install();
 await o.reload();
-await see(o, 'Stop clock · 3h 00m', 'it keeps running after the phone reloads (3 hours in)');
-await o.getByRole('button', { name: /Stop clock/ }).click();
-const dlg = o.locator('dialog[open]');
-await dlg.getByRole('button', { name: 'Less People' }).click(); // default is the team size (2) → 1
-await dlg.getByRole('button', { name: 'More People' }).click();
-await dlg.getByRole('button', { name: 'More People' }).click(); // 3 people
-await see(o, '9 h', 'stopping asks how many people: 3 × 3 hours = 9 crew-hours');
-await dlg.getByRole('button', { name: 'Save hours' }).click();
-await see(o, '36 h', 'the job now has 36 crew-hours');
+await o.getByRole('button', { name: 'Clock in' }).click();
+await see(o, 'You · on the clock since', 'owner clocks in');
+await o.clock.fastForward('03:00:00');
+await o.reload();
+await see(o, 'Clock out · 3h 00m', 'the clock is kept with the job, so it survives a reload (3 hours in)');
+await o.getByRole('button', { name: /Clock out/ }).click();
+await see(o, '30 h', 'clocking out adds the owner\u2019s 3 hours: 30 h on the job');
 await shot(o, '01-job-hours');
 
 // ---------------------------------------------------------------- an expense with a receipt, tied to the job
@@ -91,14 +86,33 @@ await see(c, 'Receipt sent to the office', 'crew send in a receipt');
 await c.goto(`${APP}#/expenses`);
 await c.waitForURL(/#\/$/, { timeout: 5000 }).catch(() => fail(c, 'crew could open Expenses'));
 ok('and can’t open the Expenses list');
+await c.clock.install();
 await c.goto(jobUrl);
 await c.getByRole('button', { name: 'Add hours' }).click();
-await c.locator('dialog[open]').getByLabel('Crew-hours').fill('4');
+if (await c.locator('dialog[open]').getByLabel('Whose hours').count()) await fail(c, 'crew can pick whose hours');
+await c.locator('dialog[open]').getByRole('spinbutton').fill('8');
 await c.locator('dialog[open]').getByRole('button', { name: 'Save hours' }).click();
-await see(c, '4 h', 'crew log 4 crew-hours on the job');
+await see(c, '8 h · Sam Rivera', 'crew add their own 8 hours (no choosing someone else)');
+await c.getByRole('button', { name: 'Clock in' }).click();
+await see(c, 'You · on the clock since', 'and clock in to the job');
+await syncNow(c);
+await o.goto(`${APP}#/`);
+await syncNow(o);
+await see(o, 'On the clock', 'the owner\u2019s dashboard shows who is on the clock');
+await o.locator('.on-clock-card', { hasText: 'Sam Rivera' }).getByText('Dana Smith').waitFor({ timeout: 5000 }).catch(() => fail(o, 'Sam not shown on the clock at Dana Smith'));
+ok('Sam Rivera, at Dana Smith');
+await c.clock.fastForward('02:00:00');
+await c.getByRole('button', { name: /Clock out/ }).click();
+await see(c, '2 h · Sam Rivera', 'Sam clocks out 2 hours later');
 await notSee(c, /\$/, 'crew see hours but no money');
-if (!(await c.locator('.hours-row[disabled]').count())) await fail(c, 'crew can edit the owner’s hours');
-ok('crew can’t change hours someone else entered');
+if ((await c.locator('.hours-row:not([disabled])').count()) !== 2) await fail(c, 'crew should be able to edit exactly their own two entries');
+if ((await c.locator('.hours-row[disabled]').count()) !== 2) await fail(c, 'crew can edit the owner\u2019s hours');
+ok('crew can fix their own hours but not anyone else\u2019s');
+await c.locator('.hours-row', { hasText: '2 h · Sam Rivera' }).click();
+await c.locator('dialog[open]').getByLabel('Clocked in').waitFor();
+await c.locator('dialog[open]').getByLabel('Note').fill('Chipper day');
+await c.locator('dialog[open]').getByRole('button', { name: 'Save hours' }).click();
+await see(c, 'Chipper day', 'and edit a clocked entry (in and out times, note)');
 await syncNow(c);
 for (let i = 0; i < 30 && receiptFiles() < 2; i++) await c.waitForTimeout(200);
 
@@ -110,7 +124,7 @@ await see(o, 'Added by Sam Rivera', 'marked as added by Sam');
 await see(o, '$94.20', 'the month total is $94.20');
 await o.goto(`${APP}#/`);
 await see(o, 'Hours this week', 'the dashboard has an hours tile');
-await see(o, '40 h', 'with 40 crew-hours this week');
+await see(o, '40 h', 'with 40 hours this week (27 + 3 + 8 + 2)');
 await shot(o, '02-dashboard');
 await o.goto(`${APP}#/board`);
 await o.getByLabel('40 h logged').first().waitFor({ timeout: 5000 }).catch(() => fail(o, 'board card has no hours'));
@@ -122,7 +136,7 @@ const { readFileSync } = await import('node:fs');
 await o.goto(`${APP}#/reports`);
 await see(o, 'Money out', 'Reports opens on this month');
 await see(o, '$94.20', 'money out is $94.20');
-await see(o, '40 h', 'with 40 crew-hours');
+await see(o, '40 h', 'with 40 hours worked');
 await o.locator('.report-table', { hasText: 'Dana Smith' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'job missing from the report'));
 ok('the Dana Smith job is in the jobs table');
 await shot(o, '03-reports');
@@ -143,23 +157,39 @@ if (inZip.length !== 2 || !inZip.some((n) => n.includes('Marathon_64.20'))) awai
 ok(`Download all gives a zip of the month’s 2 receipts (${inZip.join(', ')})`);
 
 // ---------------------------------------------------------------- review fixes
-// A running clock belongs to its own job, even when going straight from one job to another.
+// Clocking in on a second job while on the clock at the first switches over.
 await signedEstimate(o, 'Lee', 'Park', 'Kingsley');
 await o.goto(o.url().replace(/\/review$/, ''));
-await o.getByRole('button', { name: 'Start clock' }).click();
-await see(o, 'Stop clock', 'a clock starts on a second job (Lee Park)');
+await o.getByRole('button', { name: 'Clock in' }).click();
+await see(o, 'Clock out', 'owner clocks in on a second job (Lee Park)');
 await o.locator('.top-search label').click();
 await o.getByLabel('Search jobs and customers').fill('dana');
 await o.getByRole('option', { name: /Dana Smith/ }).first().click();
 await see(o, 'Signed by Dana Smith', 'search goes straight to the Dana Smith job');
-await o.getByRole('button', { name: 'Start clock' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'Dana Smith shows Lee Park\u2019s running clock'));
-ok('which shows its own clock (not running), not Lee Park\u2019s');
+await see(o, 'on the clock at Lee Park', 'Dana Smith says you\u2019re on the clock at Lee Park');
+await o.getByRole('button', { name: 'Switch to this job' }).click();
+await see(o, 'You · on the clock since', 'Switch clocks out there and in here');
+await o.locator('.top-search label').click();
+await o.getByLabel('Search jobs and customers').fill('lee');
+await o.getByRole('option', { name: /Lee Park/ }).first().click();
+await o.getByRole('button', { name: 'Switch to this job' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'Lee Park still has the owner on the clock'));
+await o.locator('.hours-row').first().waitFor({ timeout: 5000 }).catch(() => fail(o, 'Lee Park\u2019s time was not saved when switching'));
+ok('Lee Park is no longer on the clock, and its time was saved');
+// A clock left running overnight asks for the real out time instead of saving 17 hours.
+await o.locator('.top-search label').click();
+await o.getByLabel('Search jobs and customers').fill('dana');
+await o.getByRole('option', { name: /Dana Smith/ }).first().click();
+await o.clock.fastForward('17:00:00');
+await o.reload();
+await o.getByRole('button', { name: /Clock out/ }).click();
+await see(o, 'probably left on', 'a 17-hour clock asks when you really stopped');
+await o.locator('dialog[open]').getByRole('button', { name: 'Close' }).click();
 
 // One entry can't be more than the database accepts.
 await o.getByRole('button', { name: 'Add hours' }).click();
-await o.locator('dialog[open]').getByLabel('Crew-hours').fill('250');
+await o.locator('dialog[open]').getByRole('spinbutton').fill('250');
 await o.locator('dialog[open]').getByRole('button', { name: 'Save hours' }).click();
-await see(o, 'at most 200 crew-hours', '250 crew-hours in one entry is refused with a reason');
+await see(o, 'at most 200 hours', '250 hours in one entry is refused with a reason');
 await o.locator('dialog[open]').getByRole('button', { name: 'Close' }).click();
 await see(o, '40 h', 'and nothing was added (still 40 h)');
 

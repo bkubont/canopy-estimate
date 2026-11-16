@@ -73,7 +73,7 @@ export function Reports() {
         <div className="tile"><span className="tile-label">Money out</span><span className="tile-value">{money(t.spent)}</span><span className="tile-sub">{books.expenses.length} expense{books.expenses.length === 1 ? '' : 's'}</span></div>
         <div className={`tile ${t.net < 0 ? 'bad' : ''}`}><span className="tile-label">In minus out</span><span className="tile-value">{money(t.net)}</span><span className="tile-sub">Cash, not profit</span></div>
         <div className="tile"><span className="tile-label">Sales tax</span><span className="tile-value">{money(t.tax)}</span><span className="tile-sub">On invoices issued</span></div>
-        <div className="tile"><span className="tile-label">Crew-hours</span><span className="tile-value">{hoursLabel(t.hours)}</span><span className="tile-sub">Drive time included</span></div>
+        <div className="tile"><span className="tile-label">Hours worked</span><span className="tile-value">{hoursLabel(t.hours)}</span><span className="tile-sub">Drive time included</span></div>
       </section>
 
       <div className="dash-cols">
@@ -82,7 +82,7 @@ export function Reports() {
           {books.jobs.length ? (
             <div className="table-wrap">
               <table className="report-table">
-                <thead><tr><th>Job</th><th>Billed</th><th>Costs</th><th>Crew-hours</th><th>Per crew-hour</th></tr></thead>
+                <thead><tr><th>Job</th><th>Billed</th><th>Costs</th><th>Hours</th><th>Per hour</th></tr></thead>
                 <tbody>
                   {books.jobs.map((j) => (
                     <tr key={j.job}>
@@ -114,7 +114,7 @@ export function Reports() {
           )}
         </section>
       </div>
-      <p className="hint">The Excel file has a Summary sheet, then every payment, invoice, expense and crew-hour entry for {period.label}, plus each job’s numbers.</p>
+      <p className="hint">The Excel file has a Summary sheet, then every payment, invoice, expense and hours entry for {period.label}, plus each job’s numbers.</p>
     </div>
   );
 }

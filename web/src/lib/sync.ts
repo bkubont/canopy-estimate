@@ -5,7 +5,12 @@ import { TABLES, TABLE_NAMES, rowKey, type TableName, type TableRows } from './t
 export interface Remote {
   pull(orgId: string, cursor: string | null): Promise<PullResult>;
   push(table: TableName, row: Record<string, unknown>): Promise<void>;
+  /** Insert many brand-new rows in one request (all or nothing). Optional. */
+  insertMany?(table: TableName, rows: Record<string, unknown>[]): Promise<void>;
 }
+
+/** Rows per batch insert. */
+export const BATCH = 200;
 
 export interface PullResult {
   cursor: string;
@@ -90,8 +95,30 @@ export class SyncEngine {
       row: plain,
       version: (prev?.version ?? 0) + 1,
       queuedAt: new Date().toISOString(),
+      ...(prev?.fresh ? { fresh: true } : {}), // edited before it ever reached the server: still new
     };
     await Promise.all([tx.objectStore(table).put(plain, key), tx.objectStore('outbox').put(entry), tx.done]);
+    await this.refreshCounts();
+    this.emitChange(new Set([table]));
+    this.schedule();
+  }
+
+  /**
+   * Save many brand-new rows at once (an import): one write on this device, one
+   * screen refresh, and they go to the server in batches instead of one by one.
+   */
+  async addMany<T extends TableName>(table: T, rows: TableRows[T][]): Promise<void> {
+    if (!rows.length) return;
+    const tx = this.db.transaction([table, 'outbox'], 'readwrite');
+    const queuedAt = new Date().toISOString();
+    const writes: Promise<unknown>[] = [];
+    for (const row of rows) {
+      const plain = JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
+      const key = rowKey(table, plain);
+      const entry: OutboxEntry = { id: `${table}|${key}`, table, key, row: plain, version: 1, queuedAt, fresh: true };
+      writes.push(tx.objectStore(table).put(plain, key), tx.objectStore('outbox').put(entry));
+    }
+    await Promise.all([...writes, tx.done]);
     await this.refreshCounts();
     this.emitChange(new Set([table]));
     this.schedule();
@@ -160,18 +187,39 @@ export class SyncEngine {
     const entries = ((await this.db.getAll('outbox')) as OutboxEntry[])
       .filter((e) => !e.error)
       .sort((a, b) => order(a.table) - order(b.table) || a.queuedAt.localeCompare(b.queuedAt));
-    for (const entry of entries) {
-      try {
-        await this.remote.push(entry.table, entry.row);
-      } catch (err) {
-        if (err instanceof RemoteError && err.permanent) {
-          await this.markFailed(entry, err.message);
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!;
+      // New rows of the same table (an import) go up together.
+      if (entry.fresh && this.remote.insertMany) {
+        const run: OutboxEntry[] = [entry];
+        while (run.length < BATCH && entries[i + run.length]?.fresh && entries[i + run.length]!.table === entry.table) run.push(entries[i + run.length]!);
+        i += run.length - 1;
+        try {
+          await this.remote.insertMany(entry.table, run.map((e) => e.row));
+          for (const e of run) await this.clearIfUnchanged(e);
+          continue;
+        } catch (err) {
+          if (!(err instanceof RemoteError && err.permanent)) throw err; // offline: try again later
+          // Refused as a batch (one bad row, or some already there): send each on its own.
+          for (const e of run) await this.pushOne(e);
           continue;
         }
-        throw err; // offline or server hiccup: stop, keep everything queued
       }
-      await this.clearIfUnchanged(entry);
+      await this.pushOne(entry);
     }
+  }
+
+  private async pushOne(entry: OutboxEntry) {
+    try {
+      await this.remote.push(entry.table, entry.row);
+    } catch (err) {
+      if (err instanceof RemoteError && err.permanent) {
+        await this.markFailed(entry, err.message);
+        return;
+      }
+      throw err; // offline or server hiccup: stop, keep everything queued
+    }
+    await this.clearIfUnchanged(entry);
   }
 
   private async markFailed(entry: OutboxEntry, message: string) {

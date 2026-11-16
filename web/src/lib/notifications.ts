@@ -20,7 +20,7 @@ export function bellItems(input: {
   const { me, office, today } = input;
   const since = miToIso(addDays(today, -(input.days ?? 14)), '00:00');
   const out: BellItem[] = [];
-  const jobs = (input.jobs ?? []).filter((j) => !j.deleted_at).map(normalizeJob);
+  const jobs = (input.jobs ?? []).filter((j) => !j.deleted_at && !j.cancelled_at).map(normalizeJob);
   const byId = new Map(jobs.map((j) => [j.id, j]));
   const who = (j: Job | undefined) => (j ? clientName(j.client) || j.number : 'A customer');
 

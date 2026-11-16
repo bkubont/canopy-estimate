@@ -33,14 +33,27 @@ export const jobEntries = (entries: TimeEntry[] | null | undefined, jobId: strin
 
 export const hoursTotal = (entries: TimeEntry[]) => round2(entries.reduce((s, e) => s + Number(e.hours || 0), 0));
 
-/** The database refuses a single entry above this (one day, the whole crew). */
+/** The database refuses a single entry above this (older crew-total entries could be a whole crew's day). */
 export const MAX_ENTRY_HOURS = 200;
 
-/** Crew-hours from a running clock: elapsed time × people, rounded to the quarter hour. */
-export function clockHours(startIso: string, endIso: string, people: number) {
-  const h = Math.max(0, (Date.parse(endIso) - Date.parse(startIso)) / 3_600_000);
-  return Math.max(0.25, Math.round(h * Math.max(1, people) * 4) / 4);
+/** Hours between clocking in and out, to the minute (at least one minute). */
+export function clockHours(inIso: string, outIso: string) {
+  const min = Math.max(1, Math.round((Date.parse(outIso) - Date.parse(inIso)) / 60_000));
+  return round2(min / 60);
 }
+
+/** A clock that is still running: clocked in, no hours yet. */
+export const isOpen = (e: TimeEntry) => e.hours == null && !!e.clock_in && !e.deleted_at;
+
+/** The person's running clock, on any job. */
+export const openClockFor = (entries: TimeEntry[] | null | undefined, userId: string) =>
+  live(entries).find((e) => isOpen(e) && e.worker_id === userId) ?? null;
+
+/** Whose hours an entry is, for lists. Older entries were crew totals. */
+export const workerOf = (e: TimeEntry) => e.worker_name || (e.worker_id ? 'Someone' : e.entered_by_name ? `${e.entered_by_name} (crew total)` : 'Crew total');
+
+/** A shift longer than this was almost certainly a clock left running. */
+export const LONG_SHIFT_HOURS = 16;
 
 /** What a job earned per crew-hour (billed total ÷ crew-hours), or null without hours. */
 export const perCrewHour = (billed: number, hours: number) => (hours > 0 ? round2(billed / hours) : null);

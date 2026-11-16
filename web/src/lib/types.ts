@@ -83,6 +83,9 @@ export interface Job extends SyncCols {
   signed_at: string | null;
   signed_by_name: string;
   signed_via: '' | 'device' | 'link';
+  /** Set when the customer said no or backed out; the job keeps its record and can be reopened. */
+  cancelled_at?: string | null;
+  cancel_reason?: string;
   prepared_by_name: string;
   contractor_sig: string;
   assigned_crew: string;
@@ -279,10 +282,16 @@ export interface TimeEntry extends SyncCols {
   org_id: string;
   job_id: string;
   work_date: string;
-  hours: number;
+  /** Empty while the person is still on the clock. */
+  hours: number | null;
   note: string;
   entered_by: string | null;
   entered_by_name: string;
+  /** Whose hours these are. Empty on older entries, which were crew totals. */
+  worker_id?: string | null;
+  worker_name?: string;
+  clock_in?: string | null;
+  clock_out?: string | null;
 }
 
 export interface TableRows {

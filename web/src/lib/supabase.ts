@@ -50,6 +50,16 @@ export const supabaseRemote: Remote = {
     const ins = await supabase.from(table).insert(body);
     if (ins.error) throw toRemoteError(ins.error, ins.status);
   },
+
+  async insertMany(table: TableName, rows) {
+    const bodies = rows.map((row) => {
+      const body: Record<string, unknown> = { ...row };
+      for (const c of SERVER_COLS) delete body[c];
+      return body;
+    });
+    const res = await supabase.from(table).insert(bodies);
+    if (res.error) throw toRemoteError(res.error, res.status);
+  },
 };
 
 export interface MyOrg {

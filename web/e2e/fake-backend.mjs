@@ -12,6 +12,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 export function createFakeBackend() {
   const users = new Map(); // email -> {id,email,password}
   const tokens = new Map(); // access token -> user
+  const batches = []; // batch inserts seen, for walkthroughs to check
   const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], expenses: [], time_entries: [], invites: [] };
   const files = new Map(); // storage path -> { bytes, type }
   let seq = 1;
@@ -20,11 +21,13 @@ export function createFakeBackend() {
   const now = () => new Date().toISOString();
   const touch = (row, user) => Object.assign(row, { updated_at: now(), updated_by: user?.id ?? null, _seq: seq++ });
 
+  // Sessions last a week here, so walkthroughs can move the browser's clock forward hours at a time.
+  const LIFE = 7 * 86400;
   function session(user) {
-    const access = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, email: user.email, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+    const access = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, email: user.email, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + LIFE })}.sig`;
     tokens.set(access, user);
     const u = { id: user.id, email: user.email, aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: now() };
-    return { access_token: access, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: uuid(), user: u };
+    return { access_token: access, token_type: 'bearer', expires_in: LIFE, expires_at: Math.floor(Date.now() / 1000) + LIFE, refresh_token: uuid(), user: u };
   }
   const roleOf = (orgId, user) => t.members.find((m) => m.org_id === orgId && m.user_id === user?.id && !m.deleted_at)?.role;
   const visible = (table, row, user) => {
@@ -286,6 +289,17 @@ export function createFakeBackend() {
       }
       return json(200, rows.map((r) => Object.fromEntries(keysOf(table).map((k) => [k, r[k]]))));
     }
+    if (method === 'POST' && Array.isArray(body)) {
+      // A batch insert is all-or-nothing, like Postgres.
+      for (const b of body) {
+        const role = roleOf(b.org_id, user);
+        if (!role || (['jobs', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew')) return json(403, { code: '42501', message: `new row violates row-level security policy for table "${table}"` });
+        if (t[table].some((r) => keysOf(table).every((k) => r[k] === b[k]))) return json(409, { code: '23505', message: `duplicate key value violates unique constraint "${table}_pkey"` });
+      }
+      batches.push({ table, count: body.length });
+      for (const b of body) t[table].push(touch({ created_at: now(), ...b }, user));
+      return json(201, null);
+    }
     if (method === 'POST') {
       const role = roleOf(body.org_id, user);
       const allowed = role && !(['jobs', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew');
@@ -308,5 +322,6 @@ export function createFakeBackend() {
     },
     tables: t,
     files,
+    batches,
   };
 }
