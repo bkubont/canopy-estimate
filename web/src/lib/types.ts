@@ -237,6 +237,23 @@ export interface Payment extends SyncCols {
   voided_at: string | null;
 }
 
+export type PhotoKind = 'tree' | 'before' | 'during' | 'after' | 'receipt';
+/** A picture's details; the picture itself is a file in storage at `path`. */
+export interface Photo extends SyncCols {
+  id: string;
+  org_id: string;
+  job_id: string | null;
+  tree_id: string | null;
+  kind: PhotoKind;
+  path: string;
+  width: number;
+  height: number;
+  bytes: number;
+  taken_by: string | null;
+  taken_by_name: string;
+  note: string;
+}
+
 export interface TableRows {
   organizations: Organization;
   org_pricing: OrgPricing;
@@ -247,6 +264,7 @@ export interface TableRows {
   invoices: Invoice;
   payments: Payment;
   events: CalEvent;
+  photos: Photo;
 }
 export type TableName = keyof TableRows;
 
@@ -266,6 +284,7 @@ export const TABLES: { name: TableName; keyCols: string[]; push: 'update' | 'ups
   { name: 'invoices', keyCols: ['id'], push: 'upsert' },
   { name: 'payments', keyCols: ['id'], push: 'upsert' },
   { name: 'events', keyCols: ['id'], push: 'upsert' },
+  { name: 'photos', keyCols: ['id'], push: 'upsert' },
 ];
 
 export const TABLE_NAMES = TABLES.map((t) => t.name);

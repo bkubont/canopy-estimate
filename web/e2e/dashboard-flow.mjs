@@ -48,7 +48,7 @@ if (!drawerLinks.some((t) => t.includes('Invoices'))) await fail(o, `drawer miss
 ok('the phone menu opens with Work, Money and Settings');
 await shot(o, '02-phone-menu');
 await o.locator('.sidebar a', { hasText: 'Customers' }).click();
-if (await o.locator('.shell.drawer-open').count()) await fail(o, 'drawer stayed open after choosing a page');
+await o.locator('.shell.drawer-open').waitFor({ state: 'detached', timeout: 3000 }).catch(() => fail(o, 'drawer stayed open after choosing a page'));
 ok('choosing a page closes the menu');
 
 // ---------------------------------------------------------------- crew

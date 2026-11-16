@@ -128,13 +128,20 @@ await syncNow(o);
 await o.getByRole('tab', { name: /In progress/ }).click();
 await see(o, 'In progress (1)', 'the office sees it In progress');
 
-// ---------------------------------------------------------------- removing the day puts it back
-await o.getByRole('button', { name: 'Done', exact: true }).click();
-await see(o, 'Done (1)', 'marked done');
+// ---------------------------------------------------------------- one main button per card, the rest under "⋯"
+await o.getByRole('button', { name: 'Mark done' }).click();
+await see(o, 'Done (1)', 'Mark done moves it to Done');
 await o.getByRole('tab', { name: /Done/ }).click();
-await o.getByRole('button', { name: 'Reopen' }).click();
+await see(o, 'Create invoice', 'a finished job\u2019s main button is Create invoice');
+await o.getByRole('button', { name: 'More actions for Dana Smith' }).click();
+await o.getByRole('menuitem', { name: 'Reopen' }).click();
 await o.getByRole('tab', { name: /Scheduled/ }).click();
-await o.getByRole('button', { name: 'Calendar entry' }).click();
+await see(o, 'Scheduled (1)', 'Reopen (under ⋯) puts it back to Scheduled');
+await shot(o, '04-board-card');
+
+// ---------------------------------------------------------------- removing the day puts it back
+await o.getByRole('button', { name: 'More actions for Dana Smith' }).click();
+await o.getByRole('menuitem', { name: 'Calendar entry' }).click();
 await o.getByRole('button', { name: 'Remove from calendar' }).click();
 await see(o, 'Approved (1)', 'removing the calendar day puts the job back to Approved');
 
@@ -158,6 +165,24 @@ const grid = await t.locator('.mgrid').boundingBox();
 if (grid.x + grid.width > t.viewportSize().width + 1) await fail(t, 'month cut off on iPad');
 ok('iPad: the whole month and the side list fit on screen');
 await shot(t, '03-ipad-month');
+
+// ---------------------------------------------------------------- iPad: drag a card between board columns
+async function dragCard(name, col) {
+  const grip = await t.getByRole('button', { name: `Drag ${name} to another column` }).boundingBox();
+  const target = await t.locator(`.board-col[data-col="${col}"] > header`).boundingBox();
+  await t.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await t.mouse.down();
+  await t.mouse.move(target.x + target.width / 2, target.y + 40, { steps: 15 });
+  await t.mouse.up();
+}
+await t.goto(`${APP}#/board`);
+await t.locator('.board-col[data-col="scheduled"] .jcard', { hasText: 'Lee Park' }).waitFor();
+await dragCard('Lee Park', 'in_progress');
+await t.locator('.board-col[data-col="in_progress"] .jcard', { hasText: 'Lee Park' }).waitFor({ timeout: 5000 }).catch(() => fail(t, 'card did not move to In progress'));
+ok('iPad: dragging a card to In progress starts the job');
+await dragCard('Lee Park', 'approved');
+await see(t, 'It has days on the calendar', 'dragging a scheduled job back to Approved is refused with a reason');
+await shot(t, '05-ipad-board');
 
 await browser.close();
 done('calendar');

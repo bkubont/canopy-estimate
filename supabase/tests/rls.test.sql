@@ -343,3 +343,35 @@ select t.ok((select count(*) = 0 from public.events), 'another company sees none
 
 reset role;
 
+
+-- ---------------------------------------------------------------------------
+-- Photos (Phase 5, step 4)
+-- ---------------------------------------------------------------------------
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+insert into public.photos (id, org_id, job_id, kind, path, taken_by, taken_by_name)
+  select 'cccccccc-0000-0000-0000-000000000001', v::uuid, :job, 'before', v || '/photos/p1.jpg', auth.uid(), 'Sam' from t.ids where k = 'org';
+select t.ok((select count(*) = 1 from public.photos where kind = 'before'), 'crew can add a before photo to a job');
+insert into public.photos (id, org_id, kind, path, taken_by)
+  select 'cccccccc-0000-0000-0000-000000000002', v::uuid, 'receipt', v || '/receipts/r1.jpg', auth.uid() from t.ids where k = 'org';
+select t.ok((select count(*) = 0 from public.photos where kind = 'receipt'), 'crew can add a receipt but never see receipts');
+select t.ok((select jsonb_array_length(public.sync_pull(v::uuid) -> 'photos') = 1 from t.ids where k = 'org'), 'crew sync gets the job photo, not the receipt');
+select t.fails($$ insert into public.photos (id, org_id, kind, path) select gen_random_uuid(), v::uuid, 'after', 'someone-else/photos/x.jpg' from t.ids where k = 'org' $$,
+  'this company''s folder', 'a photo file must be in the company''s own folder');
+update public.photos set path = 'elsewhere/x.jpg', note = 'Leaning toward the house' where id = 'cccccccc-0000-0000-0000-000000000001';
+select t.ok((select path like '%/photos/p1.jpg' and note = 'Leaning toward the house' from public.photos where id = 'cccccccc-0000-0000-0000-000000000001'),
+  'a photo''s note can change but its file can''t be swapped');
+update public.photos set deleted_at = now() where id = 'cccccccc-0000-0000-0000-000000000001';
+select t.ok((select deleted_at is not null from public.photos where id = 'cccccccc-0000-0000-0000-000000000001'), 'crew can remove a job photo');
+
+reset role;
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+select t.ok((select count(*) = 1 from public.photos where kind = 'receipt'), 'office sees the receipt');
+select t.ok((select jsonb_array_length(public.sync_pull(v::uuid) -> 'photos') = 2 from t.ids where k = 'org'), 'office sync gets photos and receipts');
+
+reset role;
+select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
+set role authenticated;
+select t.ok((select count(*) = 0 from public.photos), 'another company sees none of these photos');
+reset role;
