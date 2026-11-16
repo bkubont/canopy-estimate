@@ -14,6 +14,7 @@ export function ImportContacts() {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [msg, setMsg] = useState('');
   const [done, setDone] = useState('');
+  const [saving, setSaving] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const fresh = useMemo(() => (rows ?? []).filter((r) => !r.already), [rows]);
 
@@ -26,11 +27,17 @@ export function ImportContacts() {
     setPicked(new Set(plan.filter((r) => !r.already).map((r) => r.key)));
   }
   async function importNow() {
-    const chosen = (rows ?? []).filter((r) => picked.has(r.key));
-    for (const r of chosen) await engine.save('customers', toCustomer(r.client, org.org_id));
-    setDone(`${chosen.length} contact${chosen.length === 1 ? '' : 's'} added to Customers.`);
-    setRows(null);
-    setOpen(false);
+    if (saving) return; // a second tap while saving would add everyone twice
+    setSaving(true);
+    try {
+      const chosen = (rows ?? []).filter((r) => picked.has(r.key));
+      for (const r of chosen) await engine.save('customers', toCustomer(r.client, org.org_id));
+      setDone(`${chosen.length} contact${chosen.length === 1 ? '' : 's'} added to Customers.`);
+      setRows(null);
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
   }
   const name = (r: ImportRow) => [r.client.firstName, r.client.lastName].filter(Boolean).join(' ') || r.client.company || 'No name';
   const toggle = (k: number) => setPicked((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -76,8 +83,8 @@ export function ImportContacts() {
                 </li>
               ))}
             </ul>
-            <button type="button" className="btn primary block mt" onClick={() => void importNow()} disabled={!picked.size}>
-              Import {picked.size} contact{picked.size === 1 ? '' : 's'}
+            <button type="button" className="btn primary block mt" onClick={() => void importNow()} disabled={!picked.size || saving}>
+              {saving ? 'Importing…' : `Import ${picked.size} contact${picked.size === 1 ? '' : 's'}`}
             </button>
             <button type="button" className="btn block mt" onClick={() => setRows(null)}>Choose a different file</button>
           </>

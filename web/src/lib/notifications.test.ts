@@ -11,6 +11,14 @@ describe('the bell', () => {
     const items = bellItems({ ...base, jobs: [job({ signed_at: '2026-11-15T14:00:00Z', signed_via: 'link', status: 'blocked', block_reason: 'Weather' })] });
     expect(items.map((i) => i.text)).toEqual(['Dana Smith is blocked: weather', 'Dana Smith signed the estimate online (E-1001)']);
   });
+  it('times a change order by when it was signed, so it counts as new', () => {
+    const co = { id: 'c1', days: 1, client_sig: 'sig', client_sig_date: '2026-11-15', signed_at: '2026-11-15T19:30:00Z' };
+    const items = bellItems({ ...base, nowIso: '2026-11-15T20:00:00Z', jobs: [job({ signed_at: '2026-11-01T12:00:00Z', change_orders: [co] })] });
+    expect(items[0]).toMatchObject({ kind: 'change_order', at: '2026-11-15T19:30:00Z', text: 'Dana Smith signed change order 1 (+1 day)' });
+    // signed this morning: shows straight away, not only from noon
+    const morning = bellItems({ ...base, nowIso: '2026-11-15T14:10:00Z', jobs: [job({ change_orders: [{ ...co, signed_at: '2026-11-15T14:00:00Z' }] })] });
+    expect(morning).toHaveLength(1);
+  });
   it('stays quiet about things you did yourself', () => {
     const items = bellItems({ ...base, jobs: [job({ status: 'blocked', updated_by: 'me' })],
       payments: [{ id: 'p', org_id: 'o', job_id: 'j1', amount: 500, method: 'check', received_on: '2026-11-15', recorded_by_name: 'Joey', voided_at: null, deleted_at: null, created_at: '2026-11-15T16:00:00Z' } as never] });

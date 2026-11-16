@@ -30,7 +30,8 @@ export function bellItems(input: {
     }
     j.change_orders.forEach((co, i) => {
       if (!co.client_sig || !co.client_sig_date || j.updated_by === me.id) return;
-      out.push({ id: `co:${j.id}:${co.id ?? i}`, kind: 'change_order', at: miToIso(co.client_sig_date, '12:00'), text: `${who(j)} signed change order ${i + 1} (+${num(co.days)} day${num(co.days) === 1 ? '' : 's'})`, to: `/estimates/${j.id}` });
+      // The exact signing time; change orders from before it was kept only have the day.
+      out.push({ id: `co:${j.id}:${co.id ?? i}`, kind: 'change_order', at: co.signed_at ?? miToIso(co.client_sig_date, '00:00'), text: `${who(j)} signed change order ${i + 1} (+${num(co.days)} day${num(co.days) === 1 ? '' : 's'})`, to: `/estimates/${j.id}` });
     });
     if (j.status === 'blocked' && j.updated_by !== me.id && j.updated_at && j.stage !== 'invoice' && j.stage !== 'paid') {
       out.push({ id: `blocked:${j.id}:${j.updated_at}`, kind: 'blocked', at: j.updated_at, text: `${who(j)} is blocked${j.block_reason ? `: ${j.block_reason.toLowerCase()}` : ''}`, to: `/estimates/${j.id}` });
