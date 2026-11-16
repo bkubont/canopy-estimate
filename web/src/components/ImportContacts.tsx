@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { planImport, toCustomer, type ImportRow } from '../lib/contactsImport';
 import { useReady, useRows } from '../lib/session';
-import { parseVCards } from '../lib/vcard';
+import { parseVCards, readContactsFile } from '../lib/vcard';
 import { Icon } from './Icon';
 import { Sheet } from './ui';
 
@@ -20,8 +20,14 @@ export function ImportContacts() {
 
   async function read(f: File) {
     setMsg('');
-    const cards = parseVCards(await f.text());
-    if (!cards.length) return setMsg('No contacts found in that file. It should be a contact card (.vcf) file.');
+    let text: string;
+    try { text = await readContactsFile(f); } catch { return setMsg(`Couldn’t open “${f.name}”. Try saving it to Files again.`); }
+    const cards = parseVCards(text);
+    if (!cards.length) {
+      return setMsg(/BEGIN:VCARD/i.test(text)
+        ? `“${f.name}” has contact cards, but none with a name, phone or email.`
+        : `“${f.name}” isn’t a contacts file. In Contacts, export a list (or Share Contact) and pick the .vcf file it makes.`);
+    }
     const plan = planImport(cards, customers ?? []);
     setRows(plan);
     setPicked(new Set(plan.filter((r) => !r.already).map((r) => r.key)));
@@ -31,7 +37,8 @@ export function ImportContacts() {
     setSaving(true);
     try {
       const chosen = (rows ?? []).filter((r) => picked.has(r.key));
-      for (const r of chosen) await engine.save('customers', toCustomer(r.client, org.org_id));
+      // All at once: one save here, and they go up to the server in batches.
+      await engine.addMany('customers', chosen.map((r) => toCustomer(r.client, org.org_id)));
       setDone(`${chosen.length} contact${chosen.length === 1 ? '' : 's'} added to Customers.`);
       setRows(null);
       setOpen(false);
@@ -57,9 +64,13 @@ export function ImportContacts() {
               <li>Come back here, tap <b>Choose contacts file</b> and pick that file.</li>
             </ol>
             <p className="hint">For one person: open them in Contacts → Share Contact → Save to Files. Anyone already in Customers is skipped.</p>
-            <button type="button" className="btn primary block" onClick={() => file.current?.click()}><Icon name="contact" />Choose contacts file</button>
-            <input ref={file} type="file" accept=".vcf,text/vcard,text/x-vcard" hidden aria-label="Contacts file"
-              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void read(f); }} />
+            {/* A real file input inside the button (not a hidden one clicked from code): the iPhone opens it reliably.
+                No file-type filter, so the iPhone never greys the file out; the file itself is checked after. */}
+            <label className="btn primary block">
+              <Icon name="contact" />Choose contacts file
+              <input ref={file} type="file" className="sr-only" aria-label="Contacts file"
+                onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void read(f); }} />
+            </label>
             {msg && <p className="error-text" role="alert">{msg}</p>}
           </>
         ) : (

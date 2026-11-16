@@ -11,6 +11,8 @@ export interface OutboxEntry {
   queuedAt: string;
   /** Set when the server permanently refused this change (e.g. not allowed). */
   error?: string;
+  /** A brand-new row (e.g. an imported contact): it can go up in a batch insert. */
+  fresh?: boolean;
 }
 
 // Bump when tables are added; the upgrade adds any missing stores.

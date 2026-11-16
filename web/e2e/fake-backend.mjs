@@ -12,6 +12,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 export function createFakeBackend() {
   const users = new Map(); // email -> {id,email,password}
   const tokens = new Map(); // access token -> user
+  const batches = []; // batch inserts seen, for walkthroughs to check
   const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], expenses: [], time_entries: [], invites: [] };
   const files = new Map(); // storage path -> { bytes, type }
   let seq = 1;
@@ -288,6 +289,17 @@ export function createFakeBackend() {
       }
       return json(200, rows.map((r) => Object.fromEntries(keysOf(table).map((k) => [k, r[k]]))));
     }
+    if (method === 'POST' && Array.isArray(body)) {
+      // A batch insert is all-or-nothing, like Postgres.
+      for (const b of body) {
+        const role = roleOf(b.org_id, user);
+        if (!role || (['jobs', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew')) return json(403, { code: '42501', message: `new row violates row-level security policy for table "${table}"` });
+        if (t[table].some((r) => keysOf(table).every((k) => r[k] === b[k]))) return json(409, { code: '23505', message: `duplicate key value violates unique constraint "${table}_pkey"` });
+      }
+      batches.push({ table, count: body.length });
+      for (const b of body) t[table].push(touch({ created_at: now(), ...b }, user));
+      return json(201, null);
+    }
     if (method === 'POST') {
       const role = roleOf(body.org_id, user);
       const allowed = role && !(['jobs', 'job_pricing', 'invoices', 'payments'].includes(table) && role === 'crew');
@@ -310,5 +322,6 @@ export function createFakeBackend() {
     },
     tables: t,
     files,
+    batches,
   };
 }

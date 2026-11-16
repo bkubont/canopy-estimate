@@ -438,3 +438,27 @@ select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
 set role authenticated;
 select t.ok((select count(*) = 0 from public.time_entries) and (select count(*) = 0 from public.expenses), 'another company sees none of these hours or expenses');
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- Cancelling an estimate
+-- ---------------------------------------------------------------------------
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+insert into public.jobs (id, org_id, number) select '44444444-4444-4444-4444-444444444444', v::uuid, 'E-4444' from t.ids where k = 'org';
+insert into public.job_pricing (job_id, org_id) select '44444444-4444-4444-4444-444444444444', v::uuid from t.ids where k = 'org';
+insert into t.ids select 'token4', public.create_share_link('44444444-4444-4444-4444-444444444444');
+update public.jobs set cancelled_at = now(), cancel_reason = 'Went with someone else' where id = '44444444-4444-4444-4444-444444444444';
+select t.ok((select cancel_reason = 'Went with someone else' from public.jobs where id = '44444444-4444-4444-4444-444444444444'), 'office can cancel an estimate, with a reason');
+reset role;
+select t.fails($$ select public.customer_view(v::uuid) from t.ids where k = 'token4' $$, 'was cancelled', 'the customer''s link says it was cancelled');
+select t.fails($$ select public.customer_sign(v::uuid, 'data:image/png;base64,iVBORw0KGgo=', 'Dana') from t.ids where k = 'token4' $$, 'was cancelled', 'and it can''t be signed');
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+update public.jobs set cancelled_at = null where id = '44444444-4444-4444-4444-444444444444';
+reset role;
+select t.ok((select cancelled_at is not null from public.jobs where id = '44444444-4444-4444-4444-444444444444'), 'crew can''t reopen (or cancel) a job');
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+update public.jobs set cancelled_at = null, cancel_reason = '' where id = '44444444-4444-4444-4444-444444444444';
+reset role;
+select t.ok((select (public.customer_view(v::uuid) -> 'job' ->> 'number') = 'E-4444' from t.ids where k = 'token4'), 'reopened, the link works again');

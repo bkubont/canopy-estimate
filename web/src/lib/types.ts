@@ -83,6 +83,9 @@ export interface Job extends SyncCols {
   signed_at: string | null;
   signed_by_name: string;
   signed_via: '' | 'device' | 'link';
+  /** Set when the customer said no or backed out; the job keeps its record and can be reopened. */
+  cancelled_at?: string | null;
+  cancel_reason?: string;
   prepared_by_name: string;
   contractor_sig: string;
   assigned_crew: string;

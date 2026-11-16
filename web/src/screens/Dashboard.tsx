@@ -36,7 +36,7 @@ export function Dashboard() {
 
   const data = useMemo(() => {
     const evs = events ?? [];
-    const jobs = (jobsRaw ?? []).filter((j) => j.stage !== 'archived' && !j.deleted_at).map(normalizeJob);
+    const jobs = (jobsRaw ?? []).filter((j) => j.stage !== 'archived' && !j.deleted_at && !j.cancelled_at).map(normalizeJob);
     const totalById = new Map((pricing ?? []).map((p) => [p.job_id, p.total]));
     const withStage = jobs.map((j) => ({ job: j, stage: jobStage(j, evs, invoices, payments, today) }));
 

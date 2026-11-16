@@ -39,8 +39,21 @@ class FakeServer {
         this.pushLog.push(`${table}:${String(row.id ?? row.job_id)}`);
         this.rows.set(`${table}|${rowKey(table, row)}`, { table, row: structuredClone(row), seq: this.seq });
       },
+      insertMany: async (table, rows) => {
+        if (this.offline) throw new RemoteError('Failed to fetch', false);
+        for (const row of rows) {
+          const why = this.refuse(table, row) ?? (this.rows.has(`${table}|${rowKey(table, row)}`) ? 'duplicate key' : null);
+          if (why) throw new RemoteError(why, true); // all or nothing
+        }
+        this.batchLog.push(rows.length);
+        for (const row of rows) {
+          this.seq += 1;
+          this.rows.set(`${table}|${rowKey(table, row)}`, { table, row: structuredClone(row), seq: this.seq });
+        }
+      },
     };
   }
+  batchLog: number[] = [];
 
   serverRow(table: TableName, key: string) {
     return this.rows.get(`${table}|${key}`)?.row;
@@ -218,5 +231,41 @@ describe('SyncEngine', () => {
     await a.save('customers', customer('c1'));
     await Promise.all([a.sync(), a.sync(), a.sync()]);
     expect(server.pushLog).toEqual(['customers:c1']);
+  });
+});
+
+describe('importing many rows', () => {
+  it('saves them in one go and sends them up in batches of 200', async () => {
+    const server = new FakeServer();
+    const a = await device(server);
+    const rows = Array.from({ length: 450 }, (_, i) => customer(`c${i}`, { first_name: `P${i}` }));
+    await a.addMany('customers', rows);
+    expect((await a.db.getAll('customers')).length).toBe(450);
+    await a.sync();
+    expect(server.batchLog).toEqual([200, 200, 50]);
+    expect(server.pushLog).toEqual([]); // no one-by-one requests
+    expect((await a.db.getAll('outbox')).length).toBe(0);
+  });
+  it('falls back to one at a time when a batch is refused, so one bad row doesn\u2019t block the rest', async () => {
+    const server = new FakeServer();
+    server.refuse = (_t, row) => (row.id === 'c3' ? 'Not allowed' : null);
+    const a = await device(server);
+    await a.addMany('customers', Array.from({ length: 5 }, (_, i) => customer(`c${i}`)));
+    await a.sync();
+    expect(server.batchLog).toEqual([]);
+    expect(server.pushLog.length).toBe(4);
+    const left = await a.db.getAll('outbox');
+    expect(left.map((e) => [e.key, e.error])).toEqual([['c3', 'Not allowed']]);
+  });
+  it('keeps them queued while offline', async () => {
+    const server = new FakeServer();
+    server.offline = true;
+    const a = await device(server);
+    await a.addMany('customers', [customer('c1'), customer('c2')]);
+    await a.sync().catch(() => undefined);
+    expect((await a.db.getAll('outbox')).length).toBe(2);
+    server.offline = false;
+    await a.sync();
+    expect(server.batchLog).toEqual([2]);
   });
 });

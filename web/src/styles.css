@@ -329,6 +329,8 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 
 /* ---------- universal stage colors: one color per stage, everywhere ----------
    Red only ever means a problem (Blocked, Overdue). Each pill also says the word. */
+.cancelled-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-left-color: #8A929B; background: #F7F8F9; margin-bottom: 12px; }
+.st-cancelled   { --st: #8A929B; --st-bg: #EEF0F2; --st-fg: #4A525A; --st-wash: #F7F8F9; }
 .st-new         { --st: #7CB518; --st-bg: #EEF7DC; --st-fg: #3D5A08; --st-wash: #F8FCEF; }
 .st-pending     { --st: #D9AE1E; --st-bg: #FEF6D8; --st-fg: #6B4E00; --st-wash: #FFFCF0; }
 .st-approved    { --st: #EE8A2F; --st-bg: #FFEBD9; --st-fg: #8A3C00; --st-wash: #FFF8F2; }

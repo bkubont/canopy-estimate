@@ -90,7 +90,7 @@ export function Calendar() {
   const { isDone, toggle: toggleDone } = useDoneToggle(engine, events);
   const active = useMemo(() => (events ?? []).filter(isActive), [events]);
   const toSchedule = useMemo(
-    () => (jobs ?? []).filter((j) => !j.deleted_at && boardColumn(j, active) === 'approved').sort((a, b) => (a.signed_at ?? '').localeCompare(b.signed_at ?? '')),
+    () => (jobs ?? []).filter((j) => !j.deleted_at && !j.cancelled_at && boardColumn(j, active) === 'approved').sort((a, b) => (a.signed_at ?? '').localeCompare(b.signed_at ?? '')),
     [jobs, active],
   );
   const rentals = useMemo(() => active.filter((e) => e.unscheduled && isTask(e.type)).sort((a, b) => a.title.localeCompare(b.title)), [active]);
