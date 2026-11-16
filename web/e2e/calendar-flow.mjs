@@ -168,6 +168,7 @@ await shot(t, '03-ipad-month');
 
 // ---------------------------------------------------------------- iPad: drag a card between board columns
 async function dragCard(name, col) {
+  await t.locator(`.board-col[data-col="${col}"]`).scrollIntoViewIfNeeded();
   const grip = await t.getByRole('button', { name: `Drag ${name} to another column` }).boundingBox();
   const target = await t.locator(`.board-col[data-col="${col}"] > header`).boundingBox();
   await t.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);

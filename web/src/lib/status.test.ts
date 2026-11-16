@@ -15,7 +15,8 @@ const pay = (amount: number): Payment => ({ id: 'p', org_id: 'o', job_id: 'j1', 
 
 describe('jobStage', () => {
   it('follows signature, calendar and crew status', () => {
-    expect(jobStage(job(), [])).toBe('pending');
+    expect(jobStage(job(), [])).toBe('new'); // a lead: no estimate written yet
+    expect(jobStage({ ...(job() as object), trees: [{}] } as never, [])).toBe('pending'); // estimate written, waiting on the customer
     expect(jobStage(job({ signed_at: 'x', status: 'approved' }), [])).toBe('approved');
     expect(jobStage(job({ signed_at: 'x', status: 'approved' }), [work])).toBe('scheduled');
     expect(jobStage(job({ signed_at: 'x', status: 'blocked' }), [work])).toBe('blocked');

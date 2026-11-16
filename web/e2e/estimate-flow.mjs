@@ -153,6 +153,13 @@ await o.getByRole('button', { name: 'Notes, 2' }).waitFor({ timeout: 10000 }).ca
 ok('the signed job has a Notes button showing 2 notes (job + tree)');
 if (await o.locator('.page textarea').count()) await fail(o, 'the big notes box is still on the page');
 ok('and no notes box on the page itself');
+const order = await o.evaluate(() => {
+  const at = (el) => el ? [...document.querySelectorAll('.page *')].indexOf(el) : -1;
+  const btn = (t) => [...document.querySelectorAll('.page button')].find((b) => b.textContent.trim() === t);
+  return { photos: at(document.getElementById('photos')), doc: at(document.querySelector('.page .doc')), co: at(btn('Change order')), rm: at(btn('Remove signature')) };
+});
+if (!(order.doc >= 0 && order.photos > order.doc && order.co > order.photos && order.rm > order.photos)) await fail(o, `page order wrong: ${JSON.stringify(order)}`);
+ok('photos sit below the estimate, with Change order and Remove signature at the very bottom');
 await o.getByRole('button', { name: 'Change order' }).click();
 await o.getByRole('button', { name: 'Weather delay' }).click();
 await o.locator('dialog').getByLabel('Client’s name').fill('Dana Smith');

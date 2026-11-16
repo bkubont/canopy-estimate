@@ -13,7 +13,7 @@ export function NotesBadge({ count, label }: { count: number; label?: string }) 
 }
 
 /** Notes button + panel for a signed job. `onChange` gets the job's new internal notes text. */
-export function WorkOrderNotes({ job, onChange }: { job: Job; onChange: (internalNotes: string) => void }) {
+export function WorkOrderNotes({ job, onChange, icon }: { job: Job; onChange: (internalNotes: string) => void; icon?: boolean }) {
   const { engine, org, user } = useReady();
   const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const [open, setOpen] = useState(false);
@@ -30,12 +30,20 @@ export function WorkOrderNotes({ job, onChange }: { job: Job; onChange: (interna
 
   return (
     <>
-      <button type="button" className={`btn notes-btn ${count ? 'has-notes' : ''}`} onClick={() => setOpen(true)}
-        aria-label={count ? `Notes, ${count}` : 'Notes'}>
-        <Icon name="message" />
-        <span>Notes</span>
-        <NotesBadge count={count} label="" />
-      </button>
+      {icon ? (
+        <button type="button" className={`card-icon ${count ? 'has-notes' : ''}`} onClick={() => setOpen(true)}
+          aria-label={count ? `Notes, ${count}` : 'Notes'} title="Work-order notes">
+          <Icon name="message" size={17} />
+          <NotesBadge count={count} label="" />
+        </button>
+      ) : (
+        <button type="button" className={`btn notes-btn ${count ? 'has-notes' : ''}`} onClick={() => setOpen(true)}
+          aria-label={count ? `Notes, ${count}` : 'Notes'}>
+          <Icon name="message" />
+          <span>Notes</span>
+          <NotesBadge count={count} label="" />
+        </button>
+      )}
       <Sheet open={open} onClose={() => setOpen(false)} title="Work-order notes">
         <p className="hint" style={{ marginTop: 0 }}>For the team only. Never printed or sent to the customer.</p>
         {notes.length > 0 ? (

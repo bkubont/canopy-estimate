@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon, type IconName } from '../components/Icon';
 import { Pill } from '../components/Pill';
+import { JobQuickIcons } from '../components/JobQuickIcons';
 import { NotesBadge } from '../components/WorkOrderNotes';
 import { isWorkOrder, noteSummary } from '../lib/notes';
-import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi, weekday } from '../lib/calendar';
+import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi, visitForJob, weekday } from '../lib/calendar';
 import { expensesInMonth, hoursLabel, hoursTotal, total } from '../lib/expenses';
 import { addDays, clientName, money, normalizeJob, round2 } from '../lib/estimate';
 import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
@@ -55,6 +56,8 @@ export function Dashboard() {
       } else if (office && stage === 'approved') {
         const n = daysSince(job.signed_at, today);
         attention.push({ key: job.id, to, title: name, why: `Signed ${ago(n)}, not on the calendar`, stage, icon: 'calendar', rank: 3 });
+      } else if (office && stage === 'new' && !visitForJob(job.id, evs)) {
+        attention.push({ key: job.id, to: '/board', title: name, why: 'New lead, no visit scheduled', stage, icon: 'calendar', rank: 3 });
       } else if (office && stage === 'pending' && job.client.firstName + job.client.lastName + job.client.company) {
         const n = daysSince(job.estimate_date, today);
         if (n >= 7) attention.push({ key: job.id, to, title: name, why: `Estimate from ${n} days ago, not signed yet`, stage, icon: 'file', rank: 4 });
@@ -230,6 +233,7 @@ export function Dashboard() {
                   {office && <b className="money">{money(total)}</b>}
                   {office && due !== null && due > 0 && <span className="due">{money(due)} due</span>}
                   {office && stage === 'done' && <span className="due">Needs invoice</span>}
+                  <JobQuickIcons job={job} />
                 </div>
               </article>
             ))}

@@ -97,9 +97,9 @@ export function jobSchedule(jobId: string, events: CalEvent[]) {
   return { events: mine, days, start: days[0] ?? null, end: days.at(-1) ?? null, crew: [...new Set(mine.flatMap((e) => e.assigned_to ?? []))] };
 }
 
-export type BoardColumn = 'pending' | 'approved' | 'scheduled' | 'in_progress' | 'blocked' | 'done' | 'invoiced' | 'paid';
+export type BoardColumn = 'new' | 'pending' | 'approved' | 'scheduled' | 'in_progress' | 'blocked' | 'done' | 'invoiced' | 'paid';
 export const COLUMN_LABEL: Record<BoardColumn, string> = {
-  pending: 'Pending', approved: 'Approved', scheduled: 'Scheduled', in_progress: 'In progress', blocked: 'Blocked', done: 'Done', invoiced: 'Invoiced', paid: 'Paid',
+  new: 'New', pending: 'Pending', approved: 'Approved', scheduled: 'Scheduled', in_progress: 'In progress', blocked: 'Blocked', done: 'Done', invoiced: 'Invoiced', paid: 'Paid',
 };
 
 /**
@@ -190,4 +190,22 @@ export function reorderDay(list: CalEvent[], index: number, dir: -1 | 1): CalEve
   [next[index], next[to]] = [next[to]!, next[index]!];
   // Only the entries whose position number actually changed need saving.
   return next.map((e, i) => ({ ...e, sort_order: (i + 1) * 10 })).filter((e) => e.sort_order !== before.get(e.id));
+}
+
+/** A lead's estimate visit (bid) on the calendar: the next one coming up, else the latest. */
+export function visitForJob(jobId: string, events: CalEvent[], now = new Date().toISOString()) {
+  const visits = events.filter((e) => isActive(e) && e.type === 'estimate_visit' && e.job_id === jobId && !e.unscheduled)
+    .sort((a, b) => a.starts.localeCompare(b.starts));
+  return visits.find((e) => (e.ends || e.starts) >= now) ?? visits.at(-1) ?? null;
+}
+
+/** A new bid (estimate visit) for a lead, at 9 am on `day`, filled in from the job. */
+export function visitEventFor(orgId: string, job: Job, day: string): CalEvent {
+  const j = normalizeJob(job);
+  const starts = miToIso(day, '09:00');
+  return blankEvent(orgId, {
+    type: 'estimate_visit', status: 'confirmed', all_day: false, job_id: j.id,
+    title: `Bid · ${clientName(j.client) || j.number}`, address: j.client.street, town: j.client.town,
+    starts, ends: new Date(new Date(starts).getTime() + BID_HOURS * 3600000).toISOString(),
+  });
 }

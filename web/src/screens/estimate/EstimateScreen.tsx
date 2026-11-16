@@ -209,7 +209,6 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
           </button>
         </div>
       </section>
-      <JobPhotos jobId={job.id} />
       <JobHours jobId={job.id} billed={invoice ? invoiceTotals(invoice.lines, invoice.tax_rate).subtotal : t.subtotal} />
       <section className="card">
         <div className="sum-line"><span>Signed total{job.change_orders.length ? ' (with change orders)' : ''}</span><b>{money(t.total)}</b></div>
@@ -222,12 +221,14 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         </div>
         {invError && <p className="error-text">{invError}</p>}
       </section>
+      <SendActions job={job} pricing={pricing} company={company} flush={flush} />
+      {/* Under the estimate: photos, then the less common actions. */}
+      <div id="photos"><JobPhotos jobId={job.id} /></div>
       <div className="btn-row" style={{ marginBottom: 12 }}>
         <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}><Icon name="plus" />Change order</button>
         {can.seePrices(org.role) && <button type="button" className="btn danger" onClick={() => void voidSig()} disabled={voiding === 'working'}>Remove signature</button>}
       </div>
       {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
-      <SendActions job={job} pricing={pricing} company={company} flush={flush} />
 
       <EventSheet event={scheduling} onClose={() => setScheduling(null)} />
       <PaymentSheet
@@ -323,7 +324,6 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
         <p style={{ margin: 0 }}>{clientName(job.client)}<br />{[job.client.street, job.client.town].filter(Boolean).join(', ')}</p>
         {job.client.phone && <a className="btn sm mt" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={16} />Call {job.client.phone}</a>}
       </section>
-      <JobPhotos jobId={job.id} />
       <JobHours jobId={job.id} />
       <section className="card">
         <h3>Trees</h3>
@@ -350,6 +350,7 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
           <div className="doc-preview"><EstimateDoc company={toCustomerCompany(company)} job={toCustomerJob(job)} pricing={null} /></div>
         </details>
       )}
+      <div id="photos"><JobPhotos jobId={job.id} /></div>
     </div>
   );
 }

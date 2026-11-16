@@ -101,7 +101,7 @@ await c.getByRole('button', { name: 'Close' }).click();
 // ---------------------------------------------------------------- board count, removing a photo
 await o.goto(`${APP}#/board`);
 await syncNow(o);
-await o.getByLabel('4 photos').first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'board card should say 4 photos'));
+await o.getByRole('button', { name: 'Photos, 4' }).first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'board card should say 4 photos'));
 ok('the board card shows 4 photos');
 await o.getByRole('link', { name: 'Dana Smith' }).first().click();
 // The photo itself, not the "Add" button next to it (which is there first while the job loads).
@@ -110,8 +110,12 @@ await o.getByRole('button', { name: 'Remove photo' }).click();
 await o.waitForFunction(() => document.querySelectorAll('.card .thumb img').length === 3, null, { timeout: 10000 }).catch(() => fail(o, 'photo not removed'));
 ok('removing a photo takes it off the job');
 await o.goto(`${APP}#/board`);
-await o.getByLabel('3 photos').first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'board count did not drop to 3'));
+await o.getByRole('button', { name: 'Photos, 3' }).first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'board count did not drop to 3'));
 ok('and the board count drops to 3');
+await o.getByRole('button', { name: 'Photos, 3' }).first().click();
+await waitLoaded(o, 'dialog[open]', 3, 'the photo icon on the board card opens the job\u2019s photos right there');
+if (!o.url().includes('#/board')) await fail(o, 'opening photos left the board');
+ok('without leaving the board');
 
 await browser.close();
 done('photo');
