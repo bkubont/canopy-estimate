@@ -279,10 +279,16 @@ export interface TimeEntry extends SyncCols {
   org_id: string;
   job_id: string;
   work_date: string;
-  hours: number;
+  /** Empty while the person is still on the clock. */
+  hours: number | null;
   note: string;
   entered_by: string | null;
   entered_by_name: string;
+  /** Whose hours these are. Empty on older entries, which were crew totals. */
+  worker_id?: string | null;
+  worker_name?: string;
+  clock_in?: string | null;
+  clock_out?: string | null;
 }
 
 export interface TableRows {

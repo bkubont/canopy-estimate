@@ -1,10 +1,10 @@
-/* Printed estimate: ATS black / chartreuse / red, carried over from the original PDF. */
+/* Printed estimates and invoices: black and royal blue, matching the app. Plain hex so the PDF maker can read them. */
 .doc {
   --doc-ink: #0d0f0e;
   --doc-muted: #5B6B73;
   --doc-line: #DDE3EA;
-  --doc-neon: #C5D92A;
-  --doc-red: #e0312b;
+  --doc-accent: #0404A9;
+  --doc-accent-tint: #ECECFA;
   color: var(--doc-ink);
   background: #fff;
   line-height: 1.35;
@@ -14,11 +14,11 @@
   overflow-wrap: break-word;
 }
 .doc-preview { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin: 12px 0; overflow-x: auto; }
-.doc-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 4px solid var(--doc-neon); position: relative; }
-.doc-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 3px; background: var(--doc-red); }
+.doc-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 4px solid var(--doc-accent); position: relative; }
+.doc-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: -7px; height: 1.5px; background: var(--doc-ink); }
 .doc-logo { width: 64px; height: 64px; object-fit: contain; flex: none; }
 .doc-brand { flex: 1; min-width: 0; }
-.doc-brand-name { font-size: .85em; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--doc-red); margin-bottom: 2px; }
+.doc-brand-name { font-size: .85em; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--doc-accent); margin-bottom: 2px; }
 .doc-head h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.55em; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
 .doc-company { margin-top: 6px; font-size: .92em; color: var(--doc-muted); }
 .doc-contact { font-weight: 700; color: var(--doc-ink); }
@@ -35,18 +35,18 @@
 .doc-sec { margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
 .doc-sec > h3 {
   position: relative; z-index: 1; display: inline-block; margin: 0 0 -11px 10px; padding: 3px 12px;
-  background: var(--doc-ink); color: var(--doc-neon); border-radius: 999px;
+  background: var(--doc-accent); color: #fff; border-radius: 999px;
   font-size: .9em; letter-spacing: .04em; text-transform: uppercase;
 }
 .doc-sec-body { border: 1.5px solid var(--doc-ink); border-radius: 10px; padding: 16px 12px 10px; }
-.doc-sub { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--doc-red); }
+.doc-sub { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--doc-accent); }
 .doc-muted, .doc-note { color: var(--doc-muted); }
 .doc .kv { display: flex; gap: 6px; padding: 3px 0; }
 .doc .kv b { white-space: nowrap; }
 .doc .kv span { flex: 1; border-bottom: 1px solid var(--doc-line); min-height: 1.3em; white-space: pre-line; }
 
 .doc-table { width: 100%; border-collapse: collapse; table-layout: auto; }
-.doc-table th { text-align: left; font-size: .9em; background: #EBF2B5; /* chartreuse tint; plain hex so the PDF maker can read it */ padding: 5px 6px; }
+.doc-table th { text-align: left; font-size: .9em; background: var(--doc-accent-tint); color: var(--doc-ink); padding: 5px 6px; }
 .doc-table td { border-bottom: 1px solid var(--doc-line); padding: 5px 6px; vertical-align: top; }
 .doc-table .r { text-align: right; white-space: nowrap; }
 .doc-table .none { color: var(--doc-muted); }
@@ -56,7 +56,7 @@
 .doc-sum th { text-align: left; font-weight: 500; padding: 5px 0; border-bottom: 1px solid var(--doc-line); }
 .doc-sum td { text-align: right; padding: 5px 0 5px 12px; border-bottom: 1px solid var(--doc-line); white-space: nowrap; }
 .doc-sum .grand th, .doc-sum .grand td { font-size: 1.35em; font-weight: 800; border-bottom: 0; padding-top: 8px; }
-.doc-sum .grand td { color: var(--doc-red); }
+.doc-sum .grand td { color: var(--doc-accent); }
 
 .sig-line { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--doc-ink); min-height: 50px; }
 .sig-box { flex: 1; }

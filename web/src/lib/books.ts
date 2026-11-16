@@ -88,8 +88,8 @@ export function bookkeeping(input: {
     note: e.note, amount: Number(e.amount), receipt: withReceipt.has(e.id), by: e.entered_by_name,
   })).sort((a, b) => a.date.localeCompare(b.date));
 
-  const hourRows = live(input.timeEntries).filter((h) => inPeriod(h.work_date, period));
-  const hours = hourRows.map((h) => ({ date: h.work_date, job: jobLabel(h.job_id), customer: customer(h.job_id), hours: Number(h.hours), by: h.entered_by_name, note: h.note }))
+  const hourRows = live(input.timeEntries).filter((h) => h.hours != null && inPeriod(h.work_date, period)); // a running clock has no hours yet
+  const hours = hourRows.map((h) => ({ date: h.work_date, job: jobLabel(h.job_id), customer: customer(h.job_id), hours: Number(h.hours), by: h.worker_name || h.entered_by_name, note: h.note }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const months = monthsIn(period).map((ym) => {

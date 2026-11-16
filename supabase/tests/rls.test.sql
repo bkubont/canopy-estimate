@@ -393,8 +393,24 @@ insert into public.time_entries (id, org_id, job_id, work_date, hours, entered_b
 select t.ok((select count(*) = 1 from public.time_entries), 'crew log crew-hours on a job');
 update public.time_entries set hours = 26.5 where id = 'dddddddd-0000-0000-0000-000000000001';
 select t.ok((select hours = 26.5 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000001'), 'and can fix their own entry');
-select t.fails($$ insert into public.time_entries (id, org_id, job_id, hours) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 0 from t.ids where k = 'org' $$,
+select t.fails($$ insert into public.time_entries (id, org_id, job_id, hours, entered_by) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 0, auth.uid() from t.ids where k = 'org' $$,
   'check', 'hours must be more than zero');
+-- Everyone tracks their own hours (clock in and out).
+insert into public.time_entries (id, org_id, job_id, worker_id, worker_name, clock_in, entered_by)
+  select 'dddddddd-0000-0000-0000-000000000003', v::uuid, :job, auth.uid(), 'Sam', now() - interval '3 hours', auth.uid() from t.ids where k = 'org';
+select t.ok((select hours is null from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000003'), 'crew clock in to a job (no hours until they clock out)');
+select t.fails($$ insert into public.time_entries (id, org_id, job_id, worker_id, clock_in, entered_by) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', auth.uid(), now(), auth.uid() from t.ids where k = 'org' $$,
+  'one_open_clock', 'and can''t be on two clocks at once');
+select t.fails($$ insert into public.time_entries (id, org_id, job_id, worker_id, entered_by) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', auth.uid(), auth.uid() from t.ids where k = 'org' $$,
+  'check', 'an entry with no hours must be a running clock');
+update public.time_entries set clock_out = now(), hours = 3 where id = 'dddddddd-0000-0000-0000-000000000003';
+select t.ok((select hours = 3 and clock_out is not null from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000003'), 'and clock out');
+update public.time_entries set clock_in = clock_in - interval '30 minutes', hours = 3.5 where id = 'dddddddd-0000-0000-0000-000000000003';
+select t.ok((select hours = 3.5 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000003'), 'and fix their own times');
+select t.fails($$ update public.time_entries set worker_id = '00000000-0000-0000-0000-00000000000b' where id = 'dddddddd-0000-0000-0000-000000000003' $$,
+  'row-level security', 'but can''t hand their hours to someone else');
+select t.fails($$ insert into public.time_entries (id, org_id, job_id, hours, worker_id, entered_by) select gen_random_uuid(), v::uuid, '11111111-1111-1111-1111-111111111111', 5, '00000000-0000-0000-0000-00000000000b', auth.uid() from t.ids where k = 'org' $$,
+  'row-level security', 'or log hours for someone else');
 
 reset role;
 select t.login(:office, 'office@ats.test');
@@ -404,11 +420,16 @@ select t.ok((select count(*) = 1 from public.photos where expense_id = 'eeeeeeee
 update public.expenses set category = 'Fuel & oil' where id = 'eeeeeeee-0000-0000-0000-000000000001';
 select t.ok((select category = 'Fuel & oil' from public.expenses), 'office can edit an expense');
 insert into public.time_entries (id, org_id, job_id, hours, entered_by) select 'dddddddd-0000-0000-0000-000000000002', v::uuid, :job, 8, auth.uid() from t.ids where k = 'org';
+insert into public.time_entries (id, org_id, job_id, hours, worker_id, worker_name, entered_by)
+  select 'dddddddd-0000-0000-0000-000000000004', v::uuid, :job, 6, :crew, 'Sam', auth.uid() from t.ids where k = 'org';
+select t.ok((select count(*) = 1 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000004'), 'office can log hours for a crew member who forgot to clock in');
 reset role;
 select t.login(:crew, 'crew@ats.test');
 set role authenticated;
 update public.time_entries set hours = 1 where id = 'dddddddd-0000-0000-0000-000000000002';
 select t.ok((select hours = 8 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000002'), 'crew can''t change someone else''s hours');
+update public.time_entries set hours = 6.5 where id = 'dddddddd-0000-0000-0000-000000000004';
+select t.ok((select hours = 6.5 from public.time_entries where id = 'dddddddd-0000-0000-0000-000000000004'), 'but can fix hours the office logged for them');
 update public.expenses set amount = 1 where id = 'eeeeeeee-0000-0000-0000-000000000001';
 reset role;
 select t.ok((select amount = 64.20 from public.expenses where id = 'eeeeeeee-0000-0000-0000-000000000001'), 'or any expense');

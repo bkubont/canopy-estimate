@@ -20,11 +20,13 @@ export function createFakeBackend() {
   const now = () => new Date().toISOString();
   const touch = (row, user) => Object.assign(row, { updated_at: now(), updated_by: user?.id ?? null, _seq: seq++ });
 
+  // Sessions last a week here, so walkthroughs can move the browser's clock forward hours at a time.
+  const LIFE = 7 * 86400;
   function session(user) {
-    const access = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, email: user.email, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+    const access = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, email: user.email, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + LIFE })}.sig`;
     tokens.set(access, user);
     const u = { id: user.id, email: user.email, aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: now() };
-    return { access_token: access, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: uuid(), user: u };
+    return { access_token: access, token_type: 'bearer', expires_in: LIFE, expires_at: Math.floor(Date.now() / 1000) + LIFE, refresh_token: uuid(), user: u };
   }
   const roleOf = (orgId, user) => t.members.find((m) => m.org_id === orgId && m.user_id === user?.id && !m.deleted_at)?.role;
   const visible = (table, row, user) => {

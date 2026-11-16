@@ -20,7 +20,7 @@ export function workbookSheets(b: Books, company: string) {
     [text(b.period.label)],
     [text(`${b.period.from} to ${b.period.to}`)],
     [],
-    head('Month', 'Billed (before tax)', 'Sales tax on invoices', 'Money in (payments)', 'Money out (expenses)', 'Money in minus out', 'Crew-hours'),
+    head('Month', 'Billed (before tax)', 'Sales tax on invoices', 'Money in (payments)', 'Money out (expenses)', 'Money in minus out', 'Hours worked'),
     ...b.months.map((m) => [text(m.label), money(m.billed), money(m.tax), money(m.collected), money(m.spent), money(m.net), num(m.hours)]),
     [bold('Total'), money(b.totals.billed), money(b.totals.tax), money(b.totals.collected), money(b.totals.spent), money(b.totals.net), num(b.totals.hours)],
     [],
@@ -50,12 +50,12 @@ export function workbookSheets(b: Books, company: string) {
     },
     {
       sheet: 'Hours', columns: [{ width: 12 }, { width: 10 }, { width: 24 }, { width: 11 }, { width: 14 }, { width: 40 }],
-      data: [head('Date', 'Job', 'Customer', 'Crew-hours', 'Entered by', 'Note'),
+      data: [head('Date', 'Job', 'Customer', 'Hours worked', 'Entered by', 'Note'),
         ...b.hours.map((h) => [date(h.date), text(h.job), text(h.customer), num(h.hours), text(h.by), text(h.note)])],
     },
     {
       sheet: 'Jobs', columns: [{ width: 10 }, { width: 24 }, { width: 16 }, { width: 14 }, { width: 11 }, { width: 18 }],
-      data: [head('Job', 'Customer', 'Billed (before tax)', 'Job costs', 'Crew-hours', 'Earned per crew-hour'),
+      data: [head('Job', 'Customer', 'Billed (before tax)', 'Job costs', 'Hours worked', 'Earned per hour worked'),
         ...b.jobs.map((j) => [text(j.job), text(j.customer), money(j.billed), money(j.costs), num(j.hours), money(j.perHour)])],
     },
   ];

@@ -109,6 +109,31 @@ ok('the card\u2019s notes icon now shows 1');
 if (!o.url().includes('#/board')) await fail(o, 'opening notes left the board');
 ok('all without leaving the board');
 
+// ---------------------------------------------------------------- deposits and payments from a card
+await lee.getByRole('button', { name: 'Payments' }).click();
+await see(o, 'Nothing recorded yet', 'the $ icon on the card opens the job\u2019s payments');
+await see(o, 'Left on the estimate', 'with what\u2019s left to pay');
+await o.locator('dialog[open]').getByRole('button', { name: 'Record deposit' }).click();
+const dep = o.locator('dialog[open]').last();
+await dep.getByLabel('Amount received').fill('500');
+await dep.getByLabel('Check number').fill('1042');
+await dep.getByRole('button', { name: 'Save payment' }).click();
+await see(o, 'Check #1042 · deposit', 'a $500 deposit by check is recorded right there');
+await see(o, '$4,184.00', 'and the amount left drops to $4,184.00');
+await shot(o, '05-card-payments');
+await o.locator('dialog[open]').getByRole('button', { name: 'Close' }).click();
+await lee.getByRole('button', { name: 'Payments, 1' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'card $ icon did not show 1'));
+ok('the card\u2019s $ icon now shows 1 payment');
+await syncNow(o);
+await c.goto(`${APP}#/`);
+await syncNow(c);
+for (const where of ['#/', '#/board', '#/calendar']) {
+  await c.goto(`${APP}${where}`);
+  await c.waitForTimeout(400);
+  if (await c.getByRole('button', { name: /^Payments/ }).count()) await fail(c, `crew see a $ icon on ${where}`);
+}
+ok('crew never get the $ icon');
+
 // ---------------------------------------------------------------- a new lead: schedule the visit, then write the estimate
 await o.getByRole('button', { name: 'New lead' }).click();
 await o.getByLabel('First name').fill('Jim');

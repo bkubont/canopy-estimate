@@ -5,7 +5,7 @@
   --accent: #0404A9;
   --accent-dark: #03037A;
   --on-accent: #FFFFFF;
-  --green: #C5D92A; /* brand lime: logo and printed documents only */
+  --green: #C5D92A; /* brand lime: the logo only */
   --ink: #0B0B0F;
   --muted: #555D6D;
   --line: #DADEE7;
@@ -590,6 +590,17 @@ b > .notes-badge, .job-tile-name > .notes-badge { margin-left: 6px; vertical-ali
 .jcard-counts { display: inline-flex; gap: 10px; }
 .hours-money { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; color: var(--muted); }
 .hours-money b { color: var(--ink); }
+.on-clock { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-weight: 600; }
+.on-clock li { display: flex; align-items: center; gap: 8px; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: #2E9E44; box-shadow: 0 0 0 3px #DDF3E1; flex: none; }
+.on-clock-card { margin-bottom: 16px; }
+.card-icon.has-paid { color: #1E7A34; border-color: #A9D8B2; background: #F1FAF2; }
+.pay-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.pay-summary > div { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.pay-summary b { font-size: 1.25em; }
+.pay-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.pay-list li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.time-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .hours-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .hours-row { width: 100%; display: grid; gap: 1px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font: inherit; color: inherit; cursor: pointer; }
 .hours-row:disabled { cursor: default; color: inherit; opacity: 1; }
