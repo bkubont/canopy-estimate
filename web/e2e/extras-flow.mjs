@@ -225,6 +225,12 @@ const menuOk = await o.evaluate(() => {
 });
 if (!menuOk) await fail(o, 'the card menu is cut off or covered');
 ok('the card\u2019s \u22ef menu shows every item in full, nothing cut off');
+// On a short screen the menu scrolls inside itself; that must not close it.
+await o.evaluate(() => { const m = document.querySelector('[role=menu]'); m.style.maxHeight = '40px'; m.scrollTop = 30; m.dispatchEvent(new Event('scroll')); });
+await o.waitForTimeout(200);
+if (!(await o.locator('[role=menu]').count())) await fail(o, 'scrolling inside the menu closed it');
+ok('scrolling inside a long menu keeps it open');
+await o.evaluate(() => { const m = document.querySelector('[role=menu]'); m.style.maxHeight = ''; });
 await shot(o, '08-card-menu');
 await o.getByRole('menuitem', { name: 'Cancel job…' }).click();
 await see(o, '$500.00 has been paid on this job', 'cancelling a job with a deposit says money was paid');
