@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeBytes, parseVCards } from './vcard';
+import { decodeBytes, parseVCards, toVCard } from './vcard';
 
 describe('parseVCards', () => {
   it('reads an Apple contacts export with several people', () => {
@@ -37,5 +37,16 @@ describe('parseVCards', () => {
     expect(parseVCards(decodeBytes(le))[0]).toMatchObject({ firstName: 'José', lastName: 'Ruiz' });
     const cp1252 = new Uint8Array(Array.from(text).map((ch) => ch.charCodeAt(0)));
     expect(parseVCards(decodeBytes(cp1252))[0]).toMatchObject({ firstName: 'José' });
+  });
+  it('writes a card that reads back the same (and keeps commas and long notes safe)', () => {
+    const c = { firstName: 'Dana', lastName: 'Smith', company: 'Smith Farms, LLC', phone: '(231) 555-0101', email: 'dana@example.com', street: '12 Pine Rd; Unit B', town: 'Traverse City', state: 'MI', zip: '49684' };
+    const card = toVCard(c, 'ATS customer. Gate code 4471, dog is friendly. '.repeat(4));
+    expect(card.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75)).toBe(true);
+    expect(parseVCards(card)).toEqual([c]);
+  });
+  it('writes a company-only card that shows as the company', () => {
+    const card = toVCard({ company: 'Hollis Point Cottage Assn', phone: '231 555 0177' });
+    expect(card).toContain('FN:Hollis Point Cottage Assn');
+    expect(card).toContain('X-ABShowAs:COMPANY');
   });
 });

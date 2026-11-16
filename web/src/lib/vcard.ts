@@ -82,3 +82,41 @@ function parseOne(body: string): Partial<Client> {
   delete out.n;
   return out;
 }
+
+// ---------------------------------------------------------------- writing
+
+const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
+
+/** Split long lines (75 bytes max, as the standard asks) so every Contacts app reads them. */
+function fold(line: string) {
+  const out: string[] = [];
+  let cur = '';
+  let bytes = 0;
+  for (const ch of line) {
+    const n = new TextEncoder().encode(ch).length;
+    if (bytes + n > (out.length ? 74 : 75)) { out.push(cur); cur = ''; bytes = 0; }
+    cur += ch;
+    bytes += n;
+  }
+  out.push(cur);
+  return out.join('\r\n ');
+}
+
+/** One person as a contact card the iPhone, Mac, Android or Outlook can add to Contacts. */
+export function toVCard(c: Partial<Client>, note = ''): string {
+  const first = (c.firstName ?? '').trim();
+  const last = (c.lastName ?? '').trim();
+  const company = (c.company ?? '').trim();
+  const full = [first, last].filter(Boolean).join(' ') || company || 'Customer';
+  const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${esc(last)};${esc(first)};;;`, `FN:${esc(full)}`];
+  if (company) lines.push(`ORG:${esc(company)}`);
+  if (!first && !last && company) lines.push('X-ABShowAs:COMPANY');
+  if (c.phone?.trim()) lines.push(`TEL;TYPE=CELL,VOICE:${esc(c.phone.trim())}`);
+  if (c.email?.trim()) lines.push(`EMAIL;TYPE=INTERNET:${esc(c.email.trim())}`);
+  if (c.street?.trim() || c.town?.trim()) {
+    lines.push(`ADR;TYPE=HOME:;;${esc(c.street?.trim() ?? '')};${esc(c.town?.trim() ?? '')};${esc(c.state?.trim() ?? '')};${esc(c.zip?.trim() ?? '')};USA`);
+  }
+  if (note) lines.push(`NOTE:${esc(note)}`);
+  lines.push('END:VCARD');
+  return lines.map(fold).join('\r\n') + '\r\n';
+}

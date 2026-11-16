@@ -225,5 +225,45 @@ const lee2 = fake.tables.jobs.find((x) => x.client?.firstName === 'Lee');
 if (!lee2?.cancelled_at) await fail(o, 'cancel did not reach the server');
 ok('the cancel reaches the server');
 
+// ---------------------------------------------------------------- Save to Contacts
+// Catch what the iPhone would open, and read the contact card from it.
+const catchOpen = (pg) => pg.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return {}; }; });
+const opened = (pg) => pg.evaluate(async () => (await fetch(window.__opened.at(-1))).text());
+await o.goto(`${APP}#/contacts`);
+await o.getByText('Nadia Kowalski').click();
+await catchOpen(o);
+await o.getByRole('button', { name: 'Save to Contacts' }).click();
+const card = await opened(o);
+for (const want of ['FN:Nadia Kowalski', 'TEL;TYPE=CELL,VOICE:(231) 555-0199', 'ADR;TYPE=HOME:;;4120 Peninsula Dr;Traverse City;MI;49686;USA']) {
+  if (!card.includes(want)) await fail(o, `contact card is missing ${want}`);
+}
+ok('Save to Contacts hands the iPhone a contact card with the name, phone and address');
+await o.goto(`${APP}#/contacts`);
+await catchOpen(o);
+await o.getByRole('button', { name: 'Export all' }).click();
+const all = await opened(o);
+const count = (all.match(/BEGIN:VCARD/g) ?? []).length;
+if (count < 453) await fail(o, `Export all had ${count} cards`);
+ok(`Export all puts every customer in one contacts file (${count})`);
+
+// ---------------------------------------------------------------- calendar on your phone
+await o.goto(`${APP}#/account`);
+await o.getByRole('button', { name: 'Set up calendar link' }).click();
+const add = o.getByRole('link', { name: 'Add to iPhone Calendar' });
+const href = await add.getAttribute('href').catch(() => null);
+if (!href || !/^webcal:\/\/fake-supabase\.test\/functions\/v1\/calendar-feed\?t=[0-9a-f-]{36}$/.test(href)) await fail(o, `calendar link was ${href}`);
+ok('Account gives a private calendar link that opens the iPhone Calendar app (webcal)');
+await shot(o, '07-calendar-link');
+await o.getByRole('button', { name: 'Make a new link' }).click();
+await see(o, 'The old one no longer works', 'Make a new link replaces it');
+const href2 = await add.getAttribute('href');
+if (href2 === href) await fail(o, 'the link did not change');
+ok('with a different link');
+await c.goto(`${APP}#/account`);
+await c.getByRole('button', { name: 'Set up calendar link' }).click();
+const crewHref = await c.getByRole('link', { name: 'Add to iPhone Calendar' }).getAttribute('href');
+if (!crewHref || crewHref === href2) await fail(c, 'crew should get their own link');
+ok('crew get their own link too');
+
 await browser.close();
 done('extras');
