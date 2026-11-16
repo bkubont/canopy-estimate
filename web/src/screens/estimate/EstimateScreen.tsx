@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon';
 import { Pill } from '../../components/Pill';
 import { WorkOrderNotes } from '../../components/WorkOrderNotes';
 import { JobPhotos } from '../../components/Photos';
+import { JobHours } from '../../components/JobHours';
 import { isWorkOrder } from '../../lib/notes';
 import { jobStage } from '../../lib/status';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
@@ -12,7 +13,7 @@ import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
   blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, money, niceDate, normalizeJob, todayYmd, totals, treeDetails, treeTitle,
 } from '../../lib/estimate';
-import { invoiceFromJob, paidForJob } from '../../lib/invoice';
+import { invoiceFromJob, invoiceTotals, paidForJob } from '../../lib/invoice';
 import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
 import { reserveNumbers, voidSignature } from '../../lib/supabase';
@@ -209,6 +210,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         </div>
       </section>
       <JobPhotos jobId={job.id} />
+      <JobHours jobId={job.id} billed={invoice ? invoiceTotals(invoice.lines, invoice.tax_rate).subtotal : t.subtotal} />
       <section className="card">
         <div className="sum-line"><span>Signed total{job.change_orders.length ? ' (with change orders)' : ''}</span><b>{money(t.total)}</b></div>
         <div className="sum-line"><span>Paid so far{t.deposit ? ` (deposit asked: ${money(t.deposit)})` : ''}</span><span>{money(paid)}</span></div>
@@ -322,6 +324,7 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
         {job.client.phone && <a className="btn sm mt" href={`tel:${job.client.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={16} />Call {job.client.phone}</a>}
       </section>
       <JobPhotos jobId={job.id} />
+      <JobHours jobId={job.id} />
       <section className="card">
         <h3>Trees</h3>
         {allTrees.map((t, i) => (

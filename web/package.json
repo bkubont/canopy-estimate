@@ -15,7 +15,8 @@
     "e2e:invoice": "node e2e/invoice-flow.mjs",
     "e2e:calendar": "node e2e/calendar-flow.mjs",
     "e2e:dashboard": "node e2e/dashboard-flow.mjs",
-    "e2e:photos": "E2E_FAKE=1 node e2e/photos-flow.mjs"
+    "e2e:photos": "E2E_FAKE=1 node e2e/photos-flow.mjs",
+    "e2e:money": "E2E_FAKE=1 node e2e/money-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

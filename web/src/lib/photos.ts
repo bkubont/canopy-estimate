@@ -36,13 +36,13 @@ export async function shrink(file: Blob, max = 1600, quality = 0.72): Promise<{ 
 }
 
 export async function addPhoto(engine: SyncEngine, file: Blob, meta: {
-  org_id: string; job_id: string | null; tree_id?: string | null; kind: PhotoKind; taken_by: string; taken_by_name: string;
+  org_id: string; job_id: string | null; tree_id?: string | null; expense_id?: string | null; kind: PhotoKind; taken_by: string; taken_by_name: string;
 }): Promise<Photo> {
   const id = crypto.randomUUID();
   const { blob, width, height } = await shrink(file);
   const path = `${meta.org_id}/${meta.kind === 'receipt' ? 'receipts' : 'photos'}/${id}.jpg`;
   await engine.db.put(STORE, { blob, path } satisfies Pending, id);
-  const photo: Photo = { id, ...meta, tree_id: meta.tree_id ?? null, path, width, height, bytes: blob.size, note: '', deleted_at: null };
+  const photo: Photo = { id, ...meta, tree_id: meta.tree_id ?? null, expense_id: meta.expense_id ?? null, path, width, height, bytes: blob.size, note: '', deleted_at: null };
   await engine.save('photos', photo);
   changed();
   void uploadPending(engine.db);

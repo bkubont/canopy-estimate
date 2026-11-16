@@ -9,15 +9,16 @@ import { Sheet } from './ui';
 export const PHOTO_KIND_LABEL: Record<PhotoKind, string> = { tree: 'Tree', before: 'Before', during: 'During', after: 'After', receipt: 'Receipt' };
 
 /** Live photos for a job (optionally one tree or one kind), oldest first. */
-export function usePhotos(filter: { jobId?: string | null; treeId?: string; kind?: PhotoKind }) {
+export function usePhotos(filter: { jobId?: string | null; treeId?: string; kind?: PhotoKind; expenseId?: string }) {
   const { engine } = useReady();
   const photos = useRows(engine, 'photos');
   return useMemo(() => (photos ?? [])
-    .filter((p) => !p.deleted_at && (filter.jobId === undefined || p.job_id === filter.jobId) && (!filter.treeId || p.tree_id === filter.treeId) && (!filter.kind || p.kind === filter.kind))
-    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '')), [photos, filter.jobId, filter.treeId, filter.kind]);
+    .filter((p) => !p.deleted_at && (filter.jobId === undefined || p.job_id === filter.jobId) && (!filter.treeId || p.tree_id === filter.treeId)
+      && (!filter.kind || p.kind === filter.kind) && (!filter.expenseId || p.expense_id === filter.expenseId))
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '')), [photos, filter.jobId, filter.treeId, filter.kind, filter.expenseId]);
 }
 
-function Thumb({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
+export function Thumb({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
   const { engine } = useReady();
   const src = usePhotoSrc(engine.db, photo);
   return (
@@ -28,7 +29,7 @@ function Thumb({ photo, onOpen }: { photo: Photo; onOpen: () => void }) {
 }
 
 /** Full-size view with who took it and when; anyone on the team can remove it. */
-function PhotoViewer({ photo, onClose }: { photo: Photo | null; onClose: () => void }) {
+export function PhotoViewer({ photo, onClose }: { photo: Photo | null; onClose: () => void }) {
   const { engine } = useReady();
   const src = usePhotoSrc(engine.db, photo);
   return (

@@ -33,6 +33,7 @@ Open **SQL Editor → New query** in Supabase. Paste and run each file in order:
 6. `supabase/migrations/20261116000000_day_order.sql` (the order of entries within a day)
 7. `supabase/migrations/20261117000000_photos.sql` (tree and job photos)
 8. `supabase/migrations/20261117000100_photos_storage.sql` (keeps receipt pictures from crew)
+9. `supabase/migrations/20261118000000_expenses_hours.sql` (expenses, receipts and hours per job)
 
 Already ran some? Just run the ones after the last you ran, in order.
 
@@ -106,6 +107,7 @@ APP_URL=http://localhost:5173/ node e2e/invoice-flow.mjs    # deposit, invoice, 
 APP_URL=http://localhost:5173/ node e2e/calendar-flow.mjs   # month calendar: tap or drag to schedule, Sundays skipped, day order
 APP_URL=http://localhost:5173/ node e2e/dashboard-flow.mjs  # dashboard, menu, search, Quick Add, collapsible menu
 E2E_FAKE=1 APP_URL=http://localhost:5173/ node e2e/photos-flow.mjs  # photos, incl. one taken offline (stand-in backend only)
+E2E_FAKE=1 APP_URL=http://localhost:5173/ node e2e/money-flow.mjs   # expenses, receipts, hours (stand-in backend only)
 ```
 
 The two-device test creates two throwaway accounts. Against a real project, confirmation emails are needed, so run it against a **separate test project**, or with **Confirm email** off on that test project only.
