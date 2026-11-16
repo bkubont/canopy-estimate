@@ -33,6 +33,9 @@ export const jobEntries = (entries: TimeEntry[] | null | undefined, jobId: strin
 
 export const hoursTotal = (entries: TimeEntry[]) => round2(entries.reduce((s, e) => s + Number(e.hours || 0), 0));
 
+/** The database refuses a single entry above this (one day, the whole crew). */
+export const MAX_ENTRY_HOURS = 200;
+
 /** Crew-hours from a running clock: elapsed time × people, rounded to the quarter hour. */
 export function clockHours(startIso: string, endIso: string, people: number) {
   const h = Math.max(0, (Date.parse(endIso) - Date.parse(startIso)) / 3_600_000);

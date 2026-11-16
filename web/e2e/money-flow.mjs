@@ -142,5 +142,36 @@ const inZip = Object.keys(unzipSync(new Uint8Array(readFileSync(await zip.path()
 if (inZip.length !== 2 || !inZip.some((n) => n.includes('Marathon_64.20'))) await fail(o, `receipts zip has ${inZip.join(', ')}`);
 ok(`Download all gives a zip of the month’s 2 receipts (${inZip.join(', ')})`);
 
+// ---------------------------------------------------------------- review fixes
+// A running clock belongs to its own job, even when going straight from one job to another.
+await signedEstimate(o, 'Lee', 'Park', 'Kingsley');
+await o.goto(o.url().replace(/\/review$/, ''));
+await o.getByRole('button', { name: 'Start clock' }).click();
+await see(o, 'Stop clock', 'a clock starts on a second job (Lee Park)');
+await o.locator('.top-search label').click();
+await o.getByLabel('Search jobs and customers').fill('dana');
+await o.getByRole('option', { name: /Dana Smith/ }).first().click();
+await see(o, 'Signed by Dana Smith', 'search goes straight to the Dana Smith job');
+await o.getByRole('button', { name: 'Start clock' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'Dana Smith shows Lee Park\u2019s running clock'));
+ok('which shows its own clock (not running), not Lee Park\u2019s');
+
+// One entry can't be more than the database accepts.
+await o.getByRole('button', { name: 'Add hours' }).click();
+await o.locator('dialog[open]').getByLabel('Crew-hours').fill('250');
+await o.locator('dialog[open]').getByRole('button', { name: 'Save hours' }).click();
+await see(o, 'at most 200 crew-hours', '250 crew-hours in one entry is refused with a reason');
+await o.locator('dialog[open]').getByRole('button', { name: 'Close' }).click();
+await see(o, '40 h', 'and nothing was added (still 40 h)');
+
+// Removing an expense takes its receipt with it.
+await o.goto(`${APP}#/expenses`);
+await o.getByRole('button', { name: /Marathon/ }).click();
+await o.getByRole('button', { name: 'Remove expense' }).click();
+await o.goto(`${APP}#/receipts`);
+await o.locator('.receipt').first().waitFor();
+const left = await o.locator('.receipt').allInnerTexts();
+if (left.length !== 1 || left.some((t) => /Marathon|syncing/i.test(t))) await fail(o, `receipts left: ${left.join(' | ')}`);
+ok('removing the Marathon expense takes its receipt out of Receipts too');
+
 await browser.close();
 done('money');
