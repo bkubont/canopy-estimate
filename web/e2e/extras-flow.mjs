@@ -123,6 +123,8 @@ const jim = o.locator('.board-col[data-col="new"] .jcard', { hasText: 'Jim Peter
 await jim.waitFor({ timeout: 5000 }).catch(() => fail(o, 'lead not in the New column'));
 ok('the lead is in the New column');
 await see(o, 'No visit scheduled yet', 'with no visit yet');
+if (await jim.locator('.jcard-total').count()) await fail(o, 'a lead with no estimate shows a price');
+ok('and no price until the estimate is written');
 await shot(o, '04-new-lead');
 await jim.getByRole('button', { name: 'Schedule visit' }).click();
 const visitTitle = await o.locator('dialog[open]').getByLabel('Title').inputValue();

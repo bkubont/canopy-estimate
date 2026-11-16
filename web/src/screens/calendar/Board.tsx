@@ -243,7 +243,7 @@ export function Board() {
             <JobQuickIcons job={row.job} />
             {(() => { const h = hoursTotal(jobEntries(timeEntries, job.id)); return h > 0 ? <span className="photo-count" aria-label={`${hoursLabel(h)} logged`}><Icon name="clock" size={14} />{hoursLabel(h)}</span> : null; })()}
           </span>
-          {office && total != null && <span className="jcard-total">{money(total)}</span>}
+          {office && col !== 'new' && total != null && <span className="jcard-total">{money(total)}</span>}
         </div>
         {(main || more.length > 0) && (
           <div className="jcard-actions">
