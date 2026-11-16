@@ -1,6 +1,6 @@
 # Canopy Estimate: Rebuild Plan
 
-Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15); all seven steps built.
+Status: **Phases 1–4 built** (2026-11-12), except card payments (waiting on approval for Stripe). **Phase 5 planned and approved** (2026-11-15); all seven steps built and merged; its four database files are on the live project (2026-11-16).
 
 ## Decisions so far
 
@@ -241,7 +241,7 @@ Still waiting from earlier phases: Stripe card payments (owner's approval).
 
 ### Phase 6: Later
 - App Store and Play Store builds (Capacitor wraps the same code)
-- QuickBooks export
+- No QuickBooks export: the business doesn't use QuickBooks. The Excel bookkeeping file (step 6) is the export.
 
 ## Decisions for Phase 5 (2026-11-15)
 | Question | Answer |

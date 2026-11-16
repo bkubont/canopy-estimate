@@ -6,10 +6,11 @@ import { APP, chromium, contexts, crewJoin, devices, done, fail, notSee, ok, own
 
 const stamp = Date.now();
 const browser = await chromium.launch();
-const [ownerCtx, crewCtx, tabletCtx] = await contexts(browser, [
+const [ownerCtx, crewCtx, tabletCtx, deskCtx] = await contexts(browser, [
   { ...devices['iPhone 13'] },
   { ...devices['iPhone 13'] },
   { ...devices['iPad Pro 11 landscape'] },
+  { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
 ]);
 const o = await page(ownerCtx);
 const c = await page(crewCtx);
@@ -80,6 +81,34 @@ ok('the iPad remembers the collapsed menu');
 await shot(t, '03-ipad-collapsed');
 await t.getByRole('button', { name: 'Expand menu' }).click();
 ok('and it expands again');
+
+// ---------------------------------------------------------------- installing the app
+await o.goto(`${APP}#/account`);
+await see(o, 'Add to Home Screen', 'on an iPhone, Account shows how to add the app to the home screen');
+const d = await page(deskCtx);
+await ownerSetup(d, { email: `desk-${stamp}@ats.test`, password: 'correct-horse-4' });
+await d.goto(`${APP}#/account`);
+await see(d, 'install icon at the right end of the address bar', 'on a computer, Account explains the browser\u2019s install icon');
+// Chrome/Edge offer to install once they've decided the app qualifies; stand in for that offer.
+await d.evaluate(() => {
+  const e = new Event('beforeinstallprompt');
+  Object.assign(e, { prompt: async () => { window.__prompted = true; }, userChoice: Promise.resolve({ outcome: 'accepted' }) });
+  window.dispatchEvent(e);
+});
+await d.getByRole('button', { name: 'Install app' }).click();
+if (!(await d.evaluate(() => window.__prompted))) await fail(d, 'Install app did not open the browser\u2019s install prompt');
+ok('when Chrome or Edge offers it, Install app opens the browser\u2019s own install prompt');
+await d.getByRole('button', { name: 'Install app' }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => fail(d, 'button stayed after installing'));
+ok('and the button goes away once it\u2019s accepted');
+// Saying no: the offer can't be shown twice, so the button must not stay behind doing nothing.
+await d.evaluate(() => {
+  const e = new Event('beforeinstallprompt');
+  Object.assign(e, { prompt: async () => {}, userChoice: Promise.resolve({ outcome: 'dismissed' }) });
+  window.dispatchEvent(e);
+});
+await d.getByRole('button', { name: 'Install app' }).click();
+await d.getByRole('button', { name: 'Install app' }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => fail(d, 'a dead Install button stayed after saying no'));
+await see(d, 'install icon at the right end of the address bar', 'if they say no, the dead button goes and the address-bar steps show instead');
 
 await browser.close();
 done('dashboard');
