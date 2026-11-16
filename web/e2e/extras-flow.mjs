@@ -94,5 +94,50 @@ await o.getByLabel('Search the archive').fill('nobody');
 await see(o, 'No matches.', 'and a search for someone else finds nothing');
 await shot(o, '03-archive');
 
+// ---------------------------------------------------------------- notes from a card
+await signedEstimate(o, 'Lee', 'Park', 'Kingsley');
+await o.goto(`${APP}#/board`);
+await syncNow(o);
+const lee = o.locator('.jcard', { hasText: 'Lee Park' });
+await lee.getByRole('button', { name: 'Notes' }).click();
+await o.locator('dialog[open]').getByLabel('Add a note').fill('Gate code 4471');
+await o.locator('dialog[open]').getByRole('button', { name: 'Add note', exact: true }).click();
+await see(o, 'Gate code 4471', 'notes open from the board card, and a note can be added there');
+await o.locator('dialog[open]').getByRole('button', { name: 'Close' }).click();
+await lee.getByRole('button', { name: 'Notes, 1' }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'card notes icon did not show 1'));
+ok('the card\u2019s notes icon now shows 1');
+if (!o.url().includes('#/board')) await fail(o, 'opening notes left the board');
+ok('all without leaving the board');
+
+// ---------------------------------------------------------------- a new lead: schedule the visit, then write the estimate
+await o.getByRole('button', { name: 'New lead' }).click();
+await o.getByLabel('First name').fill('Jim');
+await o.getByLabel('Last name').fill('Peterson');
+await o.getByLabel('Town').fill('Beulah');
+await o.waitForTimeout(600); // the draft saves itself after typing stops
+await o.goto(`${APP}#/`);
+await see(o, 'New lead, no visit scheduled', 'the dashboard flags a new lead with no visit');
+await o.getByText('New lead, no visit scheduled').click();
+await o.locator('[role=tab][aria-selected=true]', { hasText: /^New/ }).waitFor({ timeout: 5000 }).catch(() => fail(o, 'the alert did not open the board on New'));
+ok('tapping the alert opens the board on the New column (phone)');
+const jim = o.locator('.board-col[data-col="new"] .jcard', { hasText: 'Jim Peterson' });
+await jim.waitFor({ timeout: 5000 }).catch(() => fail(o, 'lead not in the New column'));
+ok('the lead is in the New column');
+await see(o, 'No visit scheduled yet', 'with no visit yet');
+if (await jim.locator('.jcard-total').count()) await fail(o, 'a lead with no estimate shows a price');
+ok('and no price until the estimate is written');
+await shot(o, '04-new-lead');
+await jim.getByRole('button', { name: 'Schedule visit' }).click();
+const visitTitle = await o.locator('dialog[open]').getByLabel('Title').inputValue();
+if (visitTitle !== 'Bid · Jim Peterson') await fail(o, `visit title was "${visitTitle}"`);
+ok('Schedule visit opens a bid filled in from the lead');
+await o.locator('dialog[open]').getByRole('button', { name: 'Save', exact: true }).first().click();
+await jim.getByText(/^Visit /).waitFor({ timeout: 5000 }).catch(() => fail(o, 'visit not shown on the card'));
+ok('the card shows the visit');
+await jim.getByRole('button', { name: 'Write estimate' }).click();
+await see(o, 'Client & Site', 'after the visit, Write estimate opens the estimate');
+await o.goto(`${APP}#/`);
+await notSee(o, /New lead, no visit scheduled/, 'and the dashboard no longer flags it');
+
 await browser.close();
 done('extras');

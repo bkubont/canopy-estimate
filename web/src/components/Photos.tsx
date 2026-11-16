@@ -121,3 +121,20 @@ export function PhotoCount({ jobId, treeId, kinds }: { jobId: string; treeId?: s
   if (!n) return null;
   return <span className="photo-count" aria-label={`${n} photo${n > 1 ? 's' : ''}`}><Icon name="camera" size={14} />{n}</span>;
 }
+
+/** Camera icon with the number of photos; opens the job's photos (add, view, remove) where you are. */
+export function PhotosButton({ jobId, label }: { jobId: string; label?: string }) {
+  const [open, setOpen] = useState(false);
+  const n = usePhotos({ jobId }).filter((p) => p.kind !== 'receipt').length;
+  return (
+    <>
+      <button type="button" className="card-icon" onClick={() => setOpen(true)} aria-label={n ? `Photos, ${n}` : 'Photos'} title="Photos">
+        <Icon name="camera" size={17} />
+        {n > 0 && <span className="card-icon-count">{n}</span>}
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title={label ? `Photos · ${label}` : 'Photos'}>
+        {open && <JobPhotos jobId={jobId} />}
+      </Sheet>
+    </>
+  );
+}

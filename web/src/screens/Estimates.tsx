@@ -9,7 +9,7 @@ import { jobStage, STAGE_LABEL, type Stage } from '../lib/status';
 import { reserveNumbers } from '../lib/supabase';
 import { useCreateEstimate } from '../lib/useCreateEstimate';
 
-const FILTERS: [string, string][] = [['all', 'All'], ...(['pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'overdue', 'paid'] as Stage[]).map((s) => [s, STAGE_LABEL[s]] as [string, string])];
+const FILTERS: [string, string][] = [['all', 'All'], ...(['new', 'pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'overdue', 'paid'] as Stage[]).map((s) => [s, STAGE_LABEL[s]] as [string, string])];
 
 export function Estimates() {
   const { engine, org } = useReady();

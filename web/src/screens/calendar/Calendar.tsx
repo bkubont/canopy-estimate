@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { NotesBadge } from '../../components/WorkOrderNotes';
+import { JobQuickIcons } from '../../components/JobQuickIcons';
 import { isWorkOrder, noteSummary } from '../../lib/notes';
 import { Sheet } from '../../components/ui';
 import {
@@ -263,6 +264,7 @@ export function Calendar() {
                       <b>{e.title || EVENT_LABEL[e.type]}<NotesBadge count={notesFor(e)} /></b>
                       <span className="muted small">{[timeLabel(e) || EVENT_LABEL[e.type], e.town].filter(Boolean).join(' · ')}</span>
                     </button>
+                    {(() => { const j = e.type === 'tree_work' && e.job_id ? (jobs ?? []).find((x) => x.id === e.job_id) : undefined; return j ? <JobQuickIcons job={j} /> : null; })()}
                     <span className="day-row-move">
                       <button type="button" className="icon-btn" aria-label={`Move ${e.title} up`} disabled={i === 0} onClick={() => move(i, -1)}><Icon name="chevronUp" /></button>
                       <button type="button" className="icon-btn" aria-label={`Move ${e.title} down`} disabled={i === dayList.length - 1} onClick={() => move(i, 1)}><Icon name="chevronDown" /></button>

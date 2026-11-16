@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allDaySpan, blankEvent, boardColumn, crewConflicts, eventDays, jobSchedule, miToIso, monthCells, onDay, reorderDay, scheduleJob, weekDays, workDays, ymdOf } from './calendar';
+import { allDaySpan, blankEvent, boardColumn, crewConflicts, eventDays, jobSchedule, miToIso, monthCells, onDay, reorderDay, scheduleJob, timeLabel, visitEventFor, visitForJob, weekDays, workDays, ymdOf } from './calendar';
 
 const ev = (patch: Parameters<typeof blankEvent>[1]) => blankEvent('o1', patch);
 
@@ -97,5 +97,21 @@ describe('scheduling from the month view', () => {
     const after = onDay([a, b].map((e) => changed.find((c) => c.id === e.id) ?? e), day);
     expect(after.map((e) => e.id)).toEqual(['b', 'a']);
     expect(reorderDay(after, 0, -1)).toEqual([]); // already first
+  });
+});
+
+describe('estimate visits for new leads', () => {
+  const lead = { id: 'j9', org_id: 'o1', number: 'E-1009', client: { firstName: 'Jim', lastName: 'Peterson', street: '310 Benzie Blvd', town: 'Beulah' }, trees: [], equipment: [], change_orders: [], days: 0, site: {} } as never;
+  it('makes a two-hour bid at 9 am, filled in from the lead', () => {
+    const v = visitEventFor('o1', lead, '2026-11-18');
+    expect(v).toMatchObject({ type: 'estimate_visit', job_id: 'j9', title: 'Bid · Jim Peterson', town: 'Beulah', all_day: false });
+    expect(timeLabel(v)).toBe('9am–11am');
+  });
+  it('finds the next visit coming up, else the last one', () => {
+    const past = visitEventFor('o1', lead, '2026-11-10');
+    const next = visitEventFor('o1', lead, '2026-11-20');
+    expect(visitForJob('j9', [past, next], '2026-11-16T12:00:00Z')?.id).toBe(next.id);
+    expect(visitForJob('j9', [past], '2026-11-16T12:00:00Z')?.id).toBe(past.id);
+    expect(visitForJob('j9', [{ ...next, status: 'cancelled' }], '2026-11-16T12:00:00Z')).toBeNull();
   });
 });

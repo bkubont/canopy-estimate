@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { NotesBadge } from '../../components/WorkOrderNotes';
-import { PhotoCount } from '../../components/Photos';
+import { JobQuickIcons } from '../../components/JobQuickIcons';
 import { Sheet } from '../../components/ui';
-import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, eventForJob, jobSchedule, todayMi, type BoardColumn } from '../../lib/calendar';
+import { blankEvent, boardColumn, COLUMN_LABEL, dayLabel, eventForJob, jobSchedule, timeLabel, todayMi, visitEventFor, visitForJob, ymdOf, type BoardColumn } from '../../lib/calendar';
+import { useCreateEstimate } from '../../lib/useCreateEstimate';
 import { clientName, daysLabel, money, normalizeJob, num } from '../../lib/estimate';
 import { invoiceFromJob } from '../../lib/invoice';
 import { hoursLabel, hoursTotal, jobEntries } from '../../lib/expenses';
@@ -63,8 +64,12 @@ export function Board() {
   const navigate = useNavigate();
   // Crew don't need the money columns; a job that's been invoiced is simply Done for them.
   // Paid jobs leave the board for the Archive.
-  const columns: BoardColumn[] = office ? ['approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced'] : ['scheduled', 'in_progress', 'blocked', 'done'];
-  const [tab, setTab] = useState<BoardColumn>(office ? 'approved' : 'scheduled');
+  // Office starts with New: leads that need a visit before there's an estimate.
+  const columns: BoardColumn[] = office ? ['new', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced'] : ['scheduled', 'in_progress', 'blocked', 'done'];
+  // A link can pick the column to show on phones (e.g. the dashboard's new-lead alert: ?tab=new).
+  const [params] = useSearchParams();
+  const asked = params.get('tab') as BoardColumn | null;
+  const [tab, setTab] = useState<BoardColumn>(asked && (asked !== 'new' || office) && COLUMN_LABEL[asked] ? asked : office ? 'approved' : 'scheduled');
   const [editing, setEditing] = useState<CalEvent | null>(null);
   const [blocking, setBlocking] = useState<Job | null>(null);
   const [toast, setToast] = useState('');
@@ -82,7 +87,11 @@ export function Board() {
       if (raw.deleted_at) continue;
       const job = normalizeJob(raw);
       let col = boardColumn(job, events ?? []);
-      if (col === 'pending' || col === 'paid') continue;
+      if (col === 'paid') continue;
+      if (col === 'pending') {
+        if (!office || job.trees.length) continue; // estimate written, waiting on the customer: not board work
+        col = 'new';
+      }
       if (!office && col === 'invoiced') col = 'done';
       if (!office && col === 'approved') continue; // not on the calendar yet: nothing for crew to do
       out.set(col, [...(out.get(col) ?? []), { job, sched: jobSchedule(job.id, events ?? []) }]);
@@ -100,6 +109,7 @@ export function Board() {
     if (next) setTab(next);
   };
   const schedule = (job: Job) => navigate('/calendar', { state: { pick: job.id } });
+  const newLead = useCreateEstimate();
   const addDay = (job: Job) => setEditing(eventForJob(blankEvent(org.org_id), job, todayMi()));
   async function createInvoice(job: Job) {
     const pricing = (pricings ?? []).find((p) => p.job_id === job.id);
@@ -122,6 +132,12 @@ export function Board() {
     const entry = sched.events[0] ? a('entry', 'Calendar entry', () => setEditing(sched.events[0]!)) : null;
     const more = (...xs: (Action | null | false)[]) => xs.filter(Boolean) as Action[];
     switch (col) {
+      case 'new': {
+        const visit = visitForJob(job.id, events ?? []);
+        const visitAction = a('visit', visit ? 'Change visit' : 'Schedule visit', () => setEditing(visit ?? visitEventFor(org.org_id, job, todayMi())));
+        const write = a('write', 'Write estimate', () => navigate(`/estimates/${job.id}/client`));
+        return visit ? { main: write, more: more(visitAction, open) } : { main: visitAction, more: more(write, open) };
+      }
       case 'approved':
         return { main: office ? a('schedule', 'Schedule', () => schedule(job)) : null, more: more(open) };
       case 'scheduled':
@@ -141,6 +157,7 @@ export function Board() {
   /** Dropping a card on a column. Scheduled/Approved follow the calendar; Invoiced/Paid follow the money. */
   function dropOn(row: Row, to: BoardColumn, from: BoardColumn) {
     if (to === from) return;
+    if (from === 'new' || to === 'new') return setToast('New leads move on once their estimate is written and signed.');
     const { job, sched } = row;
     if (to === 'invoiced' || to === 'paid') return setToast('Invoiced and Paid follow the invoice. Open the job to create one.');
     if (from === 'invoiced' || from === 'paid') return setToast('This job has an invoice, so its column follows the money.');
@@ -180,7 +197,9 @@ export function Board() {
     window.addEventListener('pointercancel', cancel);
   };
 
-  const Card = ({ row, col }: { row: Row; col: BoardColumn }) => {
+  // A plain render function, not a component: a component defined in here would be a new
+  // type on every render, so each card (and any panel open on it) would remount on each save.
+  const card = (row: Row, col: BoardColumn) => {
     const { job, sched } = row;
     const name = clientName(job.client) || job.number;
     const notes = isWorkOrder(job) ? noteSummary(job) : { count: 0, first: '' };
@@ -189,8 +208,8 @@ export function Board() {
     const phone = job.client.phone?.replace(/[^\d+]/g, '');
     const { main, more } = actionsFor(row, col);
     return (
-      <article className="jcard" data-job={job.id}
-        onClick={(e) => { if (!(e.target as HTMLElement).closest('a,button,.popover')) navigate(`/estimates/${job.id}`); }}>
+      <article key={job.id} className="jcard" data-job={job.id}
+        onClick={(e) => { if (!(e.target as HTMLElement).closest('a,button,.popover,dialog')) navigate(`/estimates/${job.id}`); }}>
         <div className="jcard-top">
           <Link to={`/estimates/${job.id}`} className="jcard-name">{name}</Link>
           <span className="muted small">{job.number}</span>
@@ -203,10 +222,20 @@ export function Board() {
           {phone && <a href={`tel:${phone}`} className="tel"><Icon name="phone" size={14} />Call</a>}
           {phone && <a href={`sms:${phone}`} className="tel" aria-label={`Text ${name}`}><Icon name="message" size={15} /></a>}
         </div>
-        <div className={`small ${col === 'approved' ? 'jcard-warn' : 'muted'} row-icon`}>
-          <Icon name="calendar" size={14} />
-          {sched.start ? `${dayLabel(sched.start)}${sched.end && sched.end !== sched.start ? ` – ${dayLabel(sched.end)}` : ''}` : `Not scheduled · ${daysLabel(days)}`}
-        </div>
+        {col === 'new' ? (() => {
+          const visit = visitForJob(job.id, events ?? []);
+          return (
+            <div className={`small ${visit ? 'muted' : 'jcard-warn'} row-icon`}>
+              <Icon name="calendar" size={14} />
+              {visit ? `Visit ${dayLabel(ymdOf(new Date(visit.starts)))}${timeLabel(visit) ? ` · ${timeLabel(visit).split('–')[0]}` : ''}` : 'No visit scheduled yet'}
+            </div>
+          );
+        })() : (
+          <div className={`small ${col === 'approved' ? 'jcard-warn' : 'muted'} row-icon`}>
+            <Icon name="calendar" size={14} />
+            {sched.start ? `${dayLabel(sched.start)}${sched.end && sched.end !== sched.start ? ` – ${dayLabel(sched.end)}` : ''}` : `Not scheduled · ${daysLabel(days)}`}
+          </div>
+        )}
         {sched.crew.length > 0 && <div className="small muted row-icon"><Icon name="users" size={14} />{names(sched.crew)}</div>}
         {col === 'blocked' && job.block_reason && <div className="small jcard-blocked">Blocked: {job.block_reason}</div>}
         {notes.count > 0 && (
@@ -214,10 +243,10 @@ export function Board() {
         )}
         <div className="jcard-meta">
           <span className="jcard-counts">
-            <PhotoCount jobId={job.id} />
+            <JobQuickIcons job={row.job} />
             {(() => { const h = hoursTotal(jobEntries(timeEntries, job.id)); return h > 0 ? <span className="photo-count" aria-label={`${hoursLabel(h)} logged`}><Icon name="clock" size={14} />{hoursLabel(h)}</span> : null; })()}
           </span>
-          {office && total != null && <span className="jcard-total">{money(total)}</span>}
+          {office && col !== 'new' && total != null && <span className="jcard-total">{money(total)}</span>}
         </div>
         {(main || more.length > 0) && (
           <div className="jcard-actions">
@@ -234,6 +263,7 @@ export function Board() {
       <div className="page-head">
         <h2>Jobs board</h2>
         <div className="btn-row">
+          {office && <button type="button" className="btn sm primary" onClick={() => void newLead().catch((e: Error) => setToast(e.message))}><Icon name="plus" />New lead</button>}
           <Link to="/archive" className="btn sm">Archive</Link>
           <Link to="/calendar" className="btn sm"><Icon name="calendar" />Calendar</Link>
         </div>
@@ -250,7 +280,7 @@ export function Board() {
           {columns.map((c) => (
             <section key={c} data-col={c} className={`board-col st-${c} ${tab === c ? 'on' : ''} ${drag?.over === c ? 'drop' : ''}`} aria-label={COLUMN_LABEL[c]}>
               <header><span>{COLUMN_LABEL[c]}</span><span className="muted">{byColumn.get(c)?.length ?? 0}</span></header>
-              {(byColumn.get(c) ?? []).map((row) => <Card key={row.job.id} row={row} col={c} />)}
+              {(byColumn.get(c) ?? []).map((row) => card(row, c))}
               {!byColumn.get(c)?.length && <p className="board-empty">{drag ? 'Drop jobs here' : 'None'}</p>}
             </section>
           ))}
