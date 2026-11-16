@@ -35,7 +35,8 @@ export function Account() {
           </>
         )}
       </section>
-      <CalendarLink />
+      {/* Keyed by company: switching companies starts fresh, and a request from before the switch can't land here. */}
+      <CalendarLink key={org.org_id} />
       <section className="card">
         <h3>You</h3>
         <p className="muted small" style={{ marginTop: 0 }}>{user.email} · {org.role} at {org.name}</p>
