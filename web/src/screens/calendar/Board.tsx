@@ -62,7 +62,8 @@ export function Board() {
   const office = can.seePrices(org.role);
   const navigate = useNavigate();
   // Crew don't need the money columns; a job that's been invoiced is simply Done for them.
-  const columns: BoardColumn[] = office ? ['approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'paid'] : ['scheduled', 'in_progress', 'blocked', 'done'];
+  // Paid jobs leave the board for the Archive.
+  const columns: BoardColumn[] = office ? ['approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced'] : ['scheduled', 'in_progress', 'blocked', 'done'];
   const [tab, setTab] = useState<BoardColumn>(office ? 'approved' : 'scheduled');
   const [editing, setEditing] = useState<CalEvent | null>(null);
   const [blocking, setBlocking] = useState<Job | null>(null);
@@ -81,8 +82,8 @@ export function Board() {
       if (raw.deleted_at) continue;
       const job = normalizeJob(raw);
       let col = boardColumn(job, events ?? []);
-      if (col === 'pending') continue;
-      if (!office && (col === 'invoiced' || col === 'paid')) col = 'done';
+      if (col === 'pending' || col === 'paid') continue;
+      if (!office && col === 'invoiced') col = 'done';
       if (!office && col === 'approved') continue; // not on the calendar yet: nothing for crew to do
       out.set(col, [...(out.get(col) ?? []), { job, sched: jobSchedule(job.id, events ?? []) }]);
     }
@@ -232,7 +233,10 @@ export function Board() {
     <div className="page board-page">
       <div className="page-head">
         <h2>Jobs board</h2>
-        <Link to="/calendar" className="btn sm"><Icon name="calendar" />Calendar</Link>
+        <div className="btn-row">
+          <Link to="/archive" className="btn sm">Archive</Link>
+          <Link to="/calendar" className="btn sm"><Icon name="calendar" />Calendar</Link>
+        </div>
       </div>
       <div className="chips board-tabs" role="tablist" aria-label="Columns">
         {columns.map((c) => (

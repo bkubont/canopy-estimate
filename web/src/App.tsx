@@ -7,6 +7,7 @@ import { Company } from './screens/Company';
 import { ContactEdit } from './screens/ContactEdit';
 import { Board } from './screens/calendar/Board';
 import { Calendar } from './screens/calendar/Calendar';
+import { Archive } from './screens/Archive';
 import { Contacts } from './screens/Contacts';
 import { Dashboard } from './screens/Dashboard';
 import { Expenses } from './screens/money/Expenses';
@@ -51,6 +52,7 @@ export function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/board" element={<Board />} />
+            <Route path="/archive" element={<Archive />} />
             <Route path="/estimates" element={<Estimates />} />
             <Route path="/estimates/:id" element={<EstimateScreen />} />
             <Route path="/estimates/:id/:step" element={<EstimateScreen />} />

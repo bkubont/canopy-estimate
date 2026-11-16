@@ -93,7 +93,7 @@ await waitLoaded(c, '.card', 3, 'crew see the before, during and tree photos (lo
 await c.getByLabel('Add after photo').setInputFiles(png);
 await waitLoaded(c, '.card', 4, 'crew add an after photo');
 await syncNow(c);
-await c.locator('.thumb', { has: c.locator('img') }).first().click();
+await c.locator('.thumb:not(.add)', { has: c.locator('img') }).first().click();
 await see(c, 'Remove photo', 'tapping a photo opens it full size');
 await notSee(c, /\$/, 'no prices anywhere near the photos for crew');
 await c.getByRole('button', { name: 'Close' }).click();
@@ -104,7 +104,8 @@ await syncNow(o);
 await o.getByLabel('4 photos').first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'board card should say 4 photos'));
 ok('the board card shows 4 photos');
 await o.getByRole('link', { name: 'Dana Smith' }).first().click();
-await o.locator('.photo-group').filter({ hasText: 'After' }).locator('.thumb').first().click();
+// The photo itself, not the "Add" button next to it (which is there first while the job loads).
+await o.locator('.photo-group').filter({ hasText: 'After' }).locator('.thumb:not(.add)').first().click();
 await o.getByRole('button', { name: 'Remove photo' }).click();
 await o.waitForFunction(() => document.querySelectorAll('.card .thumb img').length === 3, null, { timeout: 10000 }).catch(() => fail(o, 'photo not removed'));
 ok('removing a photo takes it off the job');

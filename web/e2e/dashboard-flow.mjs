@@ -31,6 +31,7 @@ ok('it carries the orange Approved pill');
 await shot(o, '01-phone-dashboard');
 
 // Search finds the job from anywhere.
+await o.locator('.top-search label').click(); // on a phone the search opens from the magnifying glass
 await o.getByLabel('Search jobs and customers').fill('dana');
 await o.getByRole('option', { name: /Dana Smith/ }).first().click();
 await see(o, 'Signed by Dana Smith', 'search opens the job');

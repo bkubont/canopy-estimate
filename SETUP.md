@@ -109,6 +109,7 @@ APP_URL=http://localhost:5173/ node e2e/dashboard-flow.mjs  # dashboard, menu, s
 E2E_FAKE=1 APP_URL=http://localhost:5173/ node e2e/photos-flow.mjs  # photos, incl. one taken offline (stand-in backend only)
 E2E_FAKE=1 APP_URL=http://localhost:5173/ node e2e/money-flow.mjs   # expenses, receipts, hours, reports, Excel (stand-in backend only)
 APP_URL=http://localhost:5173/ node e2e/phone-fit.mjs            # every screen fits the smallest iPhone
+E2E_FAKE=1 APP_URL=http://localhost:5173/ node e2e/extras-flow.mjs  # contacts import, the bell, the archive (stand-in backend only)
 ```
 
 The two-device test creates two throwaway accounts. Against a real project, confirmation emails are needed, so run it against a **separate test project**, or with **Confirm email** off on that test project only.

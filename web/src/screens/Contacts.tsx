@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { ImportContacts } from '../components/ImportContacts';
 import { Link } from 'react-router-dom';
 import { useReady, useRows } from '../lib/session';
 import type { Customer } from '../lib/types';
@@ -15,6 +16,7 @@ export function Contacts() {
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (rows ?? [])
+      .filter((c) => !c.deleted_at)
       .filter((c) => !needle || [c.first_name, c.last_name, c.company, c.phone, c.email, c.street, c.town].join(' ').toLowerCase().includes(needle))
       .sort((a, b) => customerName(a).localeCompare(customerName(b)));
   }, [rows, q]);
@@ -22,10 +24,13 @@ export function Contacts() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Contacts</h2>
-        <Link to="/contacts/new" className="btn primary"><Icon name="plus" />New contact</Link>
+        <h1>Customers</h1>
+        <div className="btn-row">
+          <ImportContacts />
+          <Link to="/contacts/new" className="btn primary"><Icon name="plus" />New contact</Link>
+        </div>
       </div>
-      <input type="search" className="search" placeholder="Search name, phone, town" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search contacts" />
+      <input type="search" className="search" placeholder="Search name, phone, town" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search customers" />
       {rows === null ? (
         <p className="empty">Loading…</p>
       ) : list.length ? (
