@@ -64,18 +64,22 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
+          # Spaces, a line break or a trailing slash pasted with the secret are fine.
+          VITE_SUPABASE_URL="$(printf '%s' "$VITE_SUPABASE_URL" | tr -d '[:space:]')"; VITE_SUPABASE_URL="${VITE_SUPABASE_URL%/}"
           if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
             echo "::error::Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY under Settings → Secrets and variables → Actions, then run this workflow again."
             exit 1
           fi
           case "$VITE_SUPABASE_URL" in https://*.supabase.co) ;; *)
-            echo "::error::VITE_SUPABASE_URL should look like https://abcd1234.supabase.co"; exit 1 ;; esac
+            echo "::error::VITE_SUPABASE_URL should look like https://abcd1234.supabase.co (the Project URL from Supabase → Project Settings → API)"; exit 1 ;; esac
       - name: Build
         working-directory: web
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
+          VITE_SUPABASE_URL="$(printf '%s' "$VITE_SUPABASE_URL" | tr -d '[:space:]')"
+          export VITE_SUPABASE_URL="${VITE_SUPABASE_URL%/}"
           npm ci
           npm run build
       - name: Publish to the deploy branch

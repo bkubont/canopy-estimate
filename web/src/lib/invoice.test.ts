@@ -39,7 +39,9 @@ describe('invoices', () => {
   it('never carries rental cost or markup onto the invoice', () => {
     const { job, p } = signedJob();
     const inv = invoiceFromJob(job, p, { number: 'INV-1', dueDays: 15 });
-    expect(JSON.stringify(inv)).not.toMatch(/285|markup/);
+    // Random ids can contain "285" by chance, so leave them out of the search.
+    const text = JSON.stringify(inv).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '');
+    expect(text).not.toMatch(/285|markup/);
   });
 
   it('counts deposits and payments, ignoring voided ones', () => {
