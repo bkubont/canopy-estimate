@@ -11,6 +11,7 @@ import { useCreateEstimate } from '../../lib/useCreateEstimate';
 import { clientName, daysLabel, money, normalizeJob, num } from '../../lib/estimate';
 import { invoiceFromJob } from '../../lib/invoice';
 import { hoursLabel, hoursTotal, jobEntries } from '../../lib/expenses';
+import { HOURS_ENABLED } from '../../lib/features';
 import { isWorkOrder, noteSummary } from '../../lib/notes';
 import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
@@ -280,7 +281,7 @@ export function Board() {
         <div className="jcard-meta">
           <span className="jcard-counts">
             <JobQuickIcons job={row.job} />
-            {(() => { const h = hoursTotal(jobEntries(timeEntries, job.id)); return h > 0 ? <span className="photo-count" aria-label={`${hoursLabel(h)} logged`}><Icon name="clock" size={14} />{hoursLabel(h)}</span> : null; })()}
+            {HOURS_ENABLED && (() => { const h = hoursTotal(jobEntries(timeEntries, job.id)); return h > 0 ? <span className="photo-count" aria-label={`${hoursLabel(h)} logged`}><Icon name="clock" size={14} />{hoursLabel(h)}</span> : null; })()}
           </span>
           {office && col !== 'new' && total != null && <span className="jcard-total">{money(total)}</span>}
         </div>

@@ -16,6 +16,8 @@ export interface BellItem { id: string; kind: NoteKind; at: string; text: string
 export function bellItems(input: {
   jobs: Job[] | null; payments: Payment[] | null; invoices: Invoice[] | null; events: CalEvent[] | null; timeEntries: TimeEntry[] | null;
   me: { id: string; name: string }; office: boolean; today: string; nowIso: string; days?: number;
+  /** Remind about unlogged hours (off while hours tracking is switched off). */
+  hoursReminder?: boolean;
 }): BellItem[] {
   const { me, office, today } = input;
   const since = miToIso(addDays(today, -(input.days ?? 14)), '00:00');
@@ -52,7 +54,7 @@ export function bellItems(input: {
   }
 
   // After 4 pm: jobs on today's calendar with no hours logged today.
-  if (input.nowIso >= miToIso(today, '16:05')) { // nowIso runs 5 minutes ahead (see Bell)
+  if (input.hoursReminder !== false && input.nowIso >= miToIso(today, '16:05')) { // nowIso runs 5 minutes ahead (see Bell)
     const logged = new Set((input.timeEntries ?? []).filter((t) => !t.deleted_at && t.work_date === today).map((t) => t.job_id));
     const todays = (input.events ?? []).filter((e) => isActive(e) && e.type === 'tree_work' && e.job_id && eventDays(e).includes(today)
       && (!e.assigned_to?.length || e.assigned_to.includes(me.id)));

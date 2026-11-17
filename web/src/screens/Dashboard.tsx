@@ -6,6 +6,7 @@ import { JobQuickIcons } from '../components/JobQuickIcons';
 import { NotesBadge } from '../components/WorkOrderNotes';
 import { isWorkOrder, noteSummary } from '../lib/notes';
 import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi, visitForJob, weekday } from '../lib/calendar';
+import { HOURS_ENABLED } from '../lib/features';
 import { expensesInMonth, hoursLabel, hoursTotal, isOpen, total, workerOf } from '../lib/expenses';
 import { addDays, clientName, money, normalizeJob, round2 } from '../lib/estimate';
 import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
@@ -147,15 +148,16 @@ export function Dashboard() {
             <span className="tile-value">{money(data.spent)}</span>
             <span className="tile-sub">Expenses</span>
           </Link>
-          <Link to="/board" className="tile">
+          {HOURS_ENABLED && <Link to="/board" className="tile">
             <span className="tile-label">Hours this week</span>
             <span className="tile-value">{hoursLabel(data.weekHours)}</span>
             <span className="tile-sub">Hours worked on jobs</span>
-          </Link>
+          </Link>}
         </section>
       )}
 
       {(() => {
+        if (!HOURS_ENABLED) return null;
         const clocks = (timeEntries ?? []).filter(isOpen).sort((a, b) => (a.clock_in ?? '').localeCompare(b.clock_in ?? ''));
         if (!clocks.length) return null;
         return (
