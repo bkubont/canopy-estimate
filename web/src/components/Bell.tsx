@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { todayMi, ymdOf } from '../lib/calendar';
+import { HOURS_ENABLED } from '../lib/features';
 import { bellItems, type NoteKind } from '../lib/notifications';
 import { can, useReady, useRow, useRows } from '../lib/session';
 import { Icon, type IconName } from './Icon';
@@ -47,7 +48,7 @@ export function Bell() {
   }, [open]);
 
   const items = useMemo(() => bellItems({
-    jobs, payments, invoices, events, timeEntries, me: { id: user.id, name: me?.display_name ?? '' }, office: can.seePrices(org.role), today: todayMi(),
+    jobs, payments, invoices, events, timeEntries, me: { id: user.id, name: me?.display_name ?? '' }, office: can.seePrices(org.role), today: todayMi(), hoursReminder: HOURS_ENABLED,
     // Whatever just synced counts as now, even if this device's clock is a little behind.
     nowIso: new Date(Date.now() + 5 * 60_000).toISOString(),
   }), [jobs, payments, invoices, events, timeEntries, user.id, me?.display_name, org.role, tick]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -5,6 +5,7 @@ import { bookkeeping, periodOf, shiftPeriod, type PeriodKind } from '../../lib/b
 import { todayMi } from '../../lib/calendar';
 import { money } from '../../lib/estimate';
 import { hoursLabel } from '../../lib/expenses';
+import { HOURS_ENABLED } from '../../lib/features';
 import { shareOrDownload } from '../../lib/pdf';
 import { can, useReady, useRow, useRows } from '../../lib/session';
 import { bookkeepingFileName, bookkeepingXlsx } from '../../lib/xlsx';
@@ -73,7 +74,7 @@ export function Reports() {
         <div className="tile"><span className="tile-label">Money out</span><span className="tile-value">{money(t.spent)}</span><span className="tile-sub">{books.expenses.length} expense{books.expenses.length === 1 ? '' : 's'}</span></div>
         <div className={`tile ${t.net < 0 ? 'bad' : ''}`}><span className="tile-label">In minus out</span><span className="tile-value">{money(t.net)}</span><span className="tile-sub">Cash, not profit</span></div>
         <div className="tile"><span className="tile-label">Sales tax</span><span className="tile-value">{money(t.tax)}</span><span className="tile-sub">On invoices issued</span></div>
-        <div className="tile"><span className="tile-label">Hours worked</span><span className="tile-value">{hoursLabel(t.hours)}</span><span className="tile-sub">Drive time included</span></div>
+        {HOURS_ENABLED && <div className="tile"><span className="tile-label">Hours worked</span><span className="tile-value">{hoursLabel(t.hours)}</span><span className="tile-sub">Drive time included</span></div>}
       </section>
 
       <div className="dash-cols">
@@ -82,12 +83,12 @@ export function Reports() {
           {books.jobs.length ? (
             <div className="table-wrap">
               <table className="report-table">
-                <thead><tr><th>Job</th><th>Billed</th><th>Costs</th><th>Hours</th><th>Per hour</th></tr></thead>
+                <thead><tr><th>Job</th><th>Billed</th><th>Costs</th>{HOURS_ENABLED && <><th>Hours</th><th>Per hour</th></>}</tr></thead>
                 <tbody>
                   {books.jobs.map((j) => (
                     <tr key={j.job}>
                       <td><b>{j.customer || j.job}</b><br /><span className="muted small">{j.job}</span></td>
-                      <td>{money(j.billed)}</td><td>{money(j.costs)}</td><td>{hoursLabel(j.hours)}</td><td>{j.perHour == null ? '—' : money(j.perHour)}</td>
+                      <td>{money(j.billed)}</td><td>{money(j.costs)}</td>{HOURS_ENABLED && <><td>{hoursLabel(j.hours)}</td><td>{j.perHour == null ? '—' : money(j.perHour)}</td></>}
                     </tr>
                   ))}
                 </tbody>
@@ -114,7 +115,7 @@ export function Reports() {
           )}
         </section>
       </div>
-      <p className="hint">The Excel file has a Summary sheet, then every payment, invoice, expense and hours entry for {period.label}, plus each job’s numbers.</p>
+      <p className="hint">The Excel file has a Summary sheet, then every payment, invoice, expense{HOURS_ENABLED ? ' and hours' : ''} entry for {period.label}, plus each job’s numbers.</p>
     </div>
   );
 }

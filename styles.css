@@ -628,9 +628,10 @@ dialog::backdrop { background: rgba(0,0,0,.72); }
 .doc-sum td { text-align: right; padding: 5px 0; border-bottom: 1px solid var(--doc-line); width: 30%; }
 .doc-sum .grand th, .doc-sum .grand td { font-size: 1.35em; font-weight: 800; color: var(--doc-ink); border-bottom: 0; padding-top: 8px; }
 .doc-sum .grand td { color: var(--doc-red); }
-.sig-line { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--doc-ink); min-height: 50px; }
+.sig-line { display: flex; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--doc-ink); min-height: 34px; }
 .sig-box { flex: 1; }
-.sig-box img { display: block; max-height: 48px; max-width: 100%; }
+/* Kept about the height of handwriting next to the text: the PDF scales the page up, so 48px read as huge. */
+.sig-box img { display: block; max-height: 30px; max-width: min(100%, 200px); }
 .sig-line > span { width: 34%; padding-bottom: 2px; }
 .sig-cap { display: flex; justify-content: space-between; font-size: .85em; color: var(--doc-muted); margin-bottom: 8px; }
 .sig-cap span:last-child { width: 34%; }
