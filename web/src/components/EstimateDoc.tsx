@@ -1,4 +1,4 @@
-import { clientName, money, niceDate, sizeLabel, totals, treeCount, validUntil, workLabel } from '../lib/estimate';
+import { clientName, money, septicLine, niceDate, sizeLabel, totals, treeCount, validUntil, workLabel } from '../lib/estimate';
 import type { ChangeOrder, CustomerPricing, Job, Organization, Tree } from '../lib/types';
 
 /** Everything printed comes from these shapes, which have no internal notes and no costs. */
@@ -59,6 +59,7 @@ export function EstimateDoc({ company, job, pricing, title = 'Estimate' }: { com
     site.conditions.length || site.other ? <KV key="s" label="Site" value={[...site.conditions, site.other && `Other: ${site.other}`].filter(Boolean).join(', ')} /> : null,
     site.parking ? <KV key="p" label="Parking" value={site.parking} /> : null,
     site.debris ? <KV key="d" label="Wood & debris" value={site.debris} /> : null,
+    septicLine(site) ? <KV key="sp" label="Septic / drain field" value={septicLine(site)} /> : null,
     job.client_notes ? <KV key="n" label="Notes" value={job.client_notes} /> : null,
   ].filter(Boolean);
 

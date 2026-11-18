@@ -89,7 +89,6 @@ await o.locator('.bottombar .btn.primary').click();
 await o.getByRole('button', { name: 'Add tree' }).click();
 await o.getByRole('button', { name: 'Ash', exact: true }).click();
 await o.getByRole('button', { name: 'Save tree' }).click();
-await o.locator('.bottombar .btn.primary').click();
 await o.getByRole('button', { name: '2 days' }).click();
 await o.getByRole('button', { name: 'Stump grinder', exact: true }).click();
 await o.locator('.bottombar .btn.primary').click();

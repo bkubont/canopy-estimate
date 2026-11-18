@@ -102,7 +102,7 @@ export function TreeList({ trees, onChange, jobId }: { trees: Tree[]; onChange: 
           </div>
         )) : <p className="empty">No trees added yet.</p>}
       </div>
-      <button type="button" className="btn primary block" style={{ minHeight: 56 }}
+      <button type="button" className="btn primary block"
         onClick={() => setEditing({ tree: { ...blankTree(), work: trees.at(-1)?.work ?? [] }, index: -1 })}>
         <Icon name="plus" />Add tree
       </button>
@@ -126,10 +126,10 @@ export function TreeList({ trees, onChange, jobId }: { trees: Tree[]; onChange: 
 
 export function StepTrees({ job, updateJob }: import('./types').StepProps) {
   return (
-    <div>
-      <h2 className="step-title">Trees <small className="muted">{treeCount(job.trees)} total</small></h2>
-      <p className="hint">One line per kind of tree. Several the same? Use one line and set “How many”. ⧉ Copy starts a similar tree.</p>
+    <section className="card">
+      <div className="sec-head"><h2><Icon name="tree" size={18} />Trees <small className="muted">{treeCount(job.trees)} total</small></h2></div>
       <TreeList jobId={job.id} trees={job.trees} onChange={(trees) => updateJob((j) => ({ ...j, trees }))} />
-    </div>
+      <p className="hint" style={{ marginBottom: 0 }}>Several the same? Use one line and set “How many”. ⧉ Copy starts a similar tree.</p>
+    </section>
   );
 }

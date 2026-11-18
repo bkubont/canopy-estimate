@@ -91,12 +91,14 @@ await o.getByLabel('Last name').fill('Smith');
 await o.getByLabel('Phone').fill('231-555-0101');
 await o.getByLabel('Town').fill('Traverse City');
 await o.getByRole('button', { name: 'Haul all' }).click();
+await o.getByRole('button', { name: 'Drain field', exact: true }).click();
+await o.getByLabel('Where the septic or drain field is').fill('Back yard, flagged');
 await o.getByLabel('Notes for the client').fill('We will protect the garden bed.');
 await o.getByLabel('Internal notes').fill('SECRET-JOB gate code 4411, dog in yard');
 await shot(o, '01-client-site');
 await next(o);
 
-await see(o, 'No trees added yet', 'trees step');
+await see(o, 'No trees added yet', 'trees & price step');
 await o.getByRole('button', { name: 'Add tree' }).click();
 await o.getByRole('button', { name: 'Sugar Maple' }).click();
 await o.getByRole('button', { name: 'Removal', exact: true }).click();
@@ -106,7 +108,6 @@ await shot(o, '02-tree-sheet');
 await o.getByRole('button', { name: 'Save tree' }).click();
 await see(o, 'Sugar Maple — Removal', 'tree added');
 await shot(o, '03-trees');
-await next(o);
 
 await o.getByRole('button', { name: '2 days' }).click();
 await o.getByRole('button', { name: 'Stump grinder', exact: true }).click();
@@ -116,10 +117,9 @@ await shot(o, '04-pricing');
 await next(o);
 
 await see(o, '$4,684.00', 'review total is labor $4,000 + grinder 2 × $342');
+await see(o, 'Send to client', 'sign and send are on the same page');
+await see(o, 'Drain field — Back yard, flagged', 'the septic / drain field prints on the estimate');
 await shot(o, '05-review');
-await next(o);
-
-await see(o, 'Send to client', 'send step');
 await notSee(o, /SECRET|285|markup/i, 'the customer document has no internal notes, cost or markup');
 await o.getByRole('button', { name: 'Customer link' }).click();
 const link = await o.getByLabel('Customer link').inputValue();

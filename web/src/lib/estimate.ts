@@ -30,6 +30,11 @@ export const SIZES: [string, string][] = [
 export const sizeLabel = (key: string) => SIZES.find(([k]) => k === key)?.[1] ?? '';
 export const CONDITIONS = ['Healthy', 'Diseased', 'Storm-damaged', 'Dead', 'Leaning', 'Pest', 'Hollow'];
 export const SITE_CONDITIONS = ['Clear Access', 'Restricted Access', 'Uneven Terrain', 'Hillside', 'Overhead wires', 'Ground protection needed'];
+export const SEPTIC = ['None', 'Septic tank', 'Drain field', 'Tank & drain field', 'Not sure'];
+/** Septic answers that mean there is something on site to stay off. */
+export const hasSeptic = (s: string) => !!s && s !== 'None';
+/** One line for documents and the crew sheet, e.g. "Septic tank — back yard, flagged". */
+export const septicLine = (site: Site) => (site.septic ? [site.septic, hasSeptic(site.septic) && site.septic_where].filter(Boolean).join(' — ') : '');
 export const DEBRIS = ['Leave all', 'Leave wood (haul brush)', 'Haul all', 'Cut and stack', 'Hide it'];
 export const CHANGE_REASONS = [
   'Unforeseen circumstances / hazards', 'Access worse than expected', 'Weather delay', 'Equipment needed', 'Client request', 'Other',
@@ -89,7 +94,7 @@ export function blankClient(): Client {
   return { firstName: '', lastName: '', company: '', phone: '', email: '', street: '', town: '', state: 'MI', zip: '' };
 }
 export function blankSite(): Site {
-  return { conditions: [], other: '', parking: '', debris: '' };
+  return { conditions: [], other: '', parking: '', debris: '', septic: '', septic_where: '' };
 }
 export function blankTree(): Tree {
   return { id: uid(), species: '', work: [], location: '', size: '', condition: '', qty: 1, notes: '', internal_notes: '' };

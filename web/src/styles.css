@@ -282,6 +282,7 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .steps a.done .dot { background: #E6E9FB; color: var(--accent); }
 .step-title { font-size: 20px; margin: 4px 0 12px; }
 .wizard-grid { display: grid; gap: 0 16px; }
+.wizard-grid > * { min-width: 0; } /* a sideways-scrolling chip row must not widen the page */
 @media (min-width: 1100px) { .wizard-grid.two-col { grid-template-columns: 1fr 1fr; align-items: start; } }
 
 .bottombar {
@@ -295,6 +296,57 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 @media (min-width: 900px) { .bottombar { left: var(--sidebar-w); } }
 .has-bottombar .main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .has-bottombar .tabnav { display: none; }
+
+/* ---------- estimate builder: compact, three pages ---------- */
+.wiz-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.wiz-title { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.wiz-title b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wizard .steps {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; overflow: visible;
+  padding: 4px; margin-bottom: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+}
+.wizard .steps a { justify-content: center; border: 0; border-radius: 10px; padding: 8px 4px; font-size: 13px; gap: 6px; min-width: 0; background: transparent; }
+.wizard .steps a .dot { width: 20px; height: 20px; font-size: 11px; flex: none; }
+.wizard .steps .step-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wizard .steps a.on { background: var(--accent); color: #fff; }
+.wizard .card {
+  padding: 14px; border-radius: 14px; border-color: var(--line-soft);
+  box-shadow: 0 1px 2px rgba(11, 11, 15, .04), 0 6px 18px rgba(11, 11, 15, .04);
+}
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.sec-head h2 { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+.sec-head h2 .icon { color: var(--accent); }
+.sec-head h2 small { font-weight: 500; font-size: 13px; }
+.sec-total { font-size: 16px; font-variant-numeric: tabular-nums; }
+.wizard .field { margin-bottom: 10px; }
+.wizard .field > span { font-size: 13px; margin-bottom: 3px; }
+.wizard input, .wizard select, .wizard textarea { min-height: 42px; padding: 8px 11px; }
+.wizard textarea { min-height: 64px; }
+.wizard h4.label { font-size: 13px; margin: 12px 0 6px; }
+.wizard .chips { gap: 6px; }
+.wizard .chip { min-height: 36px; padding: 6px 12px; font-size: 14px; }
+.wizard .stepper { grid-template-columns: 44px 1fr 44px; max-width: none; }
+.wizard .stepper input { min-height: 40px; font-size: 16px; }
+.wizard .internal { padding: 10px; margin: 0; }
+.wizard .list-item { padding: 10px 12px; }
+.wizard .bottombar .btn { min-height: 48px; font-size: 16px; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 10px; }
+.grid-town { display: grid; grid-template-columns: minmax(0, 1fr) 62px 92px; gap: 0 10px; }
+.row > .price-input { flex: 1; min-width: 140px; }
+.pct-input input { width: 84px; min-height: 34px !important; padding: 4px 8px !important; }
+.total-band {
+  display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding: 12px 14px;
+  border-radius: 12px; background: var(--accent); color: #fff; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.your-sig { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.your-sig img { max-height: 36px; max-width: 160px; }
+/* Long add-a-thing chip lists scroll sideways on phones instead of filling the screen. */
+@media (max-width: 699px) {
+  .chips.scroll-x { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 0 14px 4px; scrollbar-width: none; }
+  .chips.scroll-x .chip { white-space: nowrap; flex: none; }
+}
+.chip.add { display: inline-flex; align-items: center; gap: 4px; }
+.wizard .line-card { margin: 10px 0 0; background: var(--bg); border-color: var(--line-soft); }
 
 .line-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; }
 .line-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -676,3 +728,4 @@ b > .notes-badge, .job-tile-name > .notes-badge { margin-left: 6px; vertical-ali
 .card-icon.has-notes { border-color: #C2185B; background: #FCE8F0; color: #7A0E3A; }
 .card-icon .notes-badge { min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; }
 .card-icon-count { font-variant-numeric: tabular-nums; }
+@media (max-width: 440px) { .wizard .steps a .dot { display: none; } }
