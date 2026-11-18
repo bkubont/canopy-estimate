@@ -53,7 +53,6 @@ ok('the tree line shows "1 photo"');
 await shot(o, '01-tree-photo');
 
 // finish and sign it
-await o.locator('.bottombar .btn.primary').click();
 await o.getByRole('button', { name: '2 days' }).click();
 await o.locator('.bottombar .btn.primary').click();
 const { draw } = await import('./helpers.mjs');

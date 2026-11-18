@@ -13,7 +13,7 @@ import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/
 import { SignaturePad } from '../../components/SignaturePad';
 import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
-  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, money, niceDate, normalizeJob, todayYmd, totals, treeDetails, treeTitle,
+  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, hasSeptic, money, niceDate, normalizeJob, septicLine, todayYmd, totals, treeDetails, treeTitle,
 } from '../../lib/estimate';
 import { invoiceFromJob, invoiceTotals, paidForJob } from '../../lib/invoice';
 import { takeNumber } from '../../lib/numbers';
@@ -32,10 +32,8 @@ import { StepTrees, TreeList } from './StepTrees';
 
 const STEPS = [
   { id: 'client', label: 'Client & Site' },
-  { id: 'trees', label: 'Trees' },
-  { id: 'pricing', label: 'Pricing' },
-  { id: 'review', label: 'Review & Sign' },
-  { id: 'send', label: 'Send' },
+  { id: 'trees', label: 'Trees & Price' },
+  { id: 'review', label: 'Sign & Send' },
 ] as const;
 
 export function EstimateScreen() {
@@ -57,7 +55,9 @@ type Draft = ReturnType<typeof useJobDraft> & { job: Job; pricing: JobPricing; c
 function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }: Draft & { step?: string }) {
   const nav = useNavigate();
   const { engine } = useReady();
-  const i = Math.max(0, STEPS.findIndex((s) => s.id === step));
+  // Older links to the pages that were merged land on the page that now holds them.
+  const stepId = ({ pricing: 'trees', send: 'review' } as Record<string, string>)[step ?? ''] ?? step;
+  const i = Math.max(0, STEPS.findIndex((s) => s.id === stepId));
   // Save first, then move on, unless the user already went somewhere else meanwhile.
   const go = async (to: string) => {
     const from = window.location.hash;
@@ -89,30 +89,39 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
   const prev = STEPS[i - 1];
 
   return (
-    <div className="page" style={{ maxWidth: 1200 }}>
-      <div className="row" style={{ marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
-        <b style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{job.number}{clientName(job.client) ? ` · ${clientName(job.client)}` : ''}</b>
+    <div className="page wizard" style={{ maxWidth: 1200 }}>
+      <div className="wiz-head">
+        <div className="wiz-title">
+          <span className="muted small">{job.number}</span>
+          <b>{clientName(job.client) || 'New estimate'}</b>
+        </div>
         <Pill stage={jobStage(job, [])} />
-        <span style={{ marginLeft: 'auto' }}><CancelJobButton small job={job} apply={cancelApply} /></span>
+        <CancelJobButton small job={job} apply={cancelApply} />
       </div>
       <CancelledBanner job={job} apply={cancelApply} />
       <nav className="steps" aria-label="Estimate steps">
         {STEPS.map((s, n) => (
           <Link key={s.id} to={`/estimates/${job.id}/${s.id}`} className={`${n === i ? 'on' : ''} ${n < i ? 'done' : ''}`} aria-current={n === i ? 'step' : undefined}
             onClick={() => { void flush(); if (i === 0) void saveClientToContacts(); }}>
-            <span className="dot">{n + 1}</span>{s.label}
+            <span className="dot">{n < i ? '✓' : n + 1}</span><span className="step-label">{s.label}</span>
           </Link>
         ))}
       </nav>
 
       {STEPS[i]!.id === 'client' && <StepClient {...props} />}
-      {STEPS[i]!.id === 'trees' && <StepTrees {...props} />}
-      {STEPS[i]!.id === 'pricing' && <StepPricing {...props} />}
-      {STEPS[i]!.id === 'review' && <StepReview {...props} onSigned={() => void go(`/estimates/${job.id}`)} />}
-      {STEPS[i]!.id === 'send' && (
+      {STEPS[i]!.id === 'trees' && (
+        <div className="wizard-grid two-col">
+          <StepTrees {...props} />
+          <div><StepPricing {...props} /></div>
+        </div>
+      )}
+      {STEPS[i]!.id === 'review' && (
         <>
-          <h2 className="step-title">Send to client</h2>
-          <SendActions job={job} pricing={pricing} company={company} flush={flush} />
+          <StepReview {...props} onSigned={() => void go(`/estimates/${job.id}`)} />
+          <section className="card">
+            <div className="sec-head"><h2><Icon name="message" size={18} />Send to client</h2></div>
+            <SendActions job={job} pricing={pricing} company={company} flush={flush} />
+          </section>
           <DangerZone job={job} />
         </>
       )}
@@ -351,6 +360,7 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
           {[...job.site.conditions, job.site.other].filter(Boolean).join(', ') || 'No site notes'}<br />
           {job.site.parking && <>Parking: {job.site.parking}<br /></>}
           {job.site.debris && <>Wood &amp; debris: {job.site.debris}<br /></>}
+          {septicLine(job.site) && <>{hasSeptic(job.site.septic) ? <b>⚠ Septic / drain field: {septicLine(job.site)}</b> : <>Septic / drain field: {septicLine(job.site)}</>}<br /></>}
           Days: {job.days + job.change_orders.reduce((s, c) => s + c.days, 0)} · Equipment: {job.equipment.map((e) => e.desc).filter(Boolean).join(', ') || 'none'}
         </p>
       </section>

@@ -30,28 +30,23 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
   };
 
   return (
-    <div className="wizard-grid two-col">
-      <div>
-        <h2 className="step-title">Job days</h2>
-        <section className="card">
-          <Chips label="Days" options={DAY_CHOICES} value={job.days} onChange={(v) => setDays(num(v) || job.days)} required />
-          <div className="mt"><Stepper label="Days" value={job.days} step={0.5} min={0.5} onChange={setDays} /></div>
-          <h4 className="label">Day rate</h4>
-          <MoneyInput label="Day rate" value={pricing.day_rate} onChange={(v) => updatePricing((p) => ({ ...p, day_rate: v ?? 0 }))} />
-          <div className="sum-line grand mt"><span>Labor</span><span>{money(t.baseLabor)}</span></div>
-        </section>
-        <p className="hint">Work dates are set on the calendar after the estimate is signed.</p>
-      </div>
+    <>
+      <section className="card">
+        <div className="sec-head"><h2><Icon name="calendar" size={18} />Days &amp; labor</h2><b className="sec-total">{money(t.baseLabor)}</b></div>
+        <Chips label="Days" options={DAY_CHOICES} value={job.days} onChange={(v) => setDays(num(v) || job.days)} required />
+        <div className="grid-2 mt">
+          <div><h4 className="label">Days</h4><Stepper label="Days" value={job.days} step={0.5} min={0.5} onChange={setDays} /></div>
+          <div><h4 className="label">Day rate</h4><MoneyInput label="Day rate" value={pricing.day_rate} onChange={(v) => updatePricing((p) => ({ ...p, day_rate: v ?? 0 }))} /></div>
+        </div>
+        <p className="hint" style={{ marginBottom: 0 }}>Work dates go on the calendar after the estimate is signed.</p>
+      </section>
 
-      <div>
-        <h2 className="step-title">Equipment rentals</h2>
-        <section className="card">
-          <h4 className="label">Tap to add</h4>
-          <div className="chips">
-            {EQUIPMENT.map(([d]) => <button key={d} type="button" className="chip add" onClick={() => addLine(d)}><Icon name="plus" size={16} />{d}</button>)}
-            <button type="button" className="chip add" onClick={() => addLine('')}><Icon name="plus" />Other</button>
-          </div>
-        </section>
+      <section className="card">
+        <div className="sec-head"><h2><Icon name="truck" size={18} />Equipment rentals</h2><b className="sec-total">{money(t.equipment)}</b></div>
+        <div className="chips scroll-x" role="group" aria-label="Add equipment">
+          {EQUIPMENT.map(([d]) => <button key={d} type="button" className="chip add" onClick={() => addLine(d)}><Icon name="plus" size={14} />{d}</button>)}
+          <button type="button" className="chip add" onClick={() => addLine('')}><Icon name="plus" size={14} />Other</button>
+        </div>
         {job.equipment.map((line) => {
           const cost = pricing.equipment_costs?.[line.id];
           const unit = round2(num(cost) * (num(pricing.equipment_markup) || 1));
@@ -71,7 +66,7 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
                     onChange={(v) => updateJob((j) => ({ ...j, equipment: j.equipment.map((l) => (l.id === line.id ? { ...l, qty: v, qty_manual: true } : l)) }))} />
                 </div>
                 <div>
-                  <h4 className="label">Rental cost / day <span className="internal-tag">private</span></h4>
+                  <h4 className="label">Cost / day <span className="internal-tag">private</span></h4>
                   <MoneyInput label={`${line.desc || 'Equipment'} rental cost`} value={cost ?? null}
                     onChange={(v) => updatePricing((p) => ({ ...p, equipment_costs: { ...p.equipment_costs, [line.id]: v ?? 0 } }))} />
                 </div>
@@ -80,16 +75,12 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
             </div>
           );
         })}
-        <section className="card">
-          <div className="sum-line grand"><span>Equipment</span><span>{money(t.equipment)}</span></div>
-          {job.equipment.length > 0 && (
-            <div className="sum-line private">
-              <span>Your cost {money(internal.cost)} · {markupPct}% markup earns</span><span>{money(internal.markupEarned)}</span>
-            </div>
-          )}
-          <p className="hint" style={{ marginBottom: 0 }}>Customers see one price per item, with the markup built in.</p>
-        </section>
-      </div>
-    </div>
+        {job.equipment.length > 0 ? (
+          <div className="sum-line private">
+            <span>Your cost {money(internal.cost)} · {markupPct}% markup earns</span><span>{money(internal.markupEarned)}</span>
+          </div>
+        ) : <p className="hint" style={{ marginBottom: 0 }}>Tap to add. Customers see one price per item, with the markup built in.</p>}
+      </section>
+    </>
   );
 }

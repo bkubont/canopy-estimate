@@ -92,7 +92,6 @@ export async function signedEstimate(p, first, last, town) {
   await p.getByRole('button', { name: 'Add tree' }).click();
   await p.getByRole('button', { name: 'Ash', exact: true }).click();
   await p.getByRole('button', { name: 'Save tree' }).click();
-  await p.locator('.bottombar .btn.primary').click();
   await p.getByRole('button', { name: '2 days' }).click();
   await p.getByRole('button', { name: 'Stump grinder', exact: true }).click();
   await p.locator('.bottombar .btn.primary').click();

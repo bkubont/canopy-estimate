@@ -1,67 +1,73 @@
 import { useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { Chips, Field, MultiChips } from '../../components/ui';
-import { clientName, DEBRIS, SITE_CONDITIONS } from '../../lib/estimate';
+import { clientName, DEBRIS, hasSeptic, SEPTIC, SITE_CONDITIONS } from '../../lib/estimate';
 import type { Client } from '../../lib/types';
 import { ClientPicker } from './ClientPicker';
 import type { StepProps } from './types';
-
-const CLIENT_FIELDS: [keyof Client, string, React.InputHTMLAttributes<HTMLInputElement>][] = [
-  ['company', 'Company', { autoCapitalize: 'words', autoComplete: 'organization' }],
-  ['phone', 'Phone', { type: 'tel', inputMode: 'tel', autoComplete: 'tel' }],
-  ['email', 'Email', { type: 'email', inputMode: 'email', autoComplete: 'email' }],
-  ['street', 'Address', { autoCapitalize: 'words', autoComplete: 'address-line1' }],
-  ['town', 'Town', { autoCapitalize: 'words', autoComplete: 'address-level2' }],
-];
 
 export function StepClient({ job, updateJob }: StepProps) {
   const [picking, setPicking] = useState(false);
   const setClient = (k: keyof Client, v: string) => updateJob((j) => ({ ...j, client: { ...j.client, [k]: v } }));
   const setSite = <K extends keyof typeof job.site>(k: K, v: (typeof job.site)[K]) => updateJob((j) => ({ ...j, site: { ...j.site, [k]: v } }));
+  const input = (k: keyof Client, label: string, attrs: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+    <Field label={label}><input {...attrs} value={job.client[k]} onChange={(e) => setClient(k, e.target.value)} /></Field>
+  );
 
   return (
     <div className="wizard-grid two-col">
-      <div>
-        <h2 className="step-title">Client</h2>
-        <button type="button" className="btn block" onClick={() => setPicking(true)} style={{ marginBottom: 12 }}>
-          <Icon name="user" /> {clientName(job.client) ? 'Choose a different client' : 'Choose client'}
-        </button>
-        <section className="card">
-          <div className="two">
-            <Field label="First name"><input value={job.client.firstName} onChange={(e) => setClient('firstName', e.target.value)} autoCapitalize="words" autoComplete="given-name" /></Field>
-            <Field label="Last name"><input value={job.client.lastName} onChange={(e) => setClient('lastName', e.target.value)} autoCapitalize="words" autoComplete="family-name" /></Field>
-          </div>
-          {CLIENT_FIELDS.map(([k, label, attrs]) => (
-            <Field key={k} label={label}><input {...attrs} value={job.client[k]} onChange={(e) => setClient(k, e.target.value)} /></Field>
-          ))}
-          <div className="two">
-            <Field label="State"><input value={job.client.state} maxLength={2} autoCapitalize="characters" onChange={(e) => setClient('state', e.target.value.toUpperCase())} /></Field>
-            <Field label="ZIP"><input value={job.client.zip} inputMode="numeric" autoComplete="postal-code" onChange={(e) => setClient('zip', e.target.value)} /></Field>
-          </div>
-        </section>
-      </div>
+      <section className="card">
+        <div className="sec-head">
+          <h2><Icon name="user" size={18} />Client</h2>
+          <button type="button" className="btn sm" onClick={() => setPicking(true)}>
+            <Icon name="contact" size={16} />{clientName(job.client) ? 'Change' : 'Pick from contacts'}
+          </button>
+        </div>
+        <div className="grid-2">
+          {input('firstName', 'First name', { autoCapitalize: 'words', autoComplete: 'given-name' })}
+          {input('lastName', 'Last name', { autoCapitalize: 'words', autoComplete: 'family-name' })}
+          {input('phone', 'Phone', { type: 'tel', inputMode: 'tel', autoComplete: 'tel' })}
+          {input('email', 'Email', { type: 'email', inputMode: 'email', autoComplete: 'email' })}
+        </div>
+        {input('company', 'Company', { autoCapitalize: 'words', autoComplete: 'organization' })}
+        {input('street', 'Address', { autoCapitalize: 'words', autoComplete: 'address-line1' })}
+        <div className="grid-town">
+          {input('town', 'Town', { autoCapitalize: 'words', autoComplete: 'address-level2' })}
+          <Field label="State"><input value={job.client.state} maxLength={2} autoCapitalize="characters" onChange={(e) => setClient('state', e.target.value.toUpperCase())} /></Field>
+          {input('zip', 'ZIP', { inputMode: 'numeric', autoComplete: 'postal-code' })}
+        </div>
+      </section>
 
       <div>
-        <h2 className="step-title">Site</h2>
         <section className="card">
-          <h4 className="label">Site conditions</h4>
+          <div className="sec-head"><h2><Icon name="pin" size={18} />Site</h2></div>
+          <h4 className="label">Conditions</h4>
           <MultiChips label="Site conditions" options={SITE_CONDITIONS} value={job.site.conditions} onChange={(v) => setSite('conditions', v)} />
-          <input className="mt" placeholder="Other…" aria-label="Other site conditions" value={job.site.other} onChange={(e) => setSite('other', e.target.value)} />
-          <h4 className="label">Parking</h4>
-          <textarea rows={2} aria-label="Parking" placeholder="Street, driveway, yard…" value={job.site.parking} onChange={(e) => setSite('parking', e.target.value)} />
+          <input className="mt" placeholder="Other conditions…" aria-label="Other site conditions" value={job.site.other} onChange={(e) => setSite('other', e.target.value)} />
+
+          <h4 className="label">Septic &amp; drain field</h4>
+          <Chips label="Septic and drain field" options={SEPTIC} value={job.site.septic} onChange={(v) => setSite('septic', v)} />
+          {hasSeptic(job.site.septic) && (
+            <input className="mt" placeholder="Where is it? e.g. back yard, flagged" aria-label="Where the septic or drain field is"
+              value={job.site.septic_where} onChange={(e) => setSite('septic_where', e.target.value)} />
+          )}
+
           <h4 className="label">Wood &amp; debris</h4>
           <Chips label="Wood and debris" options={DEBRIS} value={job.site.debris} onChange={(v) => setSite('debris', v)} />
+
+          <div className="mt" />
+          <Field label="Parking"><input placeholder="Street, driveway, yard…" value={job.site.parking} onChange={(e) => setSite('parking', e.target.value)} /></Field>
         </section>
 
         <section className="card">
           <Field label="Notes for the client" hint="Printed on the estimate.">
-            <textarea rows={3} value={job.client_notes} onChange={(e) => updateJob((j) => ({ ...j, client_notes: e.target.value }))} />
+            <textarea rows={2} value={job.client_notes} onChange={(e) => updateJob((j) => ({ ...j, client_notes: e.target.value }))} />
           </Field>
-        </section>
-        <section className="internal">
-          <Field label="Internal notes" hint="For your team only: gate codes, dogs, access, pricing reasoning. Never on the estimate, PDF, texts or customer link.">
-            <textarea rows={3} value={job.internal_notes} onChange={(e) => updateJob((j) => ({ ...j, internal_notes: e.target.value }))} />
-          </Field>
+          <div className="internal">
+            <Field label="Internal notes" hint="Gate codes, dogs, access, pricing reasoning. Never on the estimate, PDF, texts or customer link.">
+              <textarea rows={2} value={job.internal_notes} onChange={(e) => updateJob((j) => ({ ...j, internal_notes: e.target.value }))} />
+            </Field>
+          </div>
         </section>
       </div>
 

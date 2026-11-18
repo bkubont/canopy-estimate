@@ -139,6 +139,10 @@ export interface Site {
   other: string;
   parking: string;
   debris: string;
+  /** Septic tank / drain field on the property: keep heavy equipment and log drops off it. */
+  septic: string;
+  /** Where the tank or drain field is, e.g. "back yard, flagged". */
+  septic_where: string;
 }
 
 export interface EquipLine {

@@ -33,60 +33,57 @@ export function StepReview({ job, pricing, updateJob, updatePricing, onSigned }:
   return (
     <div className="wizard-grid two-col">
       <div>
-        <h2 className="step-title">Review</h2>
         <section className="card">
-          <div className="sum-line"><span>Labor ({job.days} day{job.days === 1 ? '' : 's'} × {money(cp.day_rate)})</span><span>{money(t.baseLabor)}</span></div>
+          <div className="sec-head"><h2><Icon name="dollar" size={18} />Price</h2></div>
+          <div className="sum-line"><span>Labor · {job.days} day{job.days === 1 ? '' : 's'} × {money(cp.day_rate)}</span><span>{money(t.baseLabor)}</span></div>
           <div className="sum-line"><span>Equipment</span><span>{money(t.equipment)}</span></div>
-          <div className="sum-line"><b>Subtotal</b><b>{money(t.subtotal)}</b></div>
-        </section>
-        <section className="card">
-          <h4 className="label">Tax</h4>
-          <div className="row">
-            <div className="price-input" style={{ maxWidth: 160 }}>
-              <input type="number" inputMode="decimal" min={0} step="0.001" aria-label="Tax rate" value={pricing.tax_rate}
-                onChange={(e) => updatePricing((p) => ({ ...p, tax_rate: num(e.target.value) }))} /><span>%</span>
-            </div>
+          <div className="sum-line">
+            <span className="row" style={{ justifyContent: 'flex-start', gap: 8 }}>Tax
+              <span className="price-input pct-input">
+                <input type="number" inputMode="decimal" min={0} step="0.001" aria-label="Tax rate" value={pricing.tax_rate}
+                  onChange={(e) => updatePricing((p) => ({ ...p, tax_rate: num(e.target.value) }))} /><span>%</span>
+              </span>
+            </span>
             <span>{money(t.tax)}</span>
           </div>
           <h4 className="label">Other costs <small className="muted">travel, misc.</small></h4>
-          <Chips label="Other costs" options={OTHER_COST_CHOICES} value={pricing.additional} onChange={(v) => updatePricing((p) => ({ ...p, additional: num(v) }))} required />
-          <div className="mt"><MoneyInput label="Other costs amount" value={pricing.additional || null} placeholder="Other amount" onChange={(v) => updatePricing((p) => ({ ...p, additional: v ?? 0 }))} /></div>
-          <div className="sum-line grand mt"><span>Total</span><span>{money(t.total)}</span></div>
+          <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <Chips label="Other costs" options={OTHER_COST_CHOICES} value={pricing.additional} onChange={(v) => updatePricing((p) => ({ ...p, additional: num(v) }))} required />
+            <MoneyInput label="Other costs amount" value={pricing.additional || null} placeholder="Other amount" onChange={(v) => updatePricing((p) => ({ ...p, additional: v ?? 0 }))} />
+          </div>
+          <div className="total-band"><span>Total</span><span>{money(t.total)}</span></div>
         </section>
+
         <section className="card">
-          <h4 className="label">Estimate is valid for</h4>
+          <div className="sec-head"><h2><Icon name="file" size={18} />Terms</h2></div>
+          <h4 className="label">Valid for <small className="muted">until {niceDate(validUntil(job, cp))}</small></h4>
           <Chips label="Valid for" options={VALID_CHOICES} value={pricing.valid_days} onChange={(v) => updatePricing((p) => ({ ...p, valid_days: num(v) || 30 }))} required />
-          <p className="muted small">Valid until {niceDate(validUntil(job, cp))}.</p>
-          <h4 className="label">Deposit</h4>
-          <Chips label="Deposit" options={DEPOSIT_CHOICES} value={pricing.deposit_amt == null ? pricing.deposit_pct : ''}
-            onChange={(v) => updatePricing((p) => ({ ...p, deposit_pct: num(v), deposit_amt: null }))} />
-          <div className="row mt">
+          <h4 className="label">Deposit <small className="muted">{money(t.deposit)}</small></h4>
+          <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <Chips label="Deposit" options={DEPOSIT_CHOICES} value={pricing.deposit_amt == null ? pricing.deposit_pct : ''}
+              onChange={(v) => updatePricing((p) => ({ ...p, deposit_pct: num(v), deposit_amt: null }))} />
             <MoneyInput label="Deposit amount" placeholder="or an amount" value={pricing.deposit_amt}
               onChange={(v) => updatePricing((p) => ({ ...p, deposit_amt: v }))} />
-            <b>{money(t.deposit)}</b>
           </div>
         </section>
       </div>
 
-      <div>
-        <h2 className="step-title">Client signature</h2>
-        <section className="card">
-          <p className="muted small" style={{ marginTop: 0 }}>
-            Hand the device to the client. Signing approves the estimate and locks it. Changes after that are made with a change order.
-          </p>
-          <Field label="Client’s name"><input value={name} onChange={(e) => setName(e.target.value)} autoCapitalize="words" /></Field>
-          <SignaturePad value={sig} onChange={setSig} label="Client signs above to accept the estimate" />
-          {error && <p className="error-text" role="alert">{error}</p>}
-          <button type="button" className="btn primary block" onClick={sign}><Icon name="pen" />Client accepts {money(t.total)}</button>
-          <p className="hint">Client not here? Skip this. On the next step, text or email them a link to sign on their own phone.</p>
-        </section>
-        <section className="card">
-          <h4 className="label">Your signature</h4>
-          {contractorSig ? <img src={contractorSig} alt="Your signature" style={{ maxHeight: 60 }} /> : (
-            <p className="muted small">Add your signature once under Account (the person icon at the top right), and it goes on every estimate you prepare.</p>
+      <section className="card">
+        <div className="sec-head"><h2><Icon name="pen" size={18} />Sign here</h2></div>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Client with you? Hand them the device. Signing approves and locks the estimate; later changes go on a change order.
+        </p>
+        <Field label="Client’s name"><input value={name} onChange={(e) => setName(e.target.value)} autoCapitalize="words" /></Field>
+        <SignaturePad value={sig} onChange={setSig} label="Client signs above to accept the estimate" />
+        {error && <p className="error-text" role="alert">{error}</p>}
+        <button type="button" className="btn primary block" onClick={sign}><Icon name="pen" />Client accepts {money(t.total)}</button>
+        <div className="your-sig">
+          <span className="muted small">Your signature</span>
+          {contractorSig ? <img src={contractorSig} alt="Your signature" /> : (
+            <span className="muted small">Add it once under Account (person icon, top right) and it goes on every estimate.</span>
           )}
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
