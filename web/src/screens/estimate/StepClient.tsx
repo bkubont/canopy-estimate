@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { Chips, Field, MultiChips } from '../../components/ui';
-import { clientName, DEBRIS, hasSeptic, SEPTIC, SITE_CONDITIONS } from '../../lib/estimate';
+import { clientName, hasSeptic, SEPTIC, SITE_CONDITIONS } from '../../lib/estimate';
 import type { Client } from '../../lib/types';
 import { ClientPicker } from './ClientPicker';
 import type { StepProps } from './types';
@@ -52,22 +52,14 @@ export function StepClient({ job, updateJob }: StepProps) {
               value={job.site.septic_where} onChange={(e) => setSite('septic_where', e.target.value)} />
           )}
 
-          <h4 className="label">Wood &amp; debris</h4>
-          <Chips label="Wood and debris" options={DEBRIS} value={job.site.debris} onChange={(v) => setSite('debris', v)} />
-
           <div className="mt" />
           <Field label="Parking"><input placeholder="Street, driveway, yard…" value={job.site.parking} onChange={(e) => setSite('parking', e.target.value)} /></Field>
         </section>
 
-        <section className="card">
-          <Field label="Notes for the client" hint="Printed on the estimate.">
-            <textarea rows={2} value={job.client_notes} onChange={(e) => updateJob((j) => ({ ...j, client_notes: e.target.value }))} />
+        <section className="internal">
+          <Field label="Notes" hint="Gate codes, dogs, access, pricing reasoning. Never on the estimate, PDF, texts or customer link.">
+            <textarea rows={3} value={job.internal_notes} onChange={(e) => updateJob((j) => ({ ...j, internal_notes: e.target.value }))} />
           </Field>
-          <div className="internal">
-            <Field label="Internal notes" hint="Gate codes, dogs, access, pricing reasoning. Never on the estimate, PDF, texts or customer link.">
-              <textarea rows={2} value={job.internal_notes} onChange={(e) => updateJob((j) => ({ ...j, internal_notes: e.target.value }))} />
-            </Field>
-          </div>
         </section>
       </div>
 

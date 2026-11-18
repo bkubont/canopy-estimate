@@ -13,7 +13,7 @@ import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/
 import { SignaturePad } from '../../components/SignaturePad';
 import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
-  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, hasSeptic, money, niceDate, normalizeJob, septicLine, todayYmd, totals, treeDetails, treeTitle,
+  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, hasSeptic, money, niceDate, normalizeJob, notesToInternal, septicLine, todayYmd, totals, treeDetails, treeTitle,
 } from '../../lib/estimate';
 import { invoiceFromJob, invoiceTotals, paidForJob } from '../../lib/invoice';
 import { takeNumber } from '../../lib/numbers';
@@ -72,6 +72,10 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [i]);
+  // Notes are all internal now: an old draft's printed notes move into its internal notes once.
+  useEffect(() => {
+    if (notesToInternal(job) !== job) updateJob(notesToInternal);
+  }, [job, updateJob]);
 
   // A client typed in by hand is added to Contacts when you move on, so the team can find them next time.
   async function saveClientToContacts() {

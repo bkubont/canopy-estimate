@@ -1,6 +1,6 @@
 import { Chips, MoneyInput, Stepper } from '../../components/ui';
 import { Icon } from '../../components/Icon';
-import { customerPricing, DAY_CHOICES, EQUIPMENT, internalEquipmentSummary, money, num, round2, syncEquipmentDays, totals, uid } from '../../lib/estimate';
+import { customerPricing, DAY_CHOICES, EQUIPMENT, EQUIPMENT_GROUPS, internalEquipmentSummary, money, num, round2, syncEquipmentDays, totals, uid } from '../../lib/estimate';
 import { useReady, useRow } from '../../lib/session';
 import type { StepProps } from './types';
 
@@ -43,10 +43,18 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
 
       <section className="card">
         <div className="sec-head"><h2><Icon name="truck" size={18} />Equipment rentals</h2><b className="sec-total">{money(t.equipment)}</b></div>
-        <div className="chips scroll-x" role="group" aria-label="Add equipment">
-          {EQUIPMENT.map(([d]) => <button key={d} type="button" className="chip add" onClick={() => addLine(d)}><Icon name="plus" size={14} />{d}</button>)}
-          <button type="button" className="chip add" onClick={() => addLine('')}><Icon name="plus" size={14} />Other</button>
-        </div>
+        {EQUIPMENT_GROUPS.map((g) => {
+          const added = job.equipment.filter((l) => g.items.some(([d]) => d === l.desc)).length;
+          return (
+            <details key={g.label} className="more equip-group">
+              <summary>{g.label} {added > 0 && <span className="count-badge">{added} added</span>}</summary>
+              <div className="chips" role="group" aria-label={`Add ${g.label.toLowerCase()}`}>
+                {g.items.map(([d]) => <button key={d} type="button" className="chip add" onClick={() => addLine(d)}><Icon name="plus" size={14} />{d}</button>)}
+              </div>
+            </details>
+          );
+        })}
+        <button type="button" className="chip add mt" onClick={() => addLine('')}><Icon name="plus" size={14} />Other equipment</button>
         {job.equipment.map((line) => {
           const cost = pricing.equipment_costs?.[line.id];
           const unit = round2(num(cost) * (num(pricing.equipment_markup) || 1));
@@ -79,7 +87,7 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
           <div className="sum-line private">
             <span>Your cost {money(internal.cost)} · {markupPct}% markup earns</span><span>{money(internal.markupEarned)}</span>
           </div>
-        ) : <p className="hint" style={{ marginBottom: 0 }}>Tap to add. Customers see one price per item, with the markup built in.</p>}
+        ) : <p className="hint" style={{ marginBottom: 0 }}>Open a group and tap to add. Customers see one price per item, with the markup built in.</p>}
       </section>
     </>
   );

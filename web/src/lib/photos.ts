@@ -20,8 +20,8 @@ export function onPhotosChanged(fn: () => void) {
   return () => void listeners.delete(fn);
 }
 
-/** Longest side 1600 px, JPEG: about 300 KB from a 3–5 MB phone photo. */
-export async function shrink(file: Blob, max = 1600, quality = 0.72): Promise<{ blob: Blob; width: number; height: number }> {
+/** Longest side 2560 px, JPEG at 85%: sharp enough to zoom into bark and cracks, about 0.8–1.2 MB from a 3–5 MB phone photo. */
+export async function shrink(file: Blob, max = 2560, quality = 0.85): Promise<{ blob: Blob; width: number; height: number }> {
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions);
   const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
   const width = Math.round(bmp.width * scale);
