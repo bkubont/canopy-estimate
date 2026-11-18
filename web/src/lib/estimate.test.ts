@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankJob, blankPricing, customerPricing, internalEquipmentSummary, summaryText, syncEquipmentDays, totals, todayYmd, addDays } from './estimate';
+import { blankJob, blankTree, notesToInternal, blankPricing, customerPricing, internalEquipmentSummary, summaryText, syncEquipmentDays, totals, todayYmd, addDays } from './estimate';
 import type { Job, JobPricing, Organization } from './types';
 
 const org = { id: 'o1', name: 'Advanced Tree Service', phone: '231-555-0000', email: 'ats@example.com' } as Organization;
@@ -99,5 +99,19 @@ describe('pricing', () => {
     // 11:30pm in Michigan on Nov 12 is already Nov 13 in UTC.
     expect(todayYmd(new Date('2026-1113T04:30:00Z'.replace('1113', '11-13')))).toBe('2026-11-12');
     expect(addDays('2026-11-12', 30)).toBe('2026-12-12');
+  });
+
+  it('moves an unsigned estimate\u2019s printed notes into its internal notes', () => {
+    const { job } = sample();
+    job.client_notes = 'Protect the garden bed.';
+    job.internal_notes = 'Gate 4411';
+    job.trees = [{ ...blankTree(), notes: 'By the deck', internal_notes: '' }, { ...blankTree(), notes: '' }];
+    const out = notesToInternal(job);
+    expect(out.client_notes).toBe('');
+    expect(out.internal_notes).toBe('Gate 4411\nProtect the garden bed.');
+    expect(out.trees[0]!).toMatchObject({ notes: '', internal_notes: 'By the deck' });
+    expect(out.trees[1]).toBe(job.trees[1]);
+    expect(notesToInternal(out)).toBe(out); // nothing left to move
+    expect(notesToInternal({ ...job, signed_at: 'x' }).client_notes).toBe('Protect the garden bed.'); // signed copies stay as signed
   });
 });

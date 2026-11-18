@@ -3,21 +3,11 @@ import type { ChangeOrder, Client, CustomerPricing, Job, JobPricing, Organizatio
 // ---------------------------------------------------------------- pick lists
 // Carried over unchanged from the original app (northern Michigan work).
 
-export const SPECIES_GROUPS = [
-  {
-    label: 'Hardwoods',
-    options: [
-      'Sugar Maple', 'Red Maple', 'Silver Maple', 'Ash', 'Northern Red Oak', 'White Oak', 'Burr Oak',
-      'American Beech', 'Basswood', 'Birch', 'Aspen', 'Black Cherry', 'Elm', 'Cottonwood', 'Willow',
-      'Boxelder', 'Ironwood', 'Serviceberry', 'Fruit tree',
-    ],
-  },
-  { label: 'Softwoods', options: ['White Pine', 'Red Pine', 'Cedar', 'Eastern Hemlock', 'Balsam Fir', 'Spruce', 'Jack Pine', 'Tamarack'] },
-  { label: 'Other', options: ['Unknown'] },
+/** One choice per kind of tree (all maples are "Maple"), A to Z, with Unknown last. */
+export const SPECIES = [
+  'Ash', 'Aspen', 'Basswood', 'Beech', 'Birch', 'Boxelder', 'Cedar', 'Cherry', 'Cottonwood', 'Elm', 'Fir', 'Fruit tree',
+  'Hemlock', 'Ironwood', 'Maple', 'Oak', 'Pine', 'Serviceberry', 'Spruce', 'Tamarack', 'Willow', 'Unknown',
 ];
-export const ALL_SPECIES = SPECIES_GROUPS.flatMap((g) => g.options);
-/** Shown first in the tree sheet until the company's own history takes over. */
-export const DEFAULT_COMMON_SPECIES = ['Sugar Maple', 'Red Maple', 'Ash', 'Northern Red Oak', 'White Pine', 'Birch', 'Aspen', 'Spruce'];
 
 export const WORK = [
   'Removal', 'Removal + stump grinding', 'Canopy raise', 'Trimming / pruning', 'Crown reduction',
@@ -39,12 +29,14 @@ export const DEBRIS = ['Leave all', 'Leave wood (haul brush)', 'Haul all', 'Cut 
 export const CHANGE_REASONS = [
   'Unforeseen circumstances / hazards', 'Access worse than expected', 'Weather delay', 'Equipment needed', 'Client request', 'Other',
 ];
-/** Smith Equipment day-rate costs. The company's own remembered costs override these. */
-export const EQUIPMENT: [string, number][] = [
-  ['Mini skid steer', 245], ['Towable boom 55′', 290], ['Boom lift 40′', 410], ['Boom lift 50′', 425],
-  ['Boom lift 60′', 450], ['Stump grinder', 285], ['High-speed stump grinder', 385], ['Wood chipper', 375],
-  ['Dump trailer', 150], ['Grapple (with machine)', 125], ['Log splitter', 75],
+/** Equipment day-rate costs (Smith Equipment rentals, plus our own tractor). The company's remembered costs override these. */
+export const EQUIPMENT_GROUPS: { label: string; items: [string, number][] }[] = [
+  { label: 'Lifts', items: [['Towable boom 55′', 290], ['Boom lift 40′', 410], ['Boom lift 50′', 425], ['Boom lift 60′', 450]] },
+  { label: 'Stump grinders', items: [['Stump grinder', 285], ['High-speed stump grinder', 385]] },
+  { label: 'Machines & hauling', items: [['Mini skid steer', 245], ['Tractor and trailer', 350], ['Dump trailer', 150]] },
+  { label: 'Chipping & splitting', items: [['Wood chipper', 375], ['Log splitter', 75]] },
 ];
+export const EQUIPMENT: [string, number][] = EQUIPMENT_GROUPS.flatMap((g) => g.items);
 export const DAY_CHOICES: [number, string][] = [[0.5, '½ day'], [1, '1 day'], [1.5, '1½ days'], [2, '2 days'], [3, '3 days'], [4, '4 days'], [5, '5 days']];
 export const OTHER_COST_CHOICES: [number, string][] = [[0, 'None'], [50, '$50'], [100, '$100'], [150, '$150'], [250, '$250']];
 export const DEPOSIT_CHOICES: [number, string][] = [[0, 'None'], [25, '25%'], [50, '50%']];
@@ -141,6 +133,22 @@ export function normalizeJob(j: Job): Job {
     change_orders: (j.change_orders ?? []).map((co) => ({ ...blankChangeOrder(), ...co, trees: (co.trees ?? []).map((t) => ({ ...blankTree(), ...t })) })),
     days: num(j.days) || 1,
   };
+}
+
+/**
+ * All estimate notes are internal now. An unsigned estimate's old printed notes
+ * (job and tree) move into its internal notes, so nothing typed is lost and
+ * nothing more prints. Signed estimates keep what the customer signed.
+ * Returns the same job when there is nothing to move.
+ */
+export function notesToInternal(j: Job): Job {
+  if (j.signed_at) return j;
+  const join = (a: string, b: string) => [a.trim(), b.trim()].filter(Boolean).join('\n');
+  const trees = j.trees.some((t) => t.notes?.trim())
+    ? j.trees.map((t) => (t.notes?.trim() ? { ...t, internal_notes: join(t.internal_notes ?? '', t.notes), notes: '' } : t))
+    : j.trees;
+  if (!j.client_notes?.trim() && trees === j.trees) return j;
+  return { ...j, client_notes: '', internal_notes: join(j.internal_notes ?? '', j.client_notes ?? ''), trees };
 }
 
 // ---------------------------------------------------------------- pricing
