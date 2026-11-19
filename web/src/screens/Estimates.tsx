@@ -25,8 +25,8 @@ const PRE_SIGN: ReadonlySet<Stage> = new Set(['new', 'pending', 'cancelled']);
  * Office Estimates = drafts + awaiting signature (+ cancelled under All).
  * Crew Job details keeps All as the full non-cancelled list; the first two chips stay pre-sign.
  *
- * Draft vs awaiting uses readiness (not jobStage new/pending alone): unfinished bids with
- * trees stay in Active drafts until estimateReadyForSignature is true.
+ * Draft vs awaiting uses readiness (not jobStage new/pending alone). Office uses
+ * pricing + share link; crew uses trees + client only (no job_pricing rows).
  */
 export function matchesEstimateFilter(
   stage: Stage,
@@ -70,7 +70,7 @@ export function Estimates() {
         return {
           ...j,
           st: jobStage(j, events ?? [], invoices, payments),
-          ready: estimateReadyForSignature(j, p),
+          ready: estimateReadyForSignature(j, p, canCreate),
           total: p?.total ?? 0,
         };
       })

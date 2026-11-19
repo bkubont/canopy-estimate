@@ -27,18 +27,37 @@ const pricing = (o: Partial<Pick<JobPricing, 'total' | 'share_token'>> = {}) => 
 });
 
 describe('estimateReadyForSignature', () => {
-  it('is false until scope, client, price, and customer link are all set', () => {
-    expect(estimateReadyForSignature(job(), pricing())).toBe(false); // no trees
-    expect(estimateReadyForSignature(job({ trees: [tree({ species: '', work: [] })] }), pricing())).toBe(false); // blank tree
-    expect(estimateReadyForSignature(job({ trees: [tree()], client: { firstName: '', lastName: '', company: '', phone: '', email: '', street: '', town: '', state: 'MI', zip: '' } }), pricing())).toBe(false);
-    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing({ total: 0 }))).toBe(false);
-    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing({ share_token: null }))).toBe(false);
-    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing())).toBe(true);
+  it('office: false until scope, client, price, and customer link are all set', () => {
+    expect(estimateReadyForSignature(job(), pricing(), true)).toBe(false); // no trees
+    expect(estimateReadyForSignature(job({ trees: [tree({ species: '', work: [] })] }), pricing(), true)).toBe(false); // blank tree
+    expect(estimateReadyForSignature(job({ trees: [tree()], client: { firstName: '', lastName: '', company: '', phone: '', email: '', street: '', town: '', state: 'MI', zip: '' } }), pricing(), true)).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing({ total: 0 }), true)).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing({ share_token: null }), true)).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing(), true)).toBe(true);
+  });
+
+  it('crew: trees + client is enough without pricing rows', () => {
+    // Crew RLS never returns job_pricing; priced readiness would always be false.
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), null, false)).toBe(true);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), undefined, false)).toBe(true);
+    expect(estimateReadyForSignature(job(), null, false)).toBe(false); // no trees
+    expect(estimateReadyForSignature(job({ trees: [tree({ species: '', work: [] })] }), null, false)).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()], client: { firstName: '', lastName: '', company: '', phone: '', email: '', street: '', town: '', state: 'MI', zip: '' } }), null, false)).toBe(false);
+  });
+
+  it('crew path feeds Awaiting signature when matched through the filter', () => {
+    const ready = estimateReadyForSignature(job({ trees: [tree()] }), null, false);
+    expect(matchesEstimateFilter('pending', 'awaiting', false, ready)).toBe(true);
+    expect(matchesEstimateFilter('pending', 'drafts', false, ready)).toBe(false);
+    const notReady = estimateReadyForSignature(job(), null, false);
+    expect(matchesEstimateFilter('new', 'drafts', false, notReady)).toBe(true);
+    expect(matchesEstimateFilter('new', 'awaiting', false, notReady)).toBe(false);
   });
 
   it('keeps signed or cancelled jobs out of ready', () => {
-    expect(estimateReadyForSignature(job({ trees: [tree()], signed_at: 'x' }), pricing())).toBe(false);
-    expect(estimateReadyForSignature(job({ trees: [tree()], cancelled_at: 'x' }), pricing())).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()], signed_at: 'x' }), pricing(), true)).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()], cancelled_at: 'x' }), pricing(), true)).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()], signed_at: 'x' }), null, false)).toBe(false);
   });
 });
 

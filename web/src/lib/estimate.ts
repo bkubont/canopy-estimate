@@ -74,19 +74,25 @@ export const clientName = (c: Partial<Client> | undefined) =>
   [c?.firstName, c?.lastName].filter(Boolean).join(' ').trim() || c?.company || '';
 
 /**
- * Office Estimates filter readiness (does not change jobStage).
- * Awaiting signature only when the bid is scoped, named, priced, and a customer
- * share link exists — so adding the first tree alone stays in Active drafts.
+ * Estimates list filter readiness (does not change jobStage).
+ *
+ * Shared: scoped tree (species + work) and a client name.
+ * Office (seePrices): also needs priced total + customer share_token, so a first
+ * tree alone stays in Active drafts.
+ * Crew: never syncs job_pricing (RLS), so trees + client is enough — otherwise
+ * Awaiting signature would always be empty.
  */
 export function estimateReadyForSignature(
   job: Pick<Job, 'trees' | 'client' | 'signed_at' | 'cancelled_at'>,
   pricing: Pick<JobPricing, 'total' | 'share_token'> | null | undefined,
+  seePrices = true,
 ): boolean {
   if (job.signed_at || job.cancelled_at) return false;
   const trees = job.trees ?? [];
   // Scope written: at least one tree with a type and work selected.
   if (!trees.some((t) => String(t.species ?? '').trim() && (t.work?.length ?? 0) > 0)) return false;
   if (!clientName(job.client)) return false;
+  if (!seePrices) return true;
   if (!pricing || !(num(pricing.total) > 0)) return false;
   // Customer link minted = out with the client, waiting on their signature.
   return Boolean(pricing.share_token);
