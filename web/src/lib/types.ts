@@ -50,13 +50,99 @@ export interface Customer extends SyncCols {
   first_name: string;
   last_name: string;
   company: string;
+  /** Denormalized primary phone — mirror of first customer_phones row. */
   phone: string;
+  /** Denormalized primary email — mirror of first customer_emails row. */
   email: string;
+  /** Denormalized primary property address parts — mirror of first property. */
   street: string;
   town: string;
   state: string;
   zip: string;
   notes: string;
+}
+
+/** Labeled phone on a customer (CRM). Flat customers.phone stays the primary mirror. */
+export interface CustomerPhone extends SyncCols {
+  id: string;
+  org_id: string;
+  customer_id: string;
+  label: string;
+  value: string;
+  sort: number;
+}
+
+/** Labeled email on a customer (CRM). Flat customers.email stays the primary mirror. */
+export interface CustomerEmail extends SyncCols {
+  id: string;
+  org_id: string;
+  customer_id: string;
+  label: string;
+  value: string;
+  sort: number;
+}
+
+/**
+ * Structured site (D8): street / town / state / ZIP plus access notes.
+ * Flat customers.street/town/state/zip mirror the primary property.
+ */
+export interface CustomerProperty extends SyncCols {
+  id: string;
+  org_id: string;
+  customer_id: string;
+  street: string;
+  town: string;
+  state: string;
+  zip: string;
+  gate_code: string;
+  access: string;
+  hazards: string[];
+  tree_notes: string;
+  sort: number;
+}
+
+export type TagGroupMode = 'one' | 'many';
+
+export interface TagGroup extends SyncCols {
+  id: string;
+  org_id: string;
+  name: string;
+  /** Stable key within the org (e.g. stage, type, source). */
+  slug: string;
+  mode: TagGroupMode;
+  pipeline: boolean;
+  allow_new: boolean;
+  sort: number;
+}
+
+export interface Tag extends SyncCols {
+  id: string;
+  org_id: string;
+  tag_group_id: string;
+  name: string;
+  /** Stable key within the group (e.g. past, booked). */
+  slug: string;
+  color: string;
+  sort: number;
+}
+
+/** Composite key: customer_id + tag_id (same pattern as members). */
+export interface CustomerTag extends SyncCols {
+  org_id: string;
+  customer_id: string;
+  tag_id: string;
+}
+
+export type CustomerActivityType = 'note' | 'call' | 'text' | 'stage' | 'created' | 'imported';
+
+export interface CustomerActivity extends SyncCols {
+  id: string;
+  org_id: string;
+  customer_id: string;
+  type: CustomerActivityType;
+  body: string;
+  at: string;
+  created_by: string | null;
 }
 
 export interface Job extends SyncCols {
@@ -303,6 +389,13 @@ export interface TableRows {
   org_pricing: OrgPricing;
   members: Member;
   customers: Customer;
+  tag_groups: TagGroup;
+  tags: Tag;
+  customer_phones: CustomerPhone;
+  customer_emails: CustomerEmail;
+  customer_properties: CustomerProperty;
+  customer_tags: CustomerTag;
+  customer_activities: CustomerActivity;
   jobs: Job;
   job_pricing: JobPricing;
   invoices: Invoice;
@@ -316,7 +409,8 @@ export type TableName = keyof TableRows;
 
 /**
  * How each table is keyed and pushed. Order matters: rows are pushed in this
- * order so a job never reaches the server before its customer.
+ * order so a job never reaches the server before its customer, and CRM child
+ * rows never reach the server before their customer / tag group.
  *  - update: the row always exists on the server already (created by an RPC)
  *  - upsert: try update, insert if the server has no such row yet
  */
@@ -325,6 +419,13 @@ export const TABLES: { name: TableName; keyCols: string[]; push: 'update' | 'ups
   { name: 'org_pricing', keyCols: ['org_id'], push: 'update' },
   { name: 'members', keyCols: ['org_id', 'user_id'], push: 'update' },
   { name: 'customers', keyCols: ['id'], push: 'upsert' },
+  { name: 'tag_groups', keyCols: ['id'], push: 'upsert' },
+  { name: 'tags', keyCols: ['id'], push: 'upsert' },
+  { name: 'customer_phones', keyCols: ['id'], push: 'upsert' },
+  { name: 'customer_emails', keyCols: ['id'], push: 'upsert' },
+  { name: 'customer_properties', keyCols: ['id'], push: 'upsert' },
+  { name: 'customer_tags', keyCols: ['customer_id', 'tag_id'], push: 'upsert' },
+  { name: 'customer_activities', keyCols: ['id'], push: 'upsert' },
   { name: 'jobs', keyCols: ['id'], push: 'upsert' },
   { name: 'job_pricing', keyCols: ['job_id'], push: 'upsert' },
   { name: 'invoices', keyCols: ['id'], push: 'upsert' },

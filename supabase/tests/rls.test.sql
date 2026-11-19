@@ -501,3 +501,89 @@ update public.members set deleted_at = null where user_id = :crew;
 update public.events set assigned_to = jsonb_build_array(:crew::text) where id = 'eeeeeeee-cccc-0000-0000-000000000001';
 select t.ok((select (select x ->> 'crew' from jsonb_array_elements(public.calendar_feed_events(v::uuid) -> 'events') x where x ->> 'title' = 'Feed test · Dana') =
   (select display_name from public.members where user_id = :crew) from t.ids where k = 'feed2'), 'the feed names the crew picked in the calendar');
+
+-- ---------------------------------------------------------------------------
+-- CRM Phase A: phones, emails, properties, tags, activities
+-- ---------------------------------------------------------------------------
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+
+-- New orgs get the starter Stage taxonomy from create_organization.
+select t.ok((select count(*) = 6 from public.tag_groups g, t.ids o
+  where o.k = 'org' and g.org_id = o.v::uuid and g.deleted_at is null),
+  'company has six starter tag groups');
+select t.ok((select count(*) = 1 from public.tags tg
+  join public.tag_groups g on g.id = tg.tag_group_id
+  join t.ids o on o.k = 'org' and g.org_id = o.v::uuid
+  where g.slug = 'stage' and tg.slug = 'past' and tg.deleted_at is null),
+  'Stage includes Past customer');
+
+-- Flat customer backfill: phone, email, structured property.
+update public.customers set phone = '231-555-0101', email = 'dana@example.com',
+  street = '12 Shore Ln', town = 'Suttons Bay', state = 'MI', zip = '49682' where id = :cust;
+insert into public.customer_phones (id, org_id, customer_id, label, value, sort)
+select gen_random_uuid(), c.org_id, c.id, 'mobile', c.phone, 0 from public.customers c
+where c.id = :cust and nullif(trim(c.phone), '') is not null
+  and not exists (select 1 from public.customer_phones p where p.customer_id = c.id and p.deleted_at is null);
+insert into public.customer_emails (id, org_id, customer_id, label, value, sort)
+select gen_random_uuid(), c.org_id, c.id, 'work', c.email, 0 from public.customers c
+where c.id = :cust and nullif(trim(c.email), '') is not null
+  and not exists (select 1 from public.customer_emails e where e.customer_id = c.id and e.deleted_at is null);
+insert into public.customer_properties (id, org_id, customer_id, street, town, state, zip, sort)
+select gen_random_uuid(), c.org_id, c.id, c.street, c.town, c.state, c.zip, 0 from public.customers c
+where c.id = :cust
+  and (nullif(trim(c.street), '') is not null or nullif(trim(c.town), '') is not null or nullif(trim(c.zip), '') is not null)
+  and not exists (select 1 from public.customer_properties p where p.customer_id = c.id and p.deleted_at is null);
+
+select t.ok((select count(*) = 1 and max(value) = '231-555-0101' from public.customer_phones where customer_id = :cust),
+  'customer gets a primary phone from the flat field');
+select t.ok((select count(*) = 1 and max(value) = 'dana@example.com' from public.customer_emails where customer_id = :cust),
+  'customer gets a primary email from the flat field');
+select t.ok((select street = '12 Shore Ln' and town = 'Suttons Bay' and zip = '49682' from public.customer_properties where customer_id = :cust),
+  'customer gets a structured property from the flat address');
+
+-- D3: signed or paid job → Past customer; otherwise unstaged.
+insert into public.customer_tags (org_id, customer_id, tag_id)
+select c.org_id, c.id, tg.id from public.customers c
+join public.jobs j on j.customer_id = c.id and j.deleted_at is null and (j.stage = 'paid' or j.signed_at is not null)
+join public.tag_groups g on g.org_id = c.org_id and g.slug = 'stage' and g.deleted_at is null
+join public.tags tg on tg.tag_group_id = g.id and tg.slug = 'past' and tg.deleted_at is null
+where c.id = :cust
+on conflict (customer_id, tag_id) do update set deleted_at = null;
+select t.ok((select count(*) = 1 from public.customer_tags ct
+  join public.tags tg on tg.id = ct.tag_id where ct.customer_id = :cust and tg.slug = 'past' and ct.deleted_at is null),
+  'signed/paid customer is tagged Past customer');
+
+insert into public.customers (id, org_id, first_name, last_name)
+  select '22222222-2222-2222-2222-222222222299', v::uuid, 'Unstaged', 'Lead' from t.ids where k = 'org';
+select t.ok((select count(*) = 0 from public.customer_tags where customer_id = '22222222-2222-2222-2222-222222222299'),
+  'customer with no signed/paid job stays unstaged');
+
+insert into public.customer_activities (id, org_id, customer_id, type, body, at, created_by)
+  select 'aaaaaaaa-0000-0000-0000-000000000001', v::uuid, :cust, 'note', 'Called about the oak', now(), auth.uid()
+  from t.ids where k = 'org';
+select t.ok((select body = 'Called about the oak' from public.customer_activities where id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  'office can log a customer activity');
+
+select t.ok((select jsonb_array_length(public.sync_pull(v::uuid) -> 'customer_properties') >= 1
+  and jsonb_array_length(public.sync_pull(v::uuid) -> 'tag_groups') = 6
+  from t.ids where k = 'org'), 'sync_pull includes CRM tables');
+
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+select t.ok((select count(*) >= 1 from public.customer_properties where customer_id = :cust), 'crew can read customer properties');
+insert into public.customer_phones (id, org_id, customer_id, label, value, sort)
+  select gen_random_uuid(), v::uuid, :cust, 'home', '231-555-0199', 1 from t.ids where k = 'org';
+select t.ok((select count(*) = 2 from public.customer_phones where customer_id = :cust and deleted_at is null),
+  'crew can add a second phone');
+
+-- Cross-org link: org2 member cannot attach a phone to org1's customer.
+select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
+set role authenticated;
+select t.fails($$ insert into public.customer_phones (id, org_id, customer_id, value)
+  select gen_random_uuid(), v::uuid, '22222222-2222-2222-2222-222222222222', 'x' from t.ids where k = 'org2' $$,
+  'another company', 'a phone cannot point at another company''s customer');
+select t.ok((select count(*) = 0 from public.customer_properties)
+  and (select count(*) = 0 from public.tag_groups g, t.ids o where o.k = 'org' and g.org_id = o.v::uuid),
+  'another company sees none of these CRM rows');
+reset role;
