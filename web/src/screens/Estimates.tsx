@@ -5,11 +5,32 @@ import { Pill } from '../components/Pill';
 import { clientName, money, niceDate } from '../lib/estimate';
 import { refillNumbers } from '../lib/numbers';
 import { can, useReady, useRow, useRows } from '../lib/session';
-import { jobStage, STAGE_LABEL, type Stage } from '../lib/status';
+import { jobStage, type Stage } from '../lib/status';
 import { reserveNumbers } from '../lib/supabase';
 import { useCreateEstimate } from '../lib/useCreateEstimate';
 
-const FILTERS: [string, string][] = [['all', 'All'], ...(['new', 'pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'overdue', 'paid', 'cancelled'] as Stage[]).map((s) => [s, STAGE_LABEL[s]] as [string, string])];
+/** Ops-sized buckets: drafts being written, out awaiting signature, or every list row. */
+export type EstimateFilter = 'drafts' | 'awaiting' | 'all';
+
+const FILTERS: [EstimateFilter, string][] = [
+  ['drafts', 'Active drafts'],
+  ['awaiting', 'Awaiting signature'],
+  ['all', 'All'],
+];
+
+/** Pre-sign stages — signed work lives on the Jobs board (office Estimates list). */
+const PRE_SIGN: ReadonlySet<Stage> = new Set(['new', 'pending', 'cancelled']);
+
+/**
+ * Office Estimates = drafts + awaiting signature (+ cancelled under All).
+ * Crew Job details keeps All as the full non-cancelled list; the first two chips stay pre-sign.
+ */
+export function matchesEstimateFilter(stage: Stage, filter: EstimateFilter, preSignOnly: boolean): boolean {
+  if (filter === 'drafts') return stage === 'new';
+  if (filter === 'awaiting') return stage === 'pending';
+  if (preSignOnly) return PRE_SIGN.has(stage);
+  return stage !== 'cancelled';
+}
 
 export function Estimates() {
   const { engine, org } = useReady();
@@ -21,7 +42,7 @@ export function Estimates() {
   const company = useRow(engine, 'organizations', org.org_id);
   const newEstimate = useCreateEstimate();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<EstimateFilter>('all');
   const [error, setError] = useState('');
   const canCreate = can.seePrices(org.role);
 
@@ -36,10 +57,10 @@ export function Estimates() {
     return (jobs ?? [])
       .filter((j) => j.stage !== 'archived')
       .map((j) => ({ ...j, st: jobStage(j, events ?? [], invoices, payments) }))
-      .filter((j) => (filter === 'all' ? j.st !== 'cancelled' : j.st === filter)) // cancelled ones only under their own filter
+      .filter((j) => matchesEstimateFilter(j.st, filter, canCreate))
       .filter((j) => !needle || [j.number, clientName(j.client), j.client?.phone, j.client?.street, j.client?.town].join(' ').toLowerCase().includes(needle))
       .sort((a, b) => (b.updated_at ?? b.created_at ?? '').localeCompare(a.updated_at ?? a.created_at ?? ''));
-  }, [jobs, q, filter, events, invoices, payments]);
+  }, [jobs, q, filter, events, invoices, payments, canCreate]);
 
   async function create() {
     setError('');
@@ -58,10 +79,15 @@ export function Estimates() {
         <h1>{canCreate ? 'Estimates' : 'Job details'}</h1>
         {canCreate && <button type="button" className="btn primary" onClick={create}><Icon name="plus" />New estimate</button>}
       </div>
+      {canCreate && (
+        <p className="hint" style={{ marginTop: 0 }}>
+          Drafts and estimates waiting on a signature. After sign-off, use the <Link to="/board">Jobs board</Link>.
+        </p>
+      )}
       {profileMissing && (
         <div className="card notice warn">
           <b>Add your company phone</b>
-          <p className="small muted" style={{ margin: '4px 0 8px' }}>It goes on every estimate.</p>
+          <p className="muted small" style={{ margin: '4px 0 8px' }}>It goes on every estimate.</p>
           <Link to="/company" className="btn sm">Company details</Link>
         </div>
       )}

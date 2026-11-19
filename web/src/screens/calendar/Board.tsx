@@ -338,7 +338,7 @@ export function Board() {
       <EventSheet event={editing} onClose={() => setEditing(null)} />
       {cancelling && (
         <CancelJobSheet job={cancelling} open onClose={() => setCancelling(null)}
-          apply={async (p) => { await engine.save('jobs', { ...cancelling, ...p }); setToast(`${cancelling.number} cancelled. It’s under Estimates → Cancelled.`); }} />
+          apply={async (p) => { await engine.save('jobs', { ...cancelling, ...p }); setToast(`${cancelling.number} cancelled. It’s under Estimates → All.`); }} />
       )}
     </div>
   );
