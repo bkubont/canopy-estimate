@@ -10,8 +10,8 @@ const cust = (patch: Partial<Customer> = {}): Customer => ({
 });
 
 describe('CRM_ENABLED', () => {
-  it('defaults off so Phase A schema can land without People UI', () => {
-    expect(CRM_ENABLED).toBe(false);
+  it('is on so Phase B People / Today UI ships for office', () => {
+    expect(CRM_ENABLED).toBe(true);
   });
 });
 

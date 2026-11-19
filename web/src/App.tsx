@@ -1,5 +1,6 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Shell } from './components/Shell';
+import { CRM_ENABLED } from './lib/features';
 import { useApp } from './lib/session';
 import { Account } from './screens/Account';
 import { AcceptInvite } from './screens/AcceptInvite';
@@ -9,6 +10,9 @@ import { Board } from './screens/calendar/Board';
 import { Calendar } from './screens/calendar/Calendar';
 import { Archive } from './screens/Archive';
 import { Contacts } from './screens/Contacts';
+import { CustomerView } from './screens/crm/CustomerView';
+import { EditCustomer } from './screens/crm/EditCustomer';
+import { Today } from './screens/crm/Today';
 import { Dashboard } from './screens/Dashboard';
 import { Expenses } from './screens/money/Expenses';
 import { Receipts } from './screens/money/Receipts';
@@ -62,7 +66,16 @@ export function App() {
             <Route path="/receipts" element={<Receipts />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/contacts" element={<Contacts />} />
-            <Route path="/contacts/:id" element={<ContactEdit />} />
+            {CRM_ENABLED ? (
+              <>
+                <Route path="/today" element={<Today />} />
+                <Route path="/contacts/new" element={<EditCustomer />} />
+                <Route path="/contacts/:id/edit" element={<EditCustomer />} />
+                <Route path="/contacts/:id" element={<CustomerView />} />
+              </>
+            ) : (
+              <Route path="/contacts/:id" element={<ContactEdit />} />
+            )}
             <Route path="/company" element={<Company />} />
             <Route path="/team" element={<Team />} />
             <Route path="/account" element={<Account />} />
