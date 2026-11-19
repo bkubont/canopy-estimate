@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dayLabel } from '../lib/calendar';
+import { applyCrmStageAfterPayment } from '../lib/crmStage';
 import { clientName, customerPricing, money, normalizeJob, round2, totals } from '../lib/estimate';
 import { balanceDue, livePayments, METHOD_LABEL, paidForJob } from '../lib/invoice';
 import { useReady, useRow, useRows } from '../lib/session';
@@ -70,7 +71,16 @@ export function PaymentsButton({ job: raw }: { job: Job }) {
         title={inv ? `Payment on ${inv.number}` : `Deposit on ${job.number}`}
         suggested={inv ? (owed ?? 0) : depositLeft}
         base={{ org_id: job.org_id, job_id: job.id, invoice_id: inv?.id ?? null, recorded_by_name: me?.display_name ?? '' }}
-        onSave={(p: Payment) => { void engine.save('payments', p); setRecording(false); }}
+        onSave={(p: Payment) => {
+          void (async () => {
+            await engine.save('payments', p);
+            const paidAfter = paidForJob([...(payments ?? []), p], job.id);
+            await applyCrmStageAfterPayment({
+              engine, job, invoiceTotal: inv?.total ?? null, paidAfter, createdBy: user.id,
+            });
+            setRecording(false);
+          })();
+        }}
       />
     </>
   );

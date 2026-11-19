@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import { allDaySpan, BID_HOURS, crewConflicts, dayLabel, EVENT_LABEL, EVENT_TYPES, eventDays, eventForJob, hmOf, isTask, miToIso, todayMi, ymdOf } from '../../lib/calendar';
+import { applyCrmStageFromJob } from '../../lib/crmStage';
 import { clientName, daysLabel, normalizeJob, num } from '../../lib/estimate';
 import { useReady, useRows } from '../../lib/session';
 import type { CalEvent, Job } from '../../lib/types';
@@ -10,7 +11,7 @@ const STATUSES: [string, string][] = [['tentative', 'Tentative'], ['confirmed', 
 export { eventForJob } from '../../lib/calendar';
 
 export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null; onClose: () => void; onSaved?: (e: CalEvent) => void }) {
-  const { engine } = useReady();
+  const { engine, user } = useReady();
   const members = useRows(engine, 'members');
   const jobs = useRows(engine, 'jobs');
   const events = useRows(engine, 'events');
@@ -52,6 +53,15 @@ export function EventSheet({ event, onClose, onSaved }: { event: CalEvent | null
     const out = e.unscheduled ? { ...e, starts: '', ends: '' } : e.starts ? e : { ...e, ...allDaySpan(todayMi(), 1) };
     if (!out.title.trim()) out.title = EVENT_LABEL[out.type] ?? 'Entry';
     await engine.save('events', out);
+    // First calendar day for a signed job → work status scheduled + CRM Booked (D2). Never writes job.stage.
+    if (out.type === 'tree_work' && out.job_id && !out.unscheduled && out.starts) {
+      const linked = (jobs ?? []).find((j) => j.id === out.job_id);
+      if (linked && linked.signed_at && !['in_progress', 'blocked', 'done'].includes(linked.status)) {
+        const nextJob = { ...linked, status: 'scheduled' as const };
+        await engine.save('jobs', nextJob);
+        await applyCrmStageFromJob({ engine, job: nextJob, createdBy: user.id });
+      }
+    }
     onSaved?.(out);
     onClose();
   }

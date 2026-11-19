@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { Chips, Field, MultiChips } from '../../components/ui';
+import { applyPickToJob } from '../../lib/crmJob';
 import { clientName, hasSeptic, SEPTIC, SITE_CONDITIONS } from '../../lib/estimate';
 import type { Client } from '../../lib/types';
-import { ClientPicker } from './ClientPicker';
+import { ClientPicker, isFullPick } from './ClientPicker';
 import type { StepProps } from './types';
 
 export function StepClient({ job, updateJob }: StepProps) {
@@ -66,8 +67,12 @@ export function StepClient({ job, updateJob }: StepProps) {
       <ClientPicker
         open={picking}
         onClose={() => setPicking(false)}
-        onPick={(client, customerId) => {
-          updateJob((j) => ({ ...j, client, customer_id: customerId }));
+        onPick={(result) => {
+          if (isFullPick(result)) {
+            updateJob((j) => applyPickToJob(j, result));
+          } else {
+            updateJob((j) => ({ ...j, client: result.client, customer_id: result.customerId, property_id: null }));
+          }
           setPicking(false);
         }}
       />

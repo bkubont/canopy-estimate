@@ -123,7 +123,7 @@ export function blankChangeOrder(): ChangeOrder {
 export function blankJob(opts: { org: Organization; number: string; preparedBy: string; contractorSig: string }): Job {
   return {
     id: uid(), org_id: opts.org.id, number: opts.number, stage: 'estimate', status: 'pending', block_reason: '',
-    customer_id: null, client: blankClient(), trees: [], site: blankSite(), equipment: [], days: 1, change_orders: [],
+    customer_id: null, property_id: null, client: blankClient(), trees: [], site: blankSite(), equipment: [], days: 1, change_orders: [],
     client_notes: '', internal_notes: '', estimate_date: todayYmd(), client_sig: '', client_sig_date: null,
     signed_at: null, signed_by_name: '', signed_via: '', prepared_by_name: opts.preparedBy, contractor_sig: opts.contractorSig,
     assigned_crew: '', deleted_at: null,
