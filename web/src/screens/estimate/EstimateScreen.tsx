@@ -13,7 +13,7 @@ import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/
 import { SignaturePad } from '../../components/SignaturePad';
 import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
-  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, hasSeptic, money, niceDate, normalizeJob, notesToInternal, septicLine, todayYmd, totals, treeDetails, treeTitle,
+  blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, hasSeptic, money, niceDate, normalizeJob, notesToInternal, septicLine, todayYmd, totals, treeCount, treeDetails, treeTitle,
 } from '../../lib/estimate';
 import { balanceDue, invoiceFromJob, invoiceTotals, paidForJob } from '../../lib/invoice';
 import { takeNumber } from '../../lib/numbers';
@@ -91,6 +91,8 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
   const cancelApply = (p: CancelPatch) => { updateJob((j) => ({ ...j, ...p })); void flush(); };
   const next = STEPS[i + 1];
   const prev = STEPS[i - 1];
+  const onTrees = STEPS[i]!.id === 'trees';
+  const running = onTrees ? totals(job, customerPricing(job, pricing)) : null;
 
   return (
     <div className="page wizard" style={{ maxWidth: 1200 }}>
@@ -112,8 +114,21 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
         ))}
       </nav>
 
+      {running && (
+        <div className="wiz-running-total" aria-live="polite">
+          <span>
+            Estimate total
+            <small className="wiz-running-meta">
+              {treeCount(job.trees)} tree{treeCount(job.trees) === 1 ? '' : 's'}
+              {job.days ? ` · ${job.days} day${job.days === 1 ? '' : 's'}` : ''}
+            </small>
+          </span>
+          <b>{money(running.total)}</b>
+        </div>
+      )}
+
       {STEPS[i]!.id === 'client' && <StepClient {...props} />}
-      {STEPS[i]!.id === 'trees' && (
+      {onTrees && (
         <div className="wizard-grid two-col">
           <StepTrees {...props} />
           <div><StepPricing {...props} /></div>
@@ -121,12 +136,16 @@ function Wizard({ job, pricing, company, updateJob, updatePricing, flush, step }
       )}
       {STEPS[i]!.id === 'review' && (
         <>
-          <StepReview {...props} onSigned={() => void go(`/estimates/${job.id}`)} />
-          <section className="card">
-            <div className="sec-head"><h2><Icon name="message" size={18} />Send to client</h2></div>
-            <SendActions job={job} pricing={pricing} company={company} flush={flush} />
-          </section>
-          <DangerZone job={job} />
+          <StepReview
+            {...props}
+            company={company}
+            flush={flush}
+            onSigned={() => void go(`/estimates/${job.id}`)}
+          />
+          <details className="more">
+            <summary>Delete estimate</summary>
+            <DangerZone job={job} />
+          </details>
         </>
       )}
 

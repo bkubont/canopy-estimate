@@ -34,11 +34,15 @@ export function StepPricing({ job, pricing, updateJob, updatePricing }: StepProp
       <section className="card">
         <div className="sec-head"><h2><Icon name="calendar" size={18} />Days &amp; labor</h2><b className="sec-total">{money(t.baseLabor)}</b></div>
         <Chips label="Days" options={DAY_CHOICES} value={job.days} onChange={(v) => setDays(num(v) || job.days)} required />
-        <div className="grid-2 mt">
-          <div><h4 className="label">Days</h4><Stepper label="Days" value={job.days} step={0.5} min={0.5} onChange={setDays} /></div>
-          <div><h4 className="label">Day rate</h4><MoneyInput label="Day rate" value={pricing.day_rate} onChange={(v) => updatePricing((p) => ({ ...p, day_rate: v ?? 0 }))} /></div>
+        <div className="mt">
+          <h4 className="label">Days</h4>
+          <Stepper label="Days" value={job.days} step={0.5} min={0.5} onChange={setDays} />
         </div>
-        <p className="hint" style={{ marginBottom: 0 }}>Work dates go on the calendar after the estimate is signed.</p>
+        <details className="more">
+          <summary>Day rate <span className="muted small">{money(pricing.day_rate)}/day</span></summary>
+          <MoneyInput label="Day rate" value={pricing.day_rate} onChange={(v) => updatePricing((p) => ({ ...p, day_rate: v ?? 0 }))} />
+          <p className="hint" style={{ marginBottom: 0 }}>Work dates go on the calendar after the estimate is signed.</p>
+        </details>
       </section>
 
       <section className="card">
