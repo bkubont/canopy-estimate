@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useReady, useRow } from '../lib/session';
 import type { Customer } from '../lib/types';
 import { customerAsClient, SaveToContacts } from '../components/SaveToContacts';
-import { customerName } from './Contacts';
+import { customerName } from '../lib/crmUi';
 
 function blank(orgId: string): Customer {
   return {

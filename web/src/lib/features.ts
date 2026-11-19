@@ -10,7 +10,7 @@ export const HOURS_ENABLED = false;
 
 /**
  * CRM: People list, customer card, Today follow-ups, multi phone/email/properties.
- * Schema and sync for CRM tables land with this flag still off (Phase A); turn
- * on when Phase B UI ships. Flat Contacts/ContactEdit stay until then.
+ * Phase B turns this on for office CRM hubs. Flat Contacts/ContactEdit remain as
+ * the fallback when the flag is off.
  */
-export const CRM_ENABLED = false;
+export const CRM_ENABLED = true;

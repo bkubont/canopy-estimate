@@ -3,13 +3,20 @@ import { Icon } from '../components/Icon';
 import { ImportContacts } from '../components/ImportContacts';
 import { exportAllContacts } from '../components/SaveToContacts';
 import { Link } from 'react-router-dom';
+import { customerName } from '../lib/crmUi';
+import { CRM_ENABLED } from '../lib/features';
 import { useReady, useRows } from '../lib/session';
-import type { Customer } from '../lib/types';
+import { People } from './crm/People';
 
-export const customerName = (c: Pick<Customer, 'first_name' | 'last_name' | 'company'>) =>
-  [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || c.company || 'No name';
+export { customerName };
 
+/** Customers hub: CRM People when enabled, otherwise the flat contacts list. */
 export function Contacts() {
+  if (CRM_ENABLED) return <People />;
+  return <FlatContacts />;
+}
+
+function FlatContacts() {
   const { engine } = useReady();
   const rows = useRows(engine, 'customers');
   const [q, setQ] = useState('');

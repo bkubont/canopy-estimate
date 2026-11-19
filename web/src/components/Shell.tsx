@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { CRM_ENABLED } from '../lib/features';
 import { uploadPending } from '../lib/photos';
 import { can, useReady } from '../lib/session';
 import { Bell } from './Bell';
@@ -31,6 +32,7 @@ function menu(role: string): [string, Item[]][] {
       ? [{ to: '/estimates', label: 'Estimates', icon: 'file' } as Item]
       : [{ to: '/estimates', label: 'Job details', icon: 'file' } as Item]),
     { to: '/contacts', label: 'Customers', icon: 'users' },
+    ...(CRM_ENABLED && office ? [{ to: '/today', label: 'Today', icon: 'bell' } as Item] : []),
     { to: '/archive', label: 'Archive', icon: 'archive' },
   ];
   const groups: [string, Item[]][] = [['Work', work]];

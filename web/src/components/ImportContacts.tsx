@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
+import { enrichImportedCustomers } from '../lib/crmActions';
 import { planImport, toCustomer, type ImportRow } from '../lib/contactsImport';
+import { CRM_ENABLED } from '../lib/features';
 import { useReady, useRows } from '../lib/session';
 import { parseVCards, readContactsFile } from '../lib/vcard';
 import { Icon } from './Icon';
@@ -7,8 +9,10 @@ import { Sheet } from './ui';
 
 /** Customers → Import: pick a contacts file from the iPhone, check the list, import. */
 export function ImportContacts() {
-  const { engine, org } = useReady();
+  const { engine, org, user } = useReady();
   const customers = useRows(engine, 'customers');
+  const groups = useRows(engine, 'tag_groups');
+  const tags = useRows(engine, 'tags');
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -37,8 +41,12 @@ export function ImportContacts() {
     setSaving(true);
     try {
       const chosen = (rows ?? []).filter((r) => picked.has(r.key));
+      const created = chosen.map((r) => toCustomer(r.client, org.org_id));
       // All at once: one save here, and they go up to the server in batches.
-      await engine.addMany('customers', chosen.map((r) => toCustomer(r.client, org.org_id)));
+      await engine.addMany('customers', created);
+      if (CRM_ENABLED) {
+        await enrichImportedCustomers(engine, org.org_id, created, groups ?? [], tags ?? [], user.id);
+      }
       setDone(`${chosen.length} contact${chosen.length === 1 ? '' : 's'} added to Customers.`);
       setRows(null);
       setOpen(false);
