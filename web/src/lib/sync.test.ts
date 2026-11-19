@@ -171,6 +171,46 @@ describe('SyncEngine', () => {
     expect(server.pushLog).toEqual(['customers:c1', 'jobs:j1']);
   });
 
+  it('pushes CRM child rows after customers and before jobs', async () => {
+    const a = await device(server);
+    await a.save('jobs', job('j1', 'c1'));
+    await a.save('customer_phones', {
+      id: 'p1', org_id: ORG, customer_id: 'c1', label: 'mobile', value: '231-555-0101', sort: 0, deleted_at: null,
+    });
+    await a.save('customer_properties', {
+      id: 'prop1', org_id: ORG, customer_id: 'c1', street: '1 Main', town: 'Leland', state: 'MI', zip: '49654',
+      gate_code: '', access: '', hazards: [], tree_notes: '', sort: 0, deleted_at: null,
+    });
+    await a.save('tag_groups', {
+      id: 'g1', org_id: ORG, name: 'Stage', slug: 'stage', mode: 'one', pipeline: true, allow_new: false, sort: 0, deleted_at: null,
+    });
+    await a.save('tags', {
+      id: 't1', org_id: ORG, tag_group_id: 'g1', name: 'Past customer', slug: 'past', color: '#7b8676', sort: 5, deleted_at: null,
+    });
+    await a.save('customer_tags', { org_id: ORG, customer_id: 'c1', tag_id: 't1', deleted_at: null });
+    await a.save('customers', customer('c1'));
+    await a.sync();
+    expect(server.pushLog.map((s) => s.split(':')[0])).toEqual([
+      'customers', 'tag_groups', 'tags', 'customer_phones',
+      'customer_properties', 'customer_tags', 'jobs',
+    ]);
+  });
+
+  it('syncs a CRM property to a second device', async () => {
+    const a = await device(server);
+    const b = await device(server);
+    await a.save('customers', customer('c1'));
+    await a.save('customer_properties', {
+      id: 'prop1', org_id: ORG, customer_id: 'c1', street: '12 Shore Ln', town: 'Suttons Bay', state: 'MI', zip: '49682',
+      gate_code: '4471', access: 'Park on street', hazards: ['Power lines'], tree_notes: 'Oak lean', sort: 0, deleted_at: null,
+    });
+    await a.sync();
+    await b.sync();
+    const prop = await b.get('customer_properties', 'prop1');
+    expect(prop?.street).toBe('12 Shore Ln');
+    expect(prop?.hazards).toEqual(['Power lines']);
+  });
+
   it('flags a refused change, keeps syncing the rest, and can discard it', async () => {
     const a = await device(server);
     await a.save('customers', customer('c1', { phone: 'server copy' }));

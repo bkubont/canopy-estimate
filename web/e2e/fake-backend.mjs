@@ -14,10 +14,18 @@ export function createFakeBackend() {
   const tokens = new Map(); // access token -> user
   const feeds = new Map(); // calendar links: org|user → token
   const batches = []; // batch inserts seen, for walkthroughs to check
-  const t = { organizations: [], org_pricing: [], members: [], customers: [], jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], expenses: [], time_entries: [], invites: [] };
+  const t = {
+    organizations: [], org_pricing: [], members: [], customers: [],
+    tag_groups: [], tags: [], customer_phones: [], customer_emails: [], customer_properties: [],
+    customer_tags: [], customer_activities: [],
+    jobs: [], job_pricing: [], invoices: [], payments: [], events: [], photos: [], expenses: [], time_entries: [], invites: [],
+  };
   const files = new Map(); // storage path -> { bytes, type }
   let seq = 1;
-  const keyCols = { organizations: ['id'], org_pricing: ['org_id'], members: ['org_id', 'user_id'], job_pricing: ['job_id'] };
+  const keyCols = {
+    organizations: ['id'], org_pricing: ['org_id'], members: ['org_id', 'user_id'], job_pricing: ['job_id'],
+    customer_tags: ['customer_id', 'tag_id'],
+  };
   const keysOf = (table) => keyCols[table] ?? ['id'];
   const now = () => new Date().toISOString();
   const touch = (row, user) => Object.assign(row, { updated_at: now(), updated_by: user?.id ?? null, _seq: seq++ });
@@ -254,7 +262,11 @@ export function createFakeBackend() {
         if (!roleOf(body.p_org, user)) return json(400, { code: 'P0001', message: 'Not a member of this company' });
         const since = Number(body.p_since ?? 0);
         const out = { cursor: String(seq) };
-        for (const table of ['organizations', 'org_pricing', 'members', 'customers', 'jobs', 'job_pricing', 'invoices', 'payments', 'events', 'expenses', 'photos', 'time_entries']) {
+        for (const table of [
+          'organizations', 'org_pricing', 'members', 'customers',
+          'tag_groups', 'tags', 'customer_phones', 'customer_emails', 'customer_properties', 'customer_tags', 'customer_activities',
+          'jobs', 'job_pricing', 'invoices', 'payments', 'events', 'expenses', 'photos', 'time_entries',
+        ]) {
           out[table] = t[table].filter((r) => (r.org_id ?? r.id) === body.p_org && r._seq >= since && visible(table, r, user)).map(strip);
         }
         return json(200, out);

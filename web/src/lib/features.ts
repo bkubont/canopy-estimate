@@ -7,3 +7,10 @@
  * hours already saved are kept; set this back to true to bring it all back.
  */
 export const HOURS_ENABLED = false;
+
+/**
+ * CRM: People list, customer card, Today follow-ups, multi phone/email/properties.
+ * Schema and sync for CRM tables land with this flag still off (Phase A); turn
+ * on when Phase B UI ships. Flat Contacts/ContactEdit stay until then.
+ */
+export const CRM_ENABLED = false;
