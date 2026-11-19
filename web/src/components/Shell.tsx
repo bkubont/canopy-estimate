@@ -35,10 +35,10 @@ function menu(role: string): [string, Item[]][] {
   ];
   const groups: [string, Item[]][] = [['Work', work]];
   if (office) {
+    // Expenses inbox covers the list + receipt photos (type filter on the screen).
     groups.push(['Money', [
       { to: '/invoices', label: 'Invoices', icon: 'dollar' },
       { to: '/expenses', label: 'Expenses', icon: 'wallet' },
-      { to: '/receipts', label: 'Receipts', icon: 'receipt' },
       { to: '/reports', label: 'Reports', icon: 'chart' },
     ]]);
   }
