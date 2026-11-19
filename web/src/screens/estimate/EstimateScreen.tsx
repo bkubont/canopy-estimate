@@ -5,6 +5,7 @@ import { CancelJobButton, CancelledBanner, type CancelPatch } from '../../compon
 import { WorkOrderNotes } from '../../components/WorkOrderNotes';
 import { JobPhotos } from '../../components/Photos';
 import { JobHours } from '../../components/JobHours';
+import { applyCrmStageAfterPayment, applyCrmStageFromJob } from '../../lib/crmStage';
 import { HOURS_ENABLED } from '../../lib/features';
 import { isWorkOrder } from '../../lib/notes';
 import { jobHubNext, jobStage, liveInvoice, STAGE_MEANS, type JobHubNextKind } from '../../lib/status';
@@ -205,8 +206,9 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
   const nextIs = (kind: JobHubNextKind) => next?.kind === kind;
 
   function setStatus(status: Job['status'], block_reason = '') {
-    updateJob((j) => ({ ...j, status, block_reason }));
-    void flush();
+    const next = { ...job, status, block_reason };
+    updateJob(() => next);
+    void flush().then(() => applyCrmStageFromJob({ engine, job: next, createdBy: user.id }));
   }
 
   function openSchedule() {
@@ -354,8 +356,14 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         suggested={invoice ? owed : depositLeft}
         base={{ org_id: job.org_id, job_id: job.id, invoice_id: invoice?.id ?? null, recorded_by_name: me?.display_name ?? '' }}
         onSave={(p) => {
-          void engine.save('payments', p);
-          setPayOpen(false);
+          void (async () => {
+            await engine.save('payments', p);
+            const paidAfter = paidForJob([...(payments ?? []), p], job.id);
+            await applyCrmStageAfterPayment({
+              engine, job, invoiceTotal: invoice?.total ?? null, paidAfter, createdBy: user.id,
+            });
+            setPayOpen(false);
+          })();
         }}
       />
       <ChangeOrderSheet

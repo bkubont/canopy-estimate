@@ -15,6 +15,7 @@ import { HOURS_ENABLED } from '../../lib/features';
 import { isWorkOrder, noteSummary } from '../../lib/notes';
 import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
+import { applyCrmStageFromJob } from '../../lib/crmStage';
 import { liveInvoice } from '../../lib/status';
 import { reserveNumbers } from '../../lib/supabase';
 import type { CalEvent, Job } from '../../lib/types';
@@ -86,7 +87,7 @@ function MoreMenu({ actions, label }: { actions: Action[]; label: string }) {
 }
 
 export function Board() {
-  const { engine, org } = useReady();
+  const { engine, org, user } = useReady();
   const jobs = useRows(engine, 'jobs');
   const events = useRows(engine, 'events');
   const members = useRows(engine, 'members');
@@ -139,7 +140,9 @@ export function Board() {
   const NEXT_TAB: Partial<Record<Job['status'], BoardColumn>> = { in_progress: 'in_progress', blocked: 'blocked', done: 'done', scheduled: 'scheduled', approved: 'approved' };
   // Follow the job to its new column so it doesn't seem to vanish.
   const setStatus = (job: Job, status: Job['status'], block_reason = '') => {
-    void engine.save('jobs', { ...job, status, block_reason });
+    // Work board status only — CRM pipeline tags update separately via D2 (never overwrite job.stage).
+    const nextJob = { ...job, status, block_reason };
+    void engine.save('jobs', nextJob).then(() => applyCrmStageFromJob({ engine, job: nextJob, createdBy: user.id }));
     const next = NEXT_TAB[status];
     if (next) setTab(next);
   };

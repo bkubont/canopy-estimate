@@ -9,6 +9,7 @@ import {
   allDaySpan, blankEvent, boardColumn, dayLabel, EVENT_LABEL, isActive, isTask, jobDays, monthCells, onDay, reorderDay,
   scheduleJob, timeLabel, todayMi, weekday,
 } from '../../lib/calendar';
+import { applyCrmStageFromJob } from '../../lib/crmStage';
 import { addDays, clientName, daysLabel, normalizeJob } from '../../lib/estimate';
 import { can, useReady, useRows } from '../../lib/session';
 import { jobStage } from '../../lib/status';
@@ -71,7 +72,7 @@ function useDragToDay(onDrop: (item: Pending, day: string) => void) {
 }
 
 export function Calendar() {
-  const { engine, org } = useReady();
+  const { engine, org, user } = useReady();
   const events = useRows(engine, 'events');
   const jobs = useRows(engine, 'jobs');
   const invoices = useRows(engine, 'invoices');
@@ -132,6 +133,14 @@ export function Calendar() {
     if (item.kind === 'job') {
       const made = scheduleJob(org.org_id, item.job, day);
       for (const e of made) await engine.save('events', e);
+      // Mark work status scheduled (board UI already derives Scheduled from calendar days).
+      // CRM Stage → Booked via D2; never writes job.stage (money/work pipeline stays separate).
+      const crewBusy = item.job.status === 'in_progress' || item.job.status === 'blocked' || item.job.status === 'done';
+      if (!crewBusy) {
+        const nextJob = { ...item.job, status: 'scheduled' as const };
+        await engine.save('jobs', nextJob);
+        await applyCrmStageFromJob({ engine, job: nextJob, createdBy: user.id });
+      }
       const days = made.flatMap((e) => { const out: string[] = []; for (let d = e.starts; d < e.ends; d = addDays(d, 1)) out.push(d); return out; });
       setToast({
         text: `${pendingName(item)}: ${dayLabel(days[0]!)}${days.length > 1 ? ` – ${dayLabel(days.at(-1)!)}` : ''}${made.length > 1 ? ' (Sunday skipped)' : ''}`,

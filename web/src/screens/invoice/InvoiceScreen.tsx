@@ -6,6 +6,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { toCustomerCompany } from '../../components/EstimateDoc';
 import { InvoiceDoc, toCustomerInvoice } from '../../components/InvoiceDoc';
 import { Field, MoneyInput, PrintOnly } from '../../components/ui';
+import { applyCrmStageAfterPayment } from '../../lib/crmStage';
 import { addDays, clientName, money, niceDate, normalizeJob, num, uid } from '../../lib/estimate';
 import { balanceDue, INVOICE_STATUS_LABEL, invoiceStatus, invoiceTotals, livePayments, METHOD_LABEL, paidForJob } from '../../lib/invoice';
 import { elementToPdf, shareOrDownload } from '../../lib/pdf';
@@ -257,8 +258,14 @@ export function InvoiceScreen() {
         suggested={balance}
         base={{ org_id: inv.org_id, job_id: inv.job_id, invoice_id: inv.id, recorded_by_name: me?.display_name ?? '' }}
         onSave={(p: Payment) => {
-          void engine.save('payments', p);
-          setPaying(false);
+          void (async () => {
+            await engine.save('payments', p);
+            const paidAfter = paidForJob([...payments, p], inv.job_id);
+            await applyCrmStageAfterPayment({
+              engine, job: j, invoiceTotal: inv.total ?? t.total, paidAfter, createdBy: user.id,
+            });
+            setPaying(false);
+          })();
         }}
       />
     </div>

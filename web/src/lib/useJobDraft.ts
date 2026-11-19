@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { applyCrmStageFromJob } from './crmStage';
 import { customerPricing, normalizeJob, totals } from './estimate';
 import { useRow } from './session';
 import type { SyncEngine } from './sync';
@@ -89,8 +90,12 @@ export function useJobDraft(engine: SyncEngine, id: string | undefined) {
     const serverStage = savedJob.stage === 'invoice' || savedJob.stage === 'paid' || savedJob.stage === 'archived';
     if (cur.signed_at && serverStage && savedJob.stage !== cur.stage && !dirty.current.job) {
       setJob(normalizeJob({ ...cur, stage: savedJob.stage }));
+      // Server flipped job.stage (e.g. paid via invoice trigger) — CRM Past via D2; work board already updated.
+      if (savedJob.stage === 'paid' && cur.stage !== 'paid') {
+        void applyCrmStageFromJob({ engine, job: savedJob });
+      }
     }
-  }, [savedJob]);
+  }, [savedJob, engine]);
   useEffect(() => {
     if (!savedPricing) return;
     const cur = pricingRef.current;

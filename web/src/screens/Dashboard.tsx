@@ -6,7 +6,8 @@ import { JobQuickIcons } from '../components/JobQuickIcons';
 import { NotesBadge } from '../components/WorkOrderNotes';
 import { isWorkOrder, noteSummary } from '../lib/notes';
 import { dayLabel, EVENT_LABEL, jobSchedule, onDay, timeLabel, todayMi, visitForJob, weekday } from '../lib/calendar';
-import { HOURS_ENABLED } from '../lib/features';
+import { todayBuckets } from '../lib/crmUi';
+import { CRM_ENABLED, HOURS_ENABLED } from '../lib/features';
 import { expensesInMonth, hoursLabel, hoursTotal, isOpen, total, workerOf } from '../lib/expenses';
 import { addDays, clientName, money, normalizeJob, round2 } from '../lib/estimate';
 import { balanceDue, invoiceStatus, paidForJob } from '../lib/invoice';
@@ -30,6 +31,11 @@ export function Dashboard() {
   const pricing = useRows(engine, 'job_pricing');
   const expenses = useRows(engine, 'expenses');
   const timeEntries = useRows(engine, 'time_entries');
+  const customers = useRows(engine, 'customers');
+  const memberships = useRows(engine, 'customer_tags');
+  const activities = useRows(engine, 'customer_activities');
+  const tagGroups = useRows(engine, 'tag_groups');
+  const tags = useRows(engine, 'tags');
   const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const office = can.seePrices(org.role);
   const today = todayMi();
@@ -105,8 +111,18 @@ export function Dashboard() {
     const spent = total(expensesInMonth(expenses, month));
     const weekStart = addDays(today, -weekday(today));
     const weekHours = hoursTotal((timeEntries ?? []).filter((e) => !e.deleted_at && e.work_date >= weekStart && e.work_date <= today));
-    return { spent, weekHours, attention, todays, active, owed: round2(owed), overdue: round2(overdue), overdueCount, openCount, collected: round2(collected), pendingCount: pending.length, pendingValue };
-  }, [jobsRaw, events, invoices, payments, pricing, office, today, expenses, timeEntries]);
+    const coldCount = CRM_ENABLED && office
+      ? todayBuckets(
+        (customers ?? []).filter((c) => !c.deleted_at),
+        memberships ?? [],
+        tagGroups ?? [],
+        tags ?? [],
+        activities ?? [],
+      ).cold.length
+      : 0;
+
+    return { spent, weekHours, attention, todays, active, owed: round2(owed), overdue: round2(overdue), overdueCount, openCount, collected: round2(collected), pendingCount: pending.length, pendingValue, coldCount };
+  }, [jobsRaw, events, invoices, payments, pricing, office, today, expenses, timeEntries, customers, memberships, tagGroups, tags, activities]);
 
   const loading = jobsRaw === null || events === null;
   const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Detroit', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
@@ -143,6 +159,13 @@ export function Dashboard() {
             <span className="tile-value">{money(data.pendingValue)}</span>
             <span className="tile-sub">{data.pendingCount === 1 ? '1 waiting to be signed' : `${data.pendingCount} waiting to be signed`}</span>
           </Link>
+          {CRM_ENABLED && (
+            <Link to="/today" className={`tile ${data.coldCount ? 'bad' : ''}`}>
+              <span className="tile-label">Going cold</span>
+              <span className="tile-value">{data.coldCount}</span>
+              <span className="tile-sub">{data.coldCount ? 'Follow up on Today' : 'Nothing waiting'}</span>
+            </Link>
+          )}
           <Link to="/expenses" className="tile">
             <span className="tile-label">Spent in {dayLabel(today, { month: 'long' })}</span>
             <span className="tile-value">{money(data.spent)}</span>

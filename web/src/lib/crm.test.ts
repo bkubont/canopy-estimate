@@ -84,4 +84,9 @@ describe('crmStageFromJob (D2 mapping)', () => {
   it('does not move stage for pending estimates', () => {
     expect(crmStageSlugFromJob({ stage: 'estimate', status: 'pending', signed_at: null, deleted_at: null })).toBeNull();
   });
+
+  it('paid wins over scheduled status when both are set', () => {
+    expect(crmStageSlugFromJob({ stage: 'paid', status: 'scheduled', signed_at: 'x', deleted_at: null }))
+      .toBe(STAGE_SLUGS.past);
+  });
 });

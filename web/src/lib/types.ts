@@ -153,6 +153,8 @@ export interface Job extends SyncCols {
   status: 'pending' | 'approved' | 'scheduled' | 'in_progress' | 'blocked' | 'done';
   block_reason: string;
   customer_id: string | null;
+  /** Optional CRM property used for this estimate's site snapshot (Phase C). */
+  property_id?: string | null;
   client: Client;
   trees: Tree[];
   site: Site;
