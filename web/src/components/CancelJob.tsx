@@ -57,7 +57,7 @@ export function CancelJobSheet({ job, open, onClose, apply }: { job: Job; open: 
         <>
           <p style={{ marginTop: 0 }}>
             The {what} for <b>{clientName(job.client) || job.number}</b> comes off the board, the dashboard and the calendar. It stays under
-            Estimates → Cancelled, and you can reopen it any time.
+            Estimates → All (cancelled), and you can reopen it any time.
           </p>
           {days.length > 0 && <p className="notice warn">Its {days.length === 1 ? 'calendar entry is' : `${days.length} calendar entries are`} cancelled too.</p>}
           {paid > 0 && <p className="notice warn">{money(paid)} has been paid on this job. Any refund is up to you; the payment stays on record.</p>}

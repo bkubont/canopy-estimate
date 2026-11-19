@@ -22,22 +22,26 @@ function loadCollapsed() {
 /** The menu, grouped like the rest of the business: work, money, settings. */
 function menu(role: string): [string, Item[]][] {
   const office = can.seePrices(role);
+  // Estimates (drafts + awaiting signature) sit with Work; signed pipeline is Jobs board.
   const work: Item[] = [
     { to: '/', label: 'Dashboard', icon: 'home', end: true },
     { to: '/board', label: 'Jobs board', icon: 'board' },
     { to: '/calendar', label: 'Calendar', icon: 'calendar' },
+    ...(office
+      ? [{ to: '/estimates', label: 'Estimates', icon: 'file' } as Item]
+      : [{ to: '/estimates', label: 'Job details', icon: 'file' } as Item]),
     { to: '/contacts', label: 'Customers', icon: 'users' },
     { to: '/archive', label: 'Archive', icon: 'archive' },
   ];
-  if (!office) work.push({ to: '/estimates', label: 'Job details', icon: 'file' });
   const groups: [string, Item[]][] = [['Work', work]];
-  if (office) groups.push(['Money', [
-    { to: '/estimates', label: 'Estimates', icon: 'file' },
-    { to: '/invoices', label: 'Invoices', icon: 'dollar' },
-    { to: '/expenses', label: 'Expenses', icon: 'wallet' },
-    { to: '/receipts', label: 'Receipts', icon: 'receipt' },
-  ]]);
-  if (office) groups.push(['Business', [{ to: '/reports', label: 'Reports', icon: 'chart' }]]);
+  if (office) {
+    groups.push(['Money', [
+      { to: '/invoices', label: 'Invoices', icon: 'dollar' },
+      { to: '/expenses', label: 'Expenses', icon: 'wallet' },
+      { to: '/receipts', label: 'Receipts', icon: 'receipt' },
+      { to: '/reports', label: 'Reports', icon: 'chart' },
+    ]]);
+  }
   groups.push(['Settings', [
     { to: '/company', label: 'Company', icon: 'building' },
     ...(can.manageTeam(role) ? [{ to: '/team', label: 'Team', icon: 'users' } as Item] : []),
@@ -46,13 +50,12 @@ function menu(role: string): [string, Item[]][] {
   return groups;
 }
 
-/** The five things used all day, at the bottom of the phone screen. */
+/** Phone tabs: Calendar + Jobs + money for office; Estimates stays in the side Work menu. */
 function tabs(role: string): Item[] {
   return can.seePrices(role)
     ? [
         { to: '/', label: 'Home', icon: 'home', end: true },
         { to: '/calendar', label: 'Calendar', icon: 'calendar' },
-        { to: '/estimates', label: 'Estimates', icon: 'file' },
         { to: '/board', label: 'Jobs', icon: 'board' },
         { to: '/invoices', label: 'Invoices', icon: 'dollar' },
       ]
