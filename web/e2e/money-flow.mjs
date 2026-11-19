@@ -65,9 +65,13 @@ ok('the receipt picture uploads to the receipts folder');
 await o.goto(`${APP}#/expenses`);
 await see(o, 'Marathon', 'the expense is on the Expenses list');
 await see(o, '$64.20', 'with its amount');
-await o.goto(`${APP}#/receipts`);
-await o.locator('.receipt img').first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'no receipt picture in Receipts'));
-ok('and its picture is in Receipts');
+const officeMenu = await o.locator('.sidebar a').allInnerTexts();
+if (!officeMenu.some((t) => t.trim() === 'Expenses')) await fail(o, 'office menu missing Expenses');
+if (officeMenu.some((t) => t.trim() === 'Receipts')) await fail(o, 'office menu still has a sibling Receipts item');
+ok('Money menu has Expenses once (receipts are a type filter, not a sibling)');
+await o.getByRole('button', { name: 'Receipts', exact: true }).click();
+await o.locator('.receipt img').first().waitFor({ timeout: 10000 }).catch(() => fail(o, 'no receipt picture in Receipts filter'));
+ok('and its picture is in the Receipts filter');
 
 // ---------------------------------------------------------------- crew send in a receipt and log hours
 await c.goto(`${APP}#/`);
@@ -86,6 +90,9 @@ await see(c, 'Receipt sent to the office', 'crew send in a receipt');
 await c.goto(`${APP}#/expenses`);
 await c.waitForURL(/#\/$/, { timeout: 5000 }).catch(() => fail(c, 'crew could open Expenses'));
 ok('and can’t open the Expenses list');
+await c.goto(`${APP}#/receipts`);
+await c.waitForURL(/#\/$/, { timeout: 5000 }).catch(() => fail(c, 'crew could open old Receipts URL'));
+ok('and can’t open the old Receipts URL either');
 await c.clock.install();
 await c.goto(jobUrl);
 await c.getByRole('button', { name: 'Add hours' }).click();
@@ -150,6 +157,8 @@ if (!cells.includes('Home Depot') || !cells.includes('Marathon')) await fail(o, 
 ok('and both expenses are in it');
 
 await o.goto(`${APP}#/receipts`);
+await o.waitForURL(/#\/expenses\?type=receipts/, { timeout: 5000 }).catch(() => fail(o, 'old /receipts did not redirect to Expenses Receipts filter'));
+ok('old /receipts URL redirects to Expenses?type=receipts');
 await o.locator('.receipt img').first().waitFor();
 const [zip] = await Promise.all([o.waitForEvent('download'), o.getByRole('button', { name: 'Download all' }).click()]);
 const inZip = Object.keys(unzipSync(new Uint8Array(readFileSync(await zip.path()))));
@@ -197,7 +206,7 @@ await see(o, '40 h', 'and nothing was added (still 40 h)');
 await o.goto(`${APP}#/expenses`);
 await o.getByRole('button', { name: /Marathon/ }).click();
 await o.getByRole('button', { name: 'Remove expense' }).click();
-await o.goto(`${APP}#/receipts`);
+await o.goto(`${APP}#/expenses?type=receipts`);
 await o.locator('.receipt').first().waitFor();
 const left = await o.locator('.receipt').allInnerTexts();
 if (left.length !== 1 || left.some((t) => /Marathon|syncing/i.test(t))) await fail(o, `receipts left: ${left.join(' | ')}`);
