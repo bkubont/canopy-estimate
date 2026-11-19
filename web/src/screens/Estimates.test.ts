@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { estimateReadyForSignature } from '../lib/estimate';
+import type { Job, JobPricing } from '../lib/types';
 import { matchesEstimateFilter } from './Estimates';
 import type { Stage } from '../lib/status';
 
@@ -6,19 +8,59 @@ const stages: Stage[] = [
   'new', 'pending', 'approved', 'scheduled', 'in_progress', 'blocked', 'done', 'invoiced', 'overdue', 'paid', 'cancelled',
 ];
 
+const tree = (o: Partial<Job['trees'][number]> = {}): Job['trees'][number] => ({
+  id: 't1', species: 'Oak', work: ['Removal'], location: '', size: '', condition: '', qty: 1, notes: '', internal_notes: '', ...o,
+});
+
+const job = (o: Partial<Job> = {}): Pick<Job, 'trees' | 'client' | 'signed_at' | 'cancelled_at'> => ({
+  trees: [],
+  client: { firstName: 'Ada', lastName: 'Lovelace', company: '', phone: '', email: '', street: '', town: '', state: 'MI', zip: '' },
+  signed_at: null,
+  cancelled_at: null,
+  ...o,
+});
+
+const pricing = (o: Partial<Pick<JobPricing, 'total' | 'share_token'>> = {}) => ({
+  total: 2400,
+  share_token: 'tok-1',
+  ...o,
+});
+
+describe('estimateReadyForSignature', () => {
+  it('is false until scope, client, price, and customer link are all set', () => {
+    expect(estimateReadyForSignature(job(), pricing())).toBe(false); // no trees
+    expect(estimateReadyForSignature(job({ trees: [tree({ species: '', work: [] })] }), pricing())).toBe(false); // blank tree
+    expect(estimateReadyForSignature(job({ trees: [tree()], client: { firstName: '', lastName: '', company: '', phone: '', email: '', street: '', town: '', state: 'MI', zip: '' } }), pricing())).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing({ total: 0 }))).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing({ share_token: null }))).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()] }), pricing())).toBe(true);
+  });
+
+  it('keeps signed or cancelled jobs out of ready', () => {
+    expect(estimateReadyForSignature(job({ trees: [tree()], signed_at: 'x' }), pricing())).toBe(false);
+    expect(estimateReadyForSignature(job({ trees: [tree()], cancelled_at: 'x' }), pricing())).toBe(false);
+  });
+});
+
 describe('matchesEstimateFilter', () => {
   it('office All is only pre-sign (drafts, awaiting, cancelled)', () => {
     const hit = stages.filter((s) => matchesEstimateFilter(s, 'all', true));
     expect(hit).toEqual(['new', 'pending', 'cancelled']);
   });
 
-  it('office Active drafts / Awaiting signature split new vs pending', () => {
-    expect(matchesEstimateFilter('new', 'drafts', true)).toBe(true);
-    expect(matchesEstimateFilter('pending', 'drafts', true)).toBe(false);
-    expect(matchesEstimateFilter('pending', 'awaiting', true)).toBe(true);
-    expect(matchesEstimateFilter('new', 'awaiting', true)).toBe(false);
-    expect(matchesEstimateFilter('approved', 'drafts', true)).toBe(false);
-    expect(matchesEstimateFilter('approved', 'awaiting', true)).toBe(false);
+  it('keeps unfinished pending estimates in Active drafts until ready for signature', () => {
+    // First tree flips jobStage to pending, but without readiness it stays a draft.
+    expect(matchesEstimateFilter('pending', 'drafts', true, false)).toBe(true);
+    expect(matchesEstimateFilter('pending', 'awaiting', true, false)).toBe(false);
+    expect(matchesEstimateFilter('new', 'drafts', true, false)).toBe(true);
+    expect(matchesEstimateFilter('new', 'awaiting', true, false)).toBe(false);
+  });
+
+  it('puts ready unsigned estimates under Awaiting signature', () => {
+    expect(matchesEstimateFilter('pending', 'awaiting', true, true)).toBe(true);
+    expect(matchesEstimateFilter('pending', 'drafts', true, true)).toBe(false);
+    expect(matchesEstimateFilter('approved', 'awaiting', true, true)).toBe(false);
+    expect(matchesEstimateFilter('approved', 'drafts', true, true)).toBe(false);
   });
 
   it('crew All keeps signed pipeline jobs (not cancelled)', () => {

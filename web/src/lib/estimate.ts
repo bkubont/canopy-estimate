@@ -73,6 +73,25 @@ export const niceDate = (ymd: string | null | undefined) =>
 export const clientName = (c: Partial<Client> | undefined) =>
   [c?.firstName, c?.lastName].filter(Boolean).join(' ').trim() || c?.company || '';
 
+/**
+ * Office Estimates filter readiness (does not change jobStage).
+ * Awaiting signature only when the bid is scoped, named, priced, and a customer
+ * share link exists — so adding the first tree alone stays in Active drafts.
+ */
+export function estimateReadyForSignature(
+  job: Pick<Job, 'trees' | 'client' | 'signed_at' | 'cancelled_at'>,
+  pricing: Pick<JobPricing, 'total' | 'share_token'> | null | undefined,
+): boolean {
+  if (job.signed_at || job.cancelled_at) return false;
+  const trees = job.trees ?? [];
+  // Scope written: at least one tree with a type and work selected.
+  if (!trees.some((t) => String(t.species ?? '').trim() && (t.work?.length ?? 0) > 0)) return false;
+  if (!clientName(job.client)) return false;
+  if (!pricing || !(num(pricing.total) > 0)) return false;
+  // Customer link minted = out with the client, waiting on their signature.
+  return Boolean(pricing.share_token);
+}
+
 export const workLabel = (t: Pick<Tree, 'work'>) => (t.work ?? []).join(', ');
 export const treeTitle = (t: Tree) => `${t.qty > 1 ? `${t.qty} × ` : ''}${t.species || 'Tree'}${t.work?.length ? ` — ${workLabel(t)}` : ''}`;
 export const treeDetails = (t: Tree) => [t.location, sizeLabel(t.size), t.condition].filter(Boolean).join(' · ');
