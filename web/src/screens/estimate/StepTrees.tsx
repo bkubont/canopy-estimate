@@ -108,8 +108,10 @@ export function StepTrees({ job, updateJob }: import('./types').StepProps) {
       <div className="sec-head"><h2><Icon name="tree" size={18} />Trees <small className="muted">{treeCount(job.trees)} total</small></h2></div>
       <TreeList jobId={job.id} trees={job.trees} onChange={(trees) => updateJob((j) => ({ ...j, trees }))} />
       <p className="hint">Several the same? Use one line and set “How many”. ⧉ Copy starts a similar tree.</p>
-      <h4 className="label">Wood &amp; debris</h4>
-      <Chips label="Wood and debris" options={DEBRIS} value={job.site.debris} onChange={(v) => updateJob((j) => ({ ...j, site: { ...j.site, debris: v } }))} />
+      <details className="more" open={!!job.site.debris}>
+        <summary>Wood &amp; debris <span className="muted small">{job.site.debris || 'optional'}</span></summary>
+        <Chips label="Wood and debris" options={DEBRIS} value={job.site.debris} onChange={(v) => updateJob((j) => ({ ...j, site: { ...j.site, debris: v } }))} />
+      </details>
     </section>
   );
 }

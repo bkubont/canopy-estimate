@@ -8,8 +8,12 @@ import { useReady } from '../../lib/session';
 import { createShareLink, customerLink } from '../../lib/supabase';
 import type { Job, JobPricing, Organization } from '../../lib/types';
 
-/** Print, PDF file, customer link, text and email. Everything here is customer-safe. */
-export function SendActions({ job, pricing, company, flush }: { job: Job; pricing: JobPricing; company: Organization; flush: () => Promise<void> }) {
+/** Print, PDF file, customer link, text and email. Everything here is customer-safe.
+ *  mode="send" — wizard Sign & Send: Text/Email first; PDF/print/link under More.
+ *  mode="full" (default) — signed job / general: full button grid. */
+export function SendActions({ job, pricing, company, flush, mode = 'full' }: {
+  job: Job; pricing: JobPricing; company: Organization; flush: () => Promise<void>; mode?: 'full' | 'send';
+}) {
   const { engine } = useReady();
   const cp = customerPricing(job, pricing);
   const docRef = useRef<HTMLDivElement>(null);
@@ -18,6 +22,7 @@ export function SendActions({ job, pricing, company, flush }: { job: Job; pricin
   const [msg, setMsg] = useState('');
   const doc = <EstimateDoc company={toCustomerCompany(company)} job={toCustomerJob(job)} pricing={cp} />;
   const text = (withLink: string) => summaryText(job, cp, company, withLink || undefined);
+  const sendMode = mode === 'send';
 
   async function getLink() {
     if (link) return link;
@@ -73,20 +78,47 @@ export function SendActions({ job, pricing, company, flush }: { job: Job; pricin
     }
   }
 
+  const extras = (
+    <>
+      <button type="button" className="btn" onClick={() => void pdf()} disabled={!!busy}>{busy === 'pdf' ? 'Making PDF…' : <><Icon name="download" />PDF file</>}</button>
+      <button type="button" className="btn" onClick={() => window.print()}><Icon name="printer" />Print</button>
+      <button type="button" className="btn" onClick={() => void shareLink()} disabled={!!busy}><Icon name="link" />Customer link</button>
+    </>
+  );
+
   return (
     <>
-      <div className="btn-grid">
-        <button type="button" className="btn primary" onClick={() => void sms()} disabled={!job.client.phone || !!busy}><Icon name="message" />Text</button>
-        <button type="button" className="btn" onClick={() => void email()} disabled={!job.client.email || !!busy}><Icon name="mail" />Email</button>
-        <button type="button" className="btn" onClick={() => void pdf()} disabled={!!busy}>{busy === 'pdf' ? 'Making PDF…' : <><Icon name="download" />PDF file</>}</button>
-        <button type="button" className="btn" onClick={() => window.print()}><Icon name="printer" />Print</button>
-        <button type="button" className="btn" onClick={() => void shareLink()} disabled={!!busy}><Icon name="link" />Customer link</button>
-      </div>
-      <p className="hint">Text and email include a link where the customer can view{job.signed_at ? '' : ' and sign'} the estimate on their phone.</p>
-      {link && (
-        <div className="copy-box">
-          <input readOnly value={link} aria-label="Customer link" onFocus={(e) => e.currentTarget.select()} />
-        </div>
+      {sendMode ? (
+        <>
+          <div className="btn-grid send-primary">
+            <button type="button" className="btn primary" onClick={() => void sms()} disabled={!job.client.phone || !!busy}><Icon name="message" />Text link</button>
+            <button type="button" className="btn primary" onClick={() => void email()} disabled={!job.client.email || !!busy}><Icon name="mail" />Email link</button>
+          </div>
+          <p className="hint">Includes a link where the customer can view and sign on their phone.</p>
+          <details className="more">
+            <summary>PDF, print &amp; copy link</summary>
+            <div className="btn-grid">{extras}</div>
+            {link && (
+              <div className="copy-box mt">
+                <input readOnly value={link} aria-label="Customer link" onFocus={(e) => e.currentTarget.select()} />
+              </div>
+            )}
+          </details>
+        </>
+      ) : (
+        <>
+          <div className="btn-grid">
+            <button type="button" className="btn primary" onClick={() => void sms()} disabled={!job.client.phone || !!busy}><Icon name="message" />Text</button>
+            <button type="button" className="btn" onClick={() => void email()} disabled={!job.client.email || !!busy}><Icon name="mail" />Email</button>
+            {extras}
+          </div>
+          <p className="hint">Text and email include a link where the customer can view{job.signed_at ? '' : ' and sign'} the estimate on their phone.</p>
+          {link && (
+            <div className="copy-box">
+              <input readOnly value={link} aria-label="Customer link" onFocus={(e) => e.currentTarget.select()} />
+            </div>
+          )}
+        </>
       )}
       {msg && <p className="hint" role="status">{msg}</p>}
       <div className="doc-preview" ref={docRef}>{doc}</div>

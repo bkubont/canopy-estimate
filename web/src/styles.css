@@ -331,6 +331,25 @@ dialog.sheet::backdrop { background: rgba(23, 32, 34, .45); }
 .wizard .card .internal { margin: 0; }
 .wizard .list-item { padding: 10px 12px; }
 .wizard .bottombar .btn { min-height: 48px; font-size: 16px; }
+.wiz-running-total {
+  position: sticky; top: calc(var(--appbar-h) + env(safe-area-inset-top)); z-index: 18;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  margin: 0 0 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--accent); color: #fff; font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 18px rgba(4, 4, 169, .22);
+}
+.wiz-running-total > span { display: flex; flex-direction: column; gap: 2px; font-weight: 600; font-size: 14px; }
+.wiz-running-meta { font-weight: 500; font-size: 12px; opacity: .85; }
+.wiz-running-total b { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+.review-layout { display: grid; gap: 12px; }
+.sign-send-paths { display: grid; gap: 12px; }
+@media (min-width: 900px) {
+  .review-layout { grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.2fr); align-items: start; gap: 16px; }
+  .sign-send-paths { gap: 14px; }
+}
+.path-card .sec-head { margin-bottom: 8px; }
+.send-primary { grid-template-columns: 1fr 1fr; }
+@media (max-width: 420px) { .send-primary { grid-template-columns: 1fr; } }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 10px; }
 .grid-town { display: grid; grid-template-columns: minmax(0, 1fr) 62px 92px; gap: 0 10px; }
 .row > .price-input { flex: 1; min-width: 140px; }
