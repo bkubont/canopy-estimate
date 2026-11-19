@@ -25,8 +25,12 @@ describe('jobStage', () => {
     const j = job({ signed_at: 'x', status: 'done', stage: 'invoice' });
     expect(jobStage(j, [], [inv()], [], '2026-11-05')).toBe('invoiced');
     expect(jobStage(j, [], [inv()], [], '2026-11-14')).toBe('overdue');
-    expect(jobStage(j, [], [inv()], [pay(1000)], '2026-11-14')).toBe('invoiced');
     expect(jobStage(j, [], [inv({ status: 'void' })], [], '2026-11-14')).toBe('invoiced');
+  });
+  it('flips to paid from live payments even when job.stage is still invoice', () => {
+    const j = job({ signed_at: 'x', status: 'done', stage: 'invoice' });
+    expect(jobStage(j, [], [inv()], [pay(1000)], '2026-11-14')).toBe('paid');
+    expect(jobStage(j, [], [inv()], [pay(500)], '2026-11-05')).toBe('invoiced');
   });
   it('paid wins', () => {
     expect(jobStage(job({ signed_at: 'x', stage: 'paid' }), [], [inv()], [], '2026-12-30')).toBe('paid');

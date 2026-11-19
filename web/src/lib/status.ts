@@ -38,9 +38,15 @@ export function jobStage(
   const col = boardColumn(job, events);
   // A lead: nobody has written the estimate yet (no trees), so it needs a visit.
   if (col === 'pending' && !(job.trees ?? []).length) return 'new';
+  // When the open draft still has stage "invoice", a just-recorded final payment
+  // should flip the hub to Paid from live invoice + payments without a reload.
   if (col === 'invoiced') {
     const inv = liveInvoice(invoices, job.id);
-    if (inv && invoiceStatus(inv, paidForJob(payments ?? [], job.id), today) === 'overdue') return 'overdue';
+    if (inv) {
+      const st = invoiceStatus(inv, paidForJob(payments ?? [], job.id), today);
+      if (st === 'paid') return 'paid';
+      if (st === 'overdue') return 'overdue';
+    }
   }
   return col;
 }

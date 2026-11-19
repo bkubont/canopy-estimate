@@ -77,12 +77,18 @@ export function useJobDraft(engine: SyncEngine, id: string | undefined) {
 
   // Load once; afterwards the draft on screen is the source of truth, except a new
   // signature from elsewhere, which replaces the draft (and drops its unsaved copy).
+  // Server-owned money/archive stage is folded in after sync so Paid updates without reload.
   useEffect(() => {
     if (!savedJob) return;
     const cur = jobRef.current;
     if (!cur || cur.id !== savedJob.id || (savedJob.signed_at && !cur.signed_at)) {
       if (cur && savedJob.signed_at && !cur.signed_at) dirty.current.job = null;
       setJob(normalizeJob(savedJob));
+      return;
+    }
+    const serverStage = savedJob.stage === 'invoice' || savedJob.stage === 'paid' || savedJob.stage === 'archived';
+    if (cur.signed_at && serverStage && savedJob.stage !== cur.stage && !dirty.current.job) {
+      setJob(normalizeJob({ ...cur, stage: savedJob.stage }));
     }
   }, [savedJob]);
   useEffect(() => {
