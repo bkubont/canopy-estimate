@@ -543,6 +543,9 @@ select t.ok((select street = '12 Shore Ln' and town = 'Suttons Bay' and zip = '4
   'customer gets a structured property from the flat address');
 
 -- D3: signed or paid job → Past customer; otherwise unstaged.
+-- Earlier fixtures voided the signature/invoice on this customer's jobs, so
+-- re-mark one signed for the backfill rule under test.
+update public.jobs set signed_at = now(), stage = 'work_order' where id = :job;
 insert into public.customer_tags (org_id, customer_id, tag_id)
 select c.org_id, c.id, tg.id from public.customers c
 join public.jobs j on j.customer_id = c.id and j.deleted_at is null and (j.stage = 'paid' or j.signed_at is not null)
