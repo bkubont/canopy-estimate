@@ -73,6 +73,31 @@ export const niceDate = (ymd: string | null | undefined) =>
 export const clientName = (c: Partial<Client> | undefined) =>
   [c?.firstName, c?.lastName].filter(Boolean).join(' ').trim() || c?.company || '';
 
+/**
+ * Estimates list filter readiness (does not change jobStage).
+ *
+ * Shared: scoped tree (species + work) and a client name.
+ * Office (seePrices): also needs priced total + customer share_token, so a first
+ * tree alone stays in Active drafts.
+ * Crew: never syncs job_pricing (RLS), so trees + client is enough — otherwise
+ * Awaiting signature would always be empty.
+ */
+export function estimateReadyForSignature(
+  job: Pick<Job, 'trees' | 'client' | 'signed_at' | 'cancelled_at'>,
+  pricing: Pick<JobPricing, 'total' | 'share_token'> | null | undefined,
+  seePrices = true,
+): boolean {
+  if (job.signed_at || job.cancelled_at) return false;
+  const trees = job.trees ?? [];
+  // Scope written: at least one tree with a type and work selected.
+  if (!trees.some((t) => String(t.species ?? '').trim() && (t.work?.length ?? 0) > 0)) return false;
+  if (!clientName(job.client)) return false;
+  if (!seePrices) return true;
+  if (!pricing || !(num(pricing.total) > 0)) return false;
+  // Customer link minted = out with the client, waiting on their signature.
+  return Boolean(pricing.share_token);
+}
+
 export const workLabel = (t: Pick<Tree, 'work'>) => (t.work ?? []).join(', ');
 export const treeTitle = (t: Tree) => `${t.qty > 1 ? `${t.qty} × ` : ''}${t.species || 'Tree'}${t.work?.length ? ` — ${workLabel(t)}` : ''}`;
 export const treeDetails = (t: Tree) => [t.location, sizeLabel(t.size), t.condition].filter(Boolean).join(' · ');

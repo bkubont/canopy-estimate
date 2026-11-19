@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Pill } from '../components/Pill';
-import { clientName, money, niceDate } from '../lib/estimate';
+import { clientName, estimateReadyForSignature, money, niceDate } from '../lib/estimate';
 import { refillNumbers } from '../lib/numbers';
 import { can, useReady, useRow, useRows } from '../lib/session';
 import { jobStage, type Stage } from '../lib/status';
@@ -24,10 +24,19 @@ const PRE_SIGN: ReadonlySet<Stage> = new Set(['new', 'pending', 'cancelled']);
 /**
  * Office Estimates = drafts + awaiting signature (+ cancelled under All).
  * Crew Job details keeps All as the full non-cancelled list; the first two chips stay pre-sign.
+ *
+ * Draft vs awaiting uses readiness (not jobStage new/pending alone). Office uses
+ * pricing + share link; crew uses trees + client only (no job_pricing rows).
  */
-export function matchesEstimateFilter(stage: Stage, filter: EstimateFilter, preSignOnly: boolean): boolean {
-  if (filter === 'drafts') return stage === 'new';
-  if (filter === 'awaiting') return stage === 'pending';
+export function matchesEstimateFilter(
+  stage: Stage,
+  filter: EstimateFilter,
+  preSignOnly: boolean,
+  readyForSignature = false,
+): boolean {
+  const preSign = stage === 'new' || stage === 'pending';
+  if (filter === 'drafts') return preSign && !readyForSignature;
+  if (filter === 'awaiting') return preSign && readyForSignature;
   if (preSignOnly) return PRE_SIGN.has(stage);
   return stage !== 'cancelled';
 }
@@ -51,16 +60,24 @@ export function Estimates() {
     if (canCreate) void refillNumbers(engine.db, org.org_id, 'estimate', reserveNumbers).catch(() => undefined);
   }, [engine, org.org_id, canCreate]);
 
-  const totalById = useMemo(() => new Map((pricing ?? []).map((p) => [p.job_id, p.total])), [pricing]);
+  const pricingById = useMemo(() => new Map((pricing ?? []).map((p) => [p.job_id, p])), [pricing]);
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (jobs ?? [])
       .filter((j) => j.stage !== 'archived')
-      .map((j) => ({ ...j, st: jobStage(j, events ?? [], invoices, payments) }))
-      .filter((j) => matchesEstimateFilter(j.st, filter, canCreate))
+      .map((j) => {
+        const p = pricingById.get(j.id);
+        return {
+          ...j,
+          st: jobStage(j, events ?? [], invoices, payments),
+          ready: estimateReadyForSignature(j, p, canCreate),
+          total: p?.total ?? 0,
+        };
+      })
+      .filter((j) => matchesEstimateFilter(j.st, filter, canCreate, j.ready))
       .filter((j) => !needle || [j.number, clientName(j.client), j.client?.phone, j.client?.street, j.client?.town].join(' ').toLowerCase().includes(needle))
       .sort((a, b) => (b.updated_at ?? b.created_at ?? '').localeCompare(a.updated_at ?? a.created_at ?? ''));
-  }, [jobs, q, filter, events, invoices, payments, canCreate]);
+  }, [jobs, q, filter, events, invoices, payments, canCreate, pricingById]);
 
   async function create() {
     setError('');
@@ -104,7 +121,7 @@ export function Estimates() {
             <Link key={j.id} to={`/estimates/${j.id}`} className={`list-item stripe st-${j.st}`}>
               <div className="row">
                 <b>{clientName(j.client) || 'No name yet'}</b>
-                {canCreate && <b>{money(totalById.get(j.id) ?? 0)}</b>}
+                {canCreate && <b>{money(j.total)}</b>}
               </div>
               <div className="row muted small">
                 <span>{j.number} · {j.client?.town || 'No town'} · {niceDate(j.estimate_date)}</span>
