@@ -7,7 +7,7 @@ import { JobPhotos } from '../../components/Photos';
 import { JobHours } from '../../components/JobHours';
 import { HOURS_ENABLED } from '../../lib/features';
 import { isWorkOrder } from '../../lib/notes';
-import { jobStage } from '../../lib/status';
+import { jobHubNext, jobStage, liveInvoice, STAGE_MEANS, type JobHubNextKind } from '../../lib/status';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/EstimateDoc';
 import { SignaturePad } from '../../components/SignaturePad';
@@ -15,7 +15,7 @@ import { Chips, Field, Sheet, Stepper } from '../../components/ui';
 import {
   blankChangeOrder, CHANGE_REASONS, clientName, customerPricing, hasSeptic, money, niceDate, normalizeJob, notesToInternal, septicLine, todayYmd, totals, treeDetails, treeTitle,
 } from '../../lib/estimate';
-import { invoiceFromJob, invoiceTotals, paidForJob } from '../../lib/invoice';
+import { balanceDue, invoiceFromJob, invoiceTotals, paidForJob } from '../../lib/invoice';
 import { takeNumber } from '../../lib/numbers';
 import { can, useReady, useRow, useRows } from '../../lib/session';
 import { reserveNumbers, voidSignature } from '../../lib/supabase';
@@ -166,19 +166,34 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
   const nav = useNavigate();
   const [co, setCo] = useState<ChangeOrder | null>(null);
   const [voiding, setVoiding] = useState('');
-  const [depositOpen, setDepositOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
   const [invError, setInvError] = useState('');
   const invoices = useRows(engine, 'invoices');
   const payments = useRows(engine, 'payments');
   const orgPricing = useRow(engine, 'org_pricing', org.org_id);
   const me = useRow(engine, 'members', `${org.org_id}|${user.id}`);
   const t = totals(job, customerPricing(job, pricing));
-  const invoice = (invoices ?? []).find((i) => i.job_id === job.id && i.status !== 'void');
+  const invoice = liveInvoice(invoices, job.id);
   const events = useRows(engine, 'events');
   const sched = jobSchedule(job.id, events ?? []);
   const [scheduling, setScheduling] = useState<import('../../lib/types').CalEvent | null>(null);
   const cancelApply = (p: CancelPatch) => { updateJob((j) => ({ ...j, ...p })); void flush(); };
   const paid = paidForJob(payments ?? [], job.id);
+  const stage = jobStage(job, events ?? [], invoices, payments);
+  const next = jobHubNext({ stage, invoice, depositAsked: t.deposit, paid });
+  const depositLeft = Math.max(0, t.deposit - paid);
+  const owed = invoice ? balanceDue(invoice, paid) : Math.max(0, t.total - paid);
+  const nextIs = (kind: JobHubNextKind) => next?.kind === kind;
+
+  function setStatus(status: Job['status'], block_reason = '') {
+    updateJob((j) => ({ ...j, status, block_reason }));
+    void flush();
+  }
+
+  function openSchedule() {
+    if (sched.events[0]) setScheduling(sched.events[0]);
+    else nav('/calendar', { state: { pick: job.id } });
+  }
 
   async function createInvoice() {
     setInvError('');
@@ -190,6 +205,29 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
       nav(`/invoices/${inv.id}`);
     } catch (e) {
       setInvError((e as Error).message);
+    }
+  }
+
+  function runNext() {
+    if (!next) return;
+    switch (next.kind) {
+      case 'schedule':
+        return openSchedule();
+      case 'start':
+        return setStatus('in_progress');
+      case 'mark_done':
+        return setStatus('done');
+      case 'resume':
+        return setStatus('in_progress');
+      case 'create_invoice':
+        return void createInvoice();
+      case 'send_invoice':
+      case 'open_invoice':
+        if (invoice) nav(`/invoices/${invoice.id}`);
+        return;
+      case 'record_payment':
+      case 'record_deposit':
+        return setPayOpen(true);
     }
   }
 
@@ -215,53 +253,90 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         <div>
           <h2>{job.number} · {clientName(job.client)}</h2>
           <p className="muted small" style={{ margin: '4px 0 0' }}>
-            <Pill stage={jobStage(job, events ?? [], invoices, payments)} />{' '}
+            <Pill stage={stage} /> {STAGE_MEANS[stage]}
+          </p>
+          <p className="muted small" style={{ margin: '4px 0 0' }}>
             Signed{job.signed_by_name ? ` by ${job.signed_by_name}` : ''} on {niceDate(job.client_sig_date)}{job.signed_via === 'link' ? ' (online)' : ''} · {money(t.total)}
           </p>
         </div>
         {isWorkOrder(job) && <WorkOrderNotes job={job} onChange={(internal_notes) => { updateJob((j) => ({ ...j, internal_notes })); void flush(); }} />}
       </div>
       <CancelledBanner job={job} apply={cancelApply} />
+
       <section className="card">
-        <div className="row">
+        <div className="row" style={{ marginBottom: next ? 12 : 0 }}>
           <span>{sched.start ? <><Icon name="calendar" size={15} /> {dayLabel(sched.start)}{sched.end !== sched.start ? ` – ${dayLabel(sched.end!)}` : ''}</> : <span className="muted">Not on the calendar yet</span>}</span>
-          <button type="button" className="btn sm" onClick={() => (sched.events[0] ? setScheduling(sched.events[0]) : nav('/calendar', { state: { pick: job.id } }))}>
-            {sched.start ? 'Change dates' : <><Icon name="calendar" />Schedule</>}
-          </button>
+          {!nextIs('schedule') && (
+            <button type="button" className="btn sm" onClick={openSchedule}>
+              {sched.start ? 'Change dates' : <><Icon name="calendar" />Schedule</>}
+            </button>
+          )}
         </div>
+        {next && (
+          <button type="button" className="btn primary block" onClick={() => runNext()}>
+            {next.kind === 'schedule' && <Icon name="calendar" />}
+            {(next.kind === 'create_invoice' || next.kind === 'send_invoice' || next.kind === 'open_invoice') && <Icon name="dollar" />}
+            {(next.kind === 'record_deposit' || next.kind === 'record_payment') && <Icon name="plus" />}
+            {next.label}
+          </button>
+        )}
+        {invError && <p className="error-text">{invError}</p>}
       </section>
+
       {HOURS_ENABLED && <JobHours jobId={job.id} billed={invoice ? invoiceTotals(invoice.lines, invoice.tax_rate).subtotal : t.subtotal} />}
+
       <section className="card">
         <div className="sum-line"><span>Signed total{job.change_orders.length ? ' (with change orders)' : ''}</span><b>{money(t.total)}</b></div>
         <div className="sum-line"><span>Paid so far{t.deposit ? ` (deposit asked: ${money(t.deposit)})` : ''}</span><span>{money(paid)}</span></div>
-        <div className="btn-row mt">
-          {invoice
-            ? <Link className="btn primary" to={`/invoices/${invoice.id}`}>Open invoice {invoice.number}</Link>
-            : <button type="button" className="btn primary" onClick={() => void createInvoice()}><Icon name="dollar" />Create invoice</button>}
-          {!invoice && <button type="button" className="btn" onClick={() => setDepositOpen(true)}><Icon name="plus" />Record deposit</button>}
-        </div>
-        {invError && <p className="error-text">{invError}</p>}
+        {invoice && <div className="sum-line"><span>Still owed on {invoice.number}</span><span>{money(owed)}</span></div>}
       </section>
-      <SendActions job={job} pricing={pricing} company={company} flush={flush} />
-      {/* Under the estimate: photos, then the less common actions. */}
+
       <div id="photos"><JobPhotos jobId={job.id} /></div>
-      <div className="btn-row" style={{ marginBottom: 12 }}>
-        <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}><Icon name="plus" />Change order</button>
-        {can.seePrices(org.role) && <button type="button" className="btn danger" onClick={() => void voidSig()} disabled={voiding === 'working'}>Remove signature</button>}
-        <CancelJobButton job={job} apply={cancelApply} />
-      </div>
-      {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
+
+      <details className="more">
+        <summary>More</summary>
+        <h4 className="label">Money</h4>
+        <div className="btn-row" style={{ marginBottom: 12 }}>
+          {invoice && !nextIs('open_invoice') && !nextIs('send_invoice') && (
+            <Link className="btn" to={`/invoices/${invoice.id}`}>Open invoice {invoice.number}</Link>
+          )}
+          {!invoice && !nextIs('record_deposit') && (
+            <button type="button" className="btn" onClick={() => setPayOpen(true)}><Icon name="plus" />Record deposit</button>
+          )}
+          {invoice && invoice.status !== 'draft' && !nextIs('record_payment') && (
+            <button type="button" className="btn" onClick={() => setPayOpen(true)}><Icon name="plus" />Record payment</button>
+          )}
+        </div>
+        <h4 className="label">Estimate</h4>
+        <SendActions job={job} pricing={pricing} company={company} flush={flush} />
+        <h4 className="label">Job</h4>
+        <div className="btn-row" style={{ marginBottom: 12 }}>
+          <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}><Icon name="plus" />Change order</button>
+          {stage === 'scheduled' && !nextIs('start') && (
+            <button type="button" className="btn" onClick={() => setStatus('in_progress')}>Start</button>
+          )}
+          {(stage === 'scheduled' || stage === 'in_progress' || stage === 'blocked') && !nextIs('mark_done') && (
+            <button type="button" className="btn" onClick={() => setStatus('done')}>Mark done</button>
+          )}
+          {stage === 'blocked' && !nextIs('resume') && (
+            <button type="button" className="btn" onClick={() => setStatus('in_progress')}>Resume</button>
+          )}
+          {can.seePrices(org.role) && <button type="button" className="btn danger" onClick={() => void voidSig()} disabled={voiding === 'working'}>Remove signature</button>}
+          <CancelJobButton job={job} apply={cancelApply} />
+        </div>
+        {voiding && voiding !== 'working' && <p className="hint" role="status">{voiding}</p>}
+      </details>
 
       <EventSheet event={scheduling} onClose={() => setScheduling(null)} />
       <PaymentSheet
-        open={depositOpen}
-        onClose={() => setDepositOpen(false)}
-        title={`Deposit on ${job.number}`}
-        suggested={Math.max(0, t.deposit - paid)}
-        base={{ org_id: job.org_id, job_id: job.id, invoice_id: null, recorded_by_name: me?.display_name ?? '' }}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        title={invoice ? `Payment on ${invoice.number}` : `Deposit on ${job.number}`}
+        suggested={invoice ? owed : depositLeft}
+        base={{ org_id: job.org_id, job_id: job.id, invoice_id: invoice?.id ?? null, recorded_by_name: me?.display_name ?? '' }}
         onSave={(p) => {
           void engine.save('payments', p);
-          setDepositOpen(false);
+          setPayOpen(false);
         }}
       />
       <ChangeOrderSheet

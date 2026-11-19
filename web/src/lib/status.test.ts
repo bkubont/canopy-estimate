@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { blankEvent } from './calendar';
-import { jobStage } from './status';
+import { jobHubNext, jobStage } from './status';
 import type { Invoice, Payment } from './types';
 
 const job = (o: Partial<{ signed_at: string | null; status: string; stage: string }> = {}) =>
@@ -30,5 +30,50 @@ describe('jobStage', () => {
   });
   it('paid wins', () => {
     expect(jobStage(job({ signed_at: 'x', stage: 'paid' }), [], [inv()], [], '2026-12-30')).toBe('paid');
+  });
+});
+
+describe('jobHubNext', () => {
+  const base = { invoice: null as Invoice | null, depositAsked: 0, paid: 0 };
+
+  it('leads with Schedule when signed and not on the calendar', () => {
+    expect(jobHubNext({ ...base, stage: 'approved' })?.kind).toBe('schedule');
+    // Unpaid deposit does not beat Schedule.
+    expect(jobHubNext({ ...base, stage: 'approved', depositAsked: 500 })?.kind).toBe('schedule');
+  });
+
+  it('collects an unpaid deposit once the job is scheduled, before Start', () => {
+    expect(jobHubNext({ ...base, stage: 'scheduled', depositAsked: 500 })?.kind).toBe('record_deposit');
+    expect(jobHubNext({ ...base, stage: 'scheduled', depositAsked: 500, paid: 500 })?.kind).toBe('start');
+    expect(jobHubNext({ ...base, stage: 'scheduled' })?.kind).toBe('start');
+  });
+
+  it('mirrors board crew actions for in progress and blocked', () => {
+    expect(jobHubNext({ ...base, stage: 'in_progress' })?.kind).toBe('mark_done');
+    expect(jobHubNext({ ...base, stage: 'blocked' })?.kind).toBe('resume');
+    // After Start, Mark done stays primary; unpaid deposit moves to More.
+    expect(jobHubNext({ ...base, stage: 'in_progress', depositAsked: 200 })?.kind).toBe('mark_done');
+  });
+
+  it('invoices from Done, and sends a draft before calling it done money-wise', () => {
+    expect(jobHubNext({ ...base, stage: 'done' })?.kind).toBe('create_invoice');
+    expect(jobHubNext({ ...base, stage: 'done', invoice: inv({ status: 'draft' }) })?.kind).toBe('send_invoice');
+    expect(jobHubNext({ ...base, stage: 'done', invoice: inv() })?.kind).toBe('open_invoice');
+  });
+
+  it('collects payment once invoiced or overdue', () => {
+    expect(jobHubNext({ ...base, stage: 'invoiced', invoice: inv() })?.kind).toBe('record_payment');
+    expect(jobHubNext({ ...base, stage: 'overdue', invoice: inv() })?.kind).toBe('record_payment');
+  });
+
+  it('has no Next when the job is finished or off', () => {
+    expect(jobHubNext({ ...base, stage: 'paid', invoice: inv() })).toBeNull();
+    expect(jobHubNext({ ...base, stage: 'cancelled' })).toBeNull();
+  });
+
+  it('does not make Create invoice the primary before Done', () => {
+    for (const stage of ['approved', 'scheduled', 'in_progress', 'blocked'] as const) {
+      expect(jobHubNext({ ...base, stage })?.kind).not.toBe('create_invoice');
+    }
   });
 });
