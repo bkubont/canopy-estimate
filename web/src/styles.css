@@ -791,9 +791,33 @@ details.more h4.label:first-of-type { margin-top: 2px; }
   text-align: left; font: inherit; cursor: pointer; min-height: 56px;
 }
 .crm-row:last-child { border-bottom: 0; }
-.crm-row .grow { display: grid; gap: 2px; min-width: 0; flex: 1; }
-.crm-row b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-row .grow { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.crm-row b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.crm-row-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.crm-row-top b { flex: 1; }
+.crm-stage-pill {
+  flex: none; font-size: 11px; font-weight: 700; line-height: 1.2;
+  padding: 3px 8px; border-radius: 999px; color: #fff; border: 1px solid transparent;
+  max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-job-meta { display: block; }
+.crm-row-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.crm-tag-chip {
+  display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; line-height: 1.2;
+  padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); max-width: 140px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-tag-more { font-size: 11px; font-weight: 700; color: var(--muted); align-self: center; }
 .crm-stripe { width: 5px; align-self: stretch; border-radius: 0 4px 4px 0; flex: none; min-height: 40px; }
+.crm-work-list { display: grid; gap: 0; margin-top: 6px; }
+.crm-work-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 0; text-decoration: none; color: inherit;
+  border-bottom: 1px solid var(--line-soft); min-height: 48px;
+}
+.crm-work-row:last-child { border-bottom: 0; }
+.crm-work-row .grow { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.crm-work-row b { font-weight: 600; }
 
 .crm-hero { border-top: 4px solid var(--line); display: grid; gap: 12px; }
 .crm-hero h2 { font-size: 22px; }

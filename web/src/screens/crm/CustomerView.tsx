@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CustomerLabelActions } from '../../components/CrewPrintActions';
 import { Icon } from '../../components/Icon';
+import { Pill } from '../../components/Pill';
 import { Sheet } from '../../components/ui';
 import { addNewTag, logActivity, toggleCustomerTag } from '../../lib/crmActions';
 import { stageTagGroup } from '../../lib/crmStage';
@@ -9,7 +9,12 @@ import {
   digits, displayName, doNotText, liveForCustomer, mapsUrl, propertyAddress, stageOf, tagIdsForCustomer, timeAgo,
 } from '../../lib/crmUi';
 import { useReady, useRow, useRows } from '../../lib/session';
+import { jobStage } from '../../lib/status';
 import type { Tag, TagGroup } from '../../lib/types';
+
+function jobRecency(j: { updated_at?: string; estimate_date?: string; created_at?: string }): number {
+  return Date.parse(j.updated_at || j.estimate_date || j.created_at || '') || 0;
+}
 
 export function CustomerView() {
   const { id } = useParams();
@@ -22,6 +27,10 @@ export function CustomerView() {
   const activitiesAll = useRows(engine, 'customer_activities');
   const groups = useRows(engine, 'tag_groups');
   const tags = useRows(engine, 'tags');
+  const jobsAll = useRows(engine, 'jobs');
+  const events = useRows(engine, 'events');
+  const invoices = useRows(engine, 'invoices');
+  const payments = useRows(engine, 'payments');
   const [picker, setPicker] = useState<TagGroup | null>(null);
   const [note, setNote] = useState('');
   const [flash, setFlash] = useState('');
@@ -35,6 +44,12 @@ export function CustomerView() {
     () => (c ? liveForCustomer(activitiesAll, c.id).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)) : []),
     [activitiesAll, c],
   );
+  const workJobs = useMemo(() => {
+    if (!c) return [];
+    return (jobsAll ?? [])
+      .filter((j) => !j.deleted_at && j.customer_id === c.id)
+      .sort((a, b) => jobRecency(b) - jobRecency(a));
+  }, [jobsAll, c]);
 
   const sg = useMemo(() => stageTagGroup(groups ?? []), [groups]);
   const stageTags = useMemo(
@@ -192,8 +207,29 @@ export function CustomerView() {
       })}
 
       <section className="card">
-        <div className="eyebrow">Address labels</div>
-        <CustomerLabelActions customer={c} properties={properties} />
+        <div className="eyebrow">Work</div>
+        {workJobs.length === 0 ? (
+          <p className="muted small" style={{ margin: '8px 0 0' }}>No jobs linked yet</p>
+        ) : (
+          <div className="crm-work-list">
+            {workJobs.map((j) => {
+              const site = [j.client?.street, j.client?.town].filter(Boolean).join(', ')
+                || j.client?.town
+                || '';
+              const st = jobStage(j, events ?? [], invoices, payments);
+              return (
+                <Link key={j.id} to={`/estimates/${j.id}`} className="crm-work-row">
+                  <span className="grow">
+                    <b>{j.number}</b>
+                    {site && <span className="muted small">{site}</span>}
+                  </span>
+                  <Pill stage={st} />
+                  <Icon name="chevronRight" size={18} />
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {(phones.length > 0 || emails.length > 0) && (

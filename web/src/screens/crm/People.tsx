@@ -12,7 +12,18 @@ import {
   displayName, liveForCustomer, matchesPeopleSearch, propertyAddress, sortKey, stageOf, tagIdsForCustomer,
 } from '../../lib/crmUi';
 import { useReady, useRows } from '../../lib/session';
-import type { Customer, SmartList } from '../../lib/types';
+import type { Customer, Job, SmartList, Tag } from '../../lib/types';
+
+const TAG_CHIP_CAP = 4;
+
+function jobRecency(j: Pick<Job, 'updated_at' | 'estimate_date' | 'created_at'>): number {
+  return Date.parse(j.updated_at || j.estimate_date || j.created_at || '') || 0;
+}
+
+function stageWash(color: string | undefined): string | undefined {
+  if (!color) return undefined;
+  return `color-mix(in srgb, ${color} 16%, white)`;
+}
 
 export function People() {
   const { engine } = useReady();
@@ -24,6 +35,7 @@ export function People() {
   const activities = useRows(engine, 'customer_activities');
   const groups = useRows(engine, 'tag_groups');
   const tags = useRows(engine, 'tags');
+  const jobs = useRows(engine, 'jobs');
   const smartListRows = useRows(engine, 'smart_lists');
   const lists = useMemo(() => liveSmartLists(smartListRows), [smartListRows]);
 
@@ -46,6 +58,30 @@ export function People() {
     for (const t of tags ?? []) if (!t.deleted_at) m.set(t.id, t.name);
     return m;
   }, [tags]);
+
+  const tagById = useMemo(() => {
+    const m = new Map<string, Tag>();
+    for (const t of tags ?? []) if (!t.deleted_at) m.set(t.id, t);
+    return m;
+  }, [tags]);
+
+  const groupSort = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of groups ?? []) if (!g.deleted_at) m.set(g.id, g.sort);
+    return m;
+  }, [groups]);
+
+  const jobsByCustomer = useMemo(() => {
+    const m = new Map<string, Job[]>();
+    for (const j of jobs ?? []) {
+      if (j.deleted_at || !j.customer_id) continue;
+      const list = m.get(j.customer_id);
+      if (list) list.push(j);
+      else m.set(j.customer_id, [j]);
+    }
+    for (const list of m.values()) list.sort((a, b) => jobRecency(b) - jobRecency(a));
+    return m;
+  }, [jobs]);
 
   const counts = useMemo(() => {
     const m = new Map<string, number>();
@@ -171,6 +207,17 @@ export function People() {
   const loading = customers === null;
   const activeName = activeListId ? lists.find((l) => l.id === activeListId)?.name : null;
 
+  function rowTags(customerId: string): Tag[] {
+    const ids = tagIdsForCustomer(memberships ?? [], customerId);
+    return ids
+      .map((tid) => tagById.get(tid))
+      .filter((t): t is Tag => !!t && (!sg || t.tag_group_id !== sg.id))
+      .sort((a, b) => {
+        const gs = (groupSort.get(a.tag_group_id) ?? 0) - (groupSort.get(b.tag_group_id) ?? 0);
+        return gs || a.sort - b.sort || a.name.localeCompare(b.name);
+      });
+  }
+
   return (
     <div className="page crm-people">
       <div className="page-head">
@@ -212,23 +259,27 @@ export function People() {
           >
             All
           </button>
-          {stageTags.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className="chip crm-stage-chip"
-              aria-pressed={stageId === t.id && !coldOnly}
-              onClick={() => {
-                setColdOnly(false);
-                setTagRefs([]);
-                setStageId(stageId === t.id ? null : t.id);
-              }}
-            >
-              <i className="crm-dot" style={{ background: t.color || 'var(--muted)' }} />
-              {t.name}
-              <span className="crm-n">{counts.get(t.id) || 0}</span>
-            </button>
-          ))}
+          {stageTags.map((t) => {
+            const on = stageId === t.id && !coldOnly;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className="chip crm-stage-chip"
+                aria-pressed={on}
+                style={on && t.color ? { background: t.color, borderColor: t.color, color: '#fff' } : undefined}
+                onClick={() => {
+                  setColdOnly(false);
+                  setTagRefs([]);
+                  setStageId(stageId === t.id ? null : t.id);
+                }}
+              >
+                {!on && <i className="crm-dot" style={{ background: t.color || 'var(--muted)' }} />}
+                {t.name}
+                <span className="crm-n">{counts.get(t.id) || 0}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -273,14 +324,54 @@ export function People() {
                     c.company && (c.first_name || c.last_name) ? c.company : '',
                     addr,
                     !addr ? (ph[0]?.value || c.phone) : '',
-                    s?.name,
                   ].filter(Boolean).join(' · ');
+                  const chips = rowTags(c.id);
+                  const extra = Math.max(0, chips.length - TAG_CHIP_CAP);
+                  const shownChips = chips.slice(0, TAG_CHIP_CAP);
+                  const custJobs = jobsByCustomer.get(c.id) || [];
+                  const jobMeta = custJobs.length
+                    ? `${custJobs.length} job${custJobs.length === 1 ? '' : 's'} · last ${custJobs[0]!.number}`
+                    : '';
                   return (
-                    <Link key={c.id} to={`/contacts/${c.id}`} className="crm-row">
+                    <Link
+                      key={c.id}
+                      to={`/contacts/${c.id}`}
+                      className="crm-row"
+                      style={s?.color ? { background: stageWash(s.color) } : undefined}
+                    >
                       <span className="crm-stripe" style={{ background: s?.color || 'transparent' }} />
                       <span className="grow">
-                        <b>{displayName(c)}</b>
+                        <span className="crm-row-top">
+                          <b>{displayName(c)}</b>
+                          {s && (
+                            <span
+                              className="crm-stage-pill"
+                              style={{ background: s.color || 'var(--muted)', borderColor: s.color || 'var(--muted)' }}
+                            >
+                              {s.name}
+                            </span>
+                          )}
+                        </span>
                         {sub && <span className="muted small">{sub}</span>}
+                        {jobMeta && <span className="muted small crm-job-meta">{jobMeta}</span>}
+                        {(shownChips.length > 0 || extra > 0) && (
+                          <span className="crm-row-tags">
+                            {shownChips.map((t) => (
+                              <span
+                                key={t.id}
+                                className="crm-tag-chip"
+                                style={{
+                                  background: stageWash(t.color) || 'var(--bg)',
+                                  borderColor: t.color || 'var(--line)',
+                                  color: t.color || 'var(--ink)',
+                                }}
+                              >
+                                {t.name}
+                              </span>
+                            ))}
+                            {extra > 0 && <span className="crm-tag-more">+{extra}</span>}
+                          </span>
+                        )}
                       </span>
                       <Icon name="chevronRight" size={18} />
                     </Link>
