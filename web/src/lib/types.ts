@@ -145,6 +145,30 @@ export interface CustomerActivity extends SyncCols {
   created_by: string | null;
 }
 
+/** Tag filter on a smart list — stable group/tag slugs (not UUIDs). */
+export interface SmartListTagRef {
+  group: string;
+  tag: string;
+}
+
+/** Saved CRM filter (Phase E / D7). Org-scoped; syncs like other CRM tables. */
+export interface SmartList extends SyncCols {
+  id: string;
+  org_id: string;
+  name: string;
+  query: string;
+  /** Pipeline stage slugs; empty = any stage. */
+  stage_slugs: string[];
+  /** Extra tags the customer must have (AND). */
+  tag_refs: SmartListTagRef[];
+  /** Estimate-sent and last stage change older than 7 days. */
+  cold_only: boolean;
+  /** Show as a section on Today. */
+  pin_today: boolean;
+  sort: number;
+  created_by: string | null;
+}
+
 export interface Job extends SyncCols {
   id: string;
   org_id: string;
@@ -398,6 +422,7 @@ export interface TableRows {
   customer_properties: CustomerProperty;
   customer_tags: CustomerTag;
   customer_activities: CustomerActivity;
+  smart_lists: SmartList;
   jobs: Job;
   job_pricing: JobPricing;
   invoices: Invoice;
@@ -428,6 +453,7 @@ export const TABLES: { name: TableName; keyCols: string[]; push: 'update' | 'ups
   { name: 'customer_properties', keyCols: ['id'], push: 'upsert' },
   { name: 'customer_tags', keyCols: ['customer_id', 'tag_id'], push: 'upsert' },
   { name: 'customer_activities', keyCols: ['id'], push: 'upsert' },
+  { name: 'smart_lists', keyCols: ['id'], push: 'upsert' },
   { name: 'jobs', keyCols: ['id'], push: 'upsert' },
   { name: 'job_pricing', keyCols: ['job_id'], push: 'upsert' },
   { name: 'invoices', keyCols: ['id'], push: 'upsert' },

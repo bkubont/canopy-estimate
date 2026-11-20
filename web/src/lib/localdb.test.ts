@@ -12,14 +12,14 @@ describe('isSyncCursorKey', () => {
   });
 });
 
-describe('openLocalDb v5 upgrade', () => {
-  const name = 'localdb-v5-upgrade-test';
+describe('openLocalDb upgrade', () => {
+  const name = 'localdb-upgrade-test';
 
   afterEach(async () => {
     await deleteLocalDb(name);
   });
 
-  it('clears sync cursors when upgrading from v4 so CRM seed/backfill can pull', async () => {
+  it('clears sync cursors when upgrading so new table seed can pull', async () => {
     const old = await openDB(name, 4, {
       upgrade(db) {
         db.createObjectStore('customers');
@@ -39,10 +39,11 @@ describe('openLocalDb v5 upgrade', () => {
     expect(await db.get('meta', 'currentOrg')).toBe('org-1');
     expect(db.objectStoreNames.contains('customer_properties')).toBe(true);
     expect(db.objectStoreNames.contains('tag_groups')).toBe(true);
+    expect(db.objectStoreNames.contains('smart_lists')).toBe(true);
     db.close();
   });
 
-  it('does not require clearing cursors on a fresh v5 install', async () => {
+  it('does not require clearing cursors on a fresh install', async () => {
     const db = await openLocalDb(name);
     expect(await db.getAllKeys('meta')).toEqual([]);
     db.close();

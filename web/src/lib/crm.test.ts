@@ -25,6 +25,9 @@ describe('TABLES CRM registration', () => {
     expect(names).toContain('customer_emails');
     expect(names).toContain('customer_properties');
     expect(names).toContain('customer_activities');
+    expect(names).toContain('smart_lists');
+    expect(names.indexOf('customer_activities')).toBeLessThan(names.indexOf('smart_lists'));
+    expect(names.indexOf('smart_lists')).toBeLessThan(names.indexOf('jobs'));
   });
 
   it('keys customer_tags by customer_id + tag_id', () => {

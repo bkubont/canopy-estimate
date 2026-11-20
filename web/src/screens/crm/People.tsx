@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { ImportContacts } from '../../components/ImportContacts';
 import { exportAllContacts } from '../../components/SaveToContacts';
+import { SmartListsBar, type ActiveFilter } from '../../components/SmartListsBar';
 import { stageTagGroup } from '../../lib/crmStage';
+import {
+  customersMatchingSmartList, filterEquals, liveSmartLists, normalizeSmartList,
+} from '../../lib/crmSmartLists';
 import {
   displayName, liveForCustomer, matchesPeopleSearch, propertyAddress, sortKey, stageOf, tagIdsForCustomer,
 } from '../../lib/crmUi';
 import { useReady, useRows } from '../../lib/session';
-import type { Customer } from '../../lib/types';
+import type { Customer, SmartList } from '../../lib/types';
 
 export function People() {
   const { engine } = useReady();
@@ -17,10 +21,18 @@ export function People() {
   const emails = useRows(engine, 'customer_emails');
   const properties = useRows(engine, 'customer_properties');
   const memberships = useRows(engine, 'customer_tags');
+  const activities = useRows(engine, 'customer_activities');
   const groups = useRows(engine, 'tag_groups');
   const tags = useRows(engine, 'tags');
+  const smartListRows = useRows(engine, 'smart_lists');
+  const lists = useMemo(() => liveSmartLists(smartListRows), [smartListRows]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState('');
   const [stageId, setStageId] = useState<string | null>(null);
+  const [coldOnly, setColdOnly] = useState(false);
+  const [tagRefs, setTagRefs] = useState<SmartList['tag_refs']>([]);
+  const [activeListId, setActiveListId] = useState<string | null>(null);
 
   const liveCustomers = useMemo(() => (customers ?? []).filter((c) => !c.deleted_at), [customers]);
   const sg = useMemo(() => stageTagGroup(groups ?? []), [groups]);
@@ -44,7 +56,87 @@ export function People() {
     return m;
   }, [liveCustomers, memberships, groups, tags]);
 
+  const activeStageSlug = stageId
+    ? (stageTags.find((t) => t.id === stageId)?.slug ?? null)
+    : null;
+
+  const activeFilter: ActiveFilter = useMemo(() => ({
+    query: q,
+    stage_slugs: activeStageSlug ? [activeStageSlug] : [],
+    tag_refs: tagRefs,
+    cold_only: coldOnly,
+  }), [q, activeStageSlug, tagRefs, coldOnly]);
+
+  function applyList(list: SmartList | null) {
+    if (!list) {
+      setQ('');
+      setStageId(null);
+      setColdOnly(false);
+      setTagRefs([]);
+      setActiveListId(null);
+      return;
+    }
+    const n = normalizeSmartList(list);
+    setQ(n.query);
+    setColdOnly(n.cold_only);
+    setTagRefs(n.tag_refs);
+    setActiveListId(n.id);
+    if (n.stage_slugs.length === 1 && sg) {
+      const t = (tags ?? []).find(
+        (x) => !x.deleted_at && x.tag_group_id === sg.id && x.slug === n.stage_slugs[0],
+      );
+      setStageId(t?.id ?? null);
+    } else {
+      setStageId(null);
+    }
+  }
+
+  // Deep-link from Today: /contacts?list=<id>
+  const listParam = searchParams.get('list');
+  useEffect(() => {
+    if (!listParam || !lists.length) return;
+    const list = lists.find((l) => l.id === listParam);
+    if (!list) return;
+    const n = normalizeSmartList(list);
+    setQ(n.query);
+    setColdOnly(n.cold_only);
+    setTagRefs(n.tag_refs);
+    setActiveListId(n.id);
+    if (n.stage_slugs.length === 1) {
+      const pipeline = stageTagGroup(groups ?? []);
+      const t = pipeline
+        ? (tags ?? []).find((x) => !x.deleted_at && x.tag_group_id === pipeline.id && x.slug === n.stage_slugs[0])
+        : undefined;
+      setStageId(t?.id ?? null);
+    } else {
+      setStageId(null);
+    }
+    setSearchParams({}, { replace: true });
+  }, [listParam, lists, groups, tags, setSearchParams]);
+
+  // Keep activeListId in sync when the user tweaks chips/search away from the saved filter.
+  useEffect(() => {
+    if (!activeListId) return;
+    const list = lists.find((l) => l.id === activeListId);
+    if (!list || !filterEquals(list, activeFilter)) setActiveListId(null);
+  }, [activeFilter, activeListId, lists]);
+
+  const listMode = !!(activeListId || coldOnly || tagRefs.length);
+
   const shown = useMemo(() => {
+    if (listMode) {
+      return customersMatchingSmartList({
+        list: activeFilter,
+        customers: liveCustomers,
+        phones: phones ?? [],
+        emails: emails ?? [],
+        properties: properties ?? [],
+        memberships: memberships ?? [],
+        activities: activities ?? [],
+        groups: groups ?? [],
+        tags: tags ?? [],
+      }).sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+    }
     const query = q.trim().toLowerCase();
     return liveCustomers
       .filter((c) => {
@@ -60,7 +152,10 @@ export function People() {
         query,
       }))
       .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
-  }, [liveCustomers, q, stageId, memberships, phones, emails, properties, tagName]);
+  }, [
+    listMode, activeFilter, liveCustomers, phones, emails, properties, memberships,
+    activities, groups, tags, q, stageId, tagName,
+  ]);
 
   const letterGroups = useMemo(() => {
     const m = new Map<string, Customer[]>();
@@ -74,6 +169,7 @@ export function People() {
   }, [shown]);
 
   const loading = customers === null;
+  const activeName = activeListId ? lists.find((l) => l.id === activeListId)?.name : null;
 
   return (
     <div className="page crm-people">
@@ -95,20 +191,38 @@ export function People() {
         className="search"
         placeholder="Name, street, phone, tag…"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => {
+          setQ(e.target.value);
+        }}
         aria-label="Search people"
       />
 
       {sg && liveCustomers.length > 0 && (
         <div className="chips scroll-x crm-stage-chips" role="group" aria-label="Filter by lead stage">
-          <button type="button" className="chip" aria-pressed={stageId === null} onClick={() => setStageId(null)}>All</button>
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={stageId === null && !coldOnly && !tagRefs.length}
+            onClick={() => {
+              setStageId(null);
+              setColdOnly(false);
+              setTagRefs([]);
+              setActiveListId(null);
+            }}
+          >
+            All
+          </button>
           {stageTags.map((t) => (
             <button
               key={t.id}
               type="button"
               className="chip crm-stage-chip"
-              aria-pressed={stageId === t.id}
-              onClick={() => setStageId(stageId === t.id ? null : t.id)}
+              aria-pressed={stageId === t.id && !coldOnly}
+              onClick={() => {
+                setColdOnly(false);
+                setTagRefs([]);
+                setStageId(stageId === t.id ? null : t.id);
+              }}
             >
               <i className="crm-dot" style={{ background: t.color || 'var(--muted)' }} />
               {t.name}
@@ -116,6 +230,26 @@ export function People() {
             </button>
           ))}
         </div>
+      )}
+
+      {liveCustomers.length > 0 && (
+        <SmartListsBar
+          active={activeFilter}
+          activeListId={activeListId}
+          onApply={applyList}
+        />
+      )}
+
+      {(activeName || coldOnly || tagRefs.length > 0) && (
+        <p className="crm-smart-active muted small">
+          {activeName
+            ? <>Showing list <b>{activeName}</b></>
+            : coldOnly
+              ? 'Showing estimates going cold'
+              : 'Showing saved tag filter'}
+          {' · '}
+          <button type="button" className="link" onClick={() => applyList(null)}>Clear</button>
+        </p>
       )}
 
       {loading ? (
