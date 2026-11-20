@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { CustomerLabelActions } from '../../components/CrewPrintActions';
 import { Icon } from '../../components/Icon';
 import { Sheet } from '../../components/ui';
 import { addNewTag, logActivity, toggleCustomerTag } from '../../lib/crmActions';
@@ -189,6 +190,11 @@ export function CustomerView() {
           </section>
         );
       })}
+
+      <section className="card">
+        <div className="eyebrow">Address labels</div>
+        <CustomerLabelActions customer={c} properties={properties} />
+      </section>
 
       {(phones.length > 0 || emails.length > 0) && (
         <section className="card crm-prop">

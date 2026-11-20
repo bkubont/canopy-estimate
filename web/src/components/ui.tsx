@@ -88,8 +88,24 @@ export function Sheet({ open, onClose, title, children, action }: { open: boolea
 }
 
 /** Renders children only when printing (the app itself is hidden). */
-export function PrintOnly({ children }: { children: ReactNode }) {
-  return createPortal(<div className="print-only">{children}</div>, document.body);
+export function PrintOnly({ children, doc }: { children: ReactNode; doc?: string }) {
+  return createPortal(
+    <div className="print-only" {...(doc ? { 'data-print-doc': doc } : {})}>{children}</div>,
+    document.body,
+  );
+}
+
+/** Print only the matching PrintOnly portal (crew / labels / estimate / invoice). */
+export function printDoc(doc: string) {
+  document.body.dataset.print = doc;
+  const cleanup = () => {
+    delete document.body.dataset.print;
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+  // Fallback if afterprint never fires (some WebViews).
+  window.setTimeout(cleanup, 2000);
 }
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {

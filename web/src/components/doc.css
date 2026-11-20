@@ -79,9 +79,60 @@ canvas.sig { display: block; width: 100%; height: 160px; background: #fff; borde
   body { background: #fff !important; }
   #root { display: none !important; }
   .print-only { display: block !important; }
+  /* When a specific print target is set, hide other PrintOnly portals. */
+  body[data-print="crew"] .print-only:not([data-print-doc="crew"]),
+  body[data-print="labels"] .print-only:not([data-print-doc="labels"]),
+  body[data-print="estimate"] .print-only:not([data-print-doc="estimate"]),
+  body[data-print="invoice"] .print-only:not([data-print-doc="invoice"]) {
+    display: none !important;
+  }
   .doc { font-size: 9.5pt; }
   .doc-sec > h3, .doc-table th, .doc-head, .doc-head::after, .doc-brand-name, .doc-sum .grand td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   .doc-cols { grid-template-columns: 1fr 1fr; }
+}
+
+.crew-note { margin-top: 2px; }
+.crew-team-note { margin: 8px 0; }
+.crew-team-note + .crew-team-note { border-top: 1px solid var(--doc-line); padding-top: 8px; }
+
+/* Avery 5160: 3×10 labels on letter (2.625" × 1"). Print at 100% / actual size. */
+.label-sheet {
+  width: 8.5in;
+  height: 11in;
+  margin: 0 auto;
+  padding: 0.5in 0.1875in 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 2.625in);
+  grid-template-rows: repeat(10, 1in);
+  column-gap: 0.125in;
+  background: #fff;
+  color: #0d0f0e;
+  font-family: Helvetica, Arial, sans-serif;
+}
+.label-cell {
+  box-sizing: border-box;
+  padding: 0.12in 0.15in;
+  overflow: hidden;
+  font-size: 10pt;
+  line-height: 1.25;
+}
+.label-cell.empty { visibility: hidden; }
+.label-name { font-weight: 700; font-size: 11pt; margin-bottom: 1px; }
+.label-line { font-size: 9.5pt; }
+.label-meta { font-size: 8.5pt; color: #5B6B73; margin-top: 2px; }
+.label-preview .label-sheet {
+  transform-origin: top left;
+  transform: scale(0.55);
+  border: 1px solid var(--line, #DDE3EA);
+}
+@media print {
+  body[data-print="labels"] {
+    @page { margin: 0; size: letter; }
+  }
+  body[data-print="labels"] .label-sheet {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
 }
