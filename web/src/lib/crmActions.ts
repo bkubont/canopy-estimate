@@ -7,16 +7,13 @@ import {
   blankActivity, blankCustomerTag, blankEmail, blankPhone, blankProperty, mirrorPrimaryFields,
 } from './crm';
 import { STAGE_SLUGS, stageTag, stageTagGroup } from './crmStage';
+import { slugify } from './crmTagEditor';
 import type { SyncEngine } from './sync';
 import type {
   Customer, CustomerActivity, CustomerActivityType, CustomerEmail, CustomerPhone,
   CustomerProperty, CustomerTag, Tag, TagGroup,
 } from './types';
 import { rowKey } from './types';
-
-function slugify(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tag';
-}
 
 export async function logActivity(
   engine: SyncEngine,

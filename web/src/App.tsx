@@ -12,6 +12,7 @@ import { Archive } from './screens/Archive';
 import { Contacts } from './screens/Contacts';
 import { CustomerView } from './screens/crm/CustomerView';
 import { EditCustomer } from './screens/crm/EditCustomer';
+import { TagEditor } from './screens/crm/TagEditor';
 import { Today } from './screens/crm/Today';
 import { Dashboard } from './screens/Dashboard';
 import { Expenses } from './screens/money/Expenses';
@@ -78,6 +79,7 @@ export function App() {
             )}
             <Route path="/company" element={<Company />} />
             <Route path="/team" element={<Team />} />
+            {CRM_ENABLED && <Route path="/tags" element={<TagEditor />} />}
             <Route path="/account" element={<Account />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

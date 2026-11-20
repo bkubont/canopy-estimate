@@ -47,6 +47,7 @@ function menu(role: string): [string, Item[]][] {
   groups.push(['Settings', [
     { to: '/company', label: 'Company', icon: 'building' },
     ...(can.manageTeam(role) ? [{ to: '/team', label: 'Team', icon: 'users' } as Item] : []),
+    ...(CRM_ENABLED && office ? [{ to: '/tags', label: 'Tags', icon: 'settings' } as Item] : []),
     { to: '/account', label: 'Account', icon: 'user' },
   ]]);
   return groups;
