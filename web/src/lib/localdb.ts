@@ -16,7 +16,7 @@ export interface OutboxEntry {
 }
 
 // Bump when tables are added; the upgrade adds any missing stores.
-const VERSION = 5;
+const VERSION = 6;
 
 /** Meta keys that hold the sync_pull cursor for an org (`cursor:<orgId>`). */
 export function isSyncCursorKey(key: IDBValidKey): key is string {
@@ -42,11 +42,12 @@ export async function openLocalDb(name: string): Promise<LocalDb> {
       // Photos taken on this device that haven't reached file storage yet.
       if (!db.objectStoreNames.contains('photo_blobs')) db.createObjectStore('photo_blobs');
 
-      // v5 adds CRM tables. A device that pulled while the server already had
-      // seeded tags/backfill (but this client ignored unknown tables) advanced
-      // its cursor and would never see those rows. Clear per-org cursors so the
-      // next sync does a full pull. Fresh installs (oldVersion 0) have none.
-      if (oldVersion > 0 && oldVersion < 5) {
+      // When new synced tables land, a device that advanced its cursor while
+      // ignoring unknown pull keys would never see seed/backfill for those
+      // tables. Clear per-org cursors so the next sync does a full pull.
+      // Fresh installs (oldVersion 0) have none.
+      // v5 = CRM tables; v6 = smart_lists.
+      if (oldVersion > 0 && oldVersion < VERSION) {
         const meta = transaction.objectStore('meta');
         const keys = await meta.getAllKeys();
         await Promise.all(keys.filter(isSyncCursorKey).map((k) => meta.delete(k)));

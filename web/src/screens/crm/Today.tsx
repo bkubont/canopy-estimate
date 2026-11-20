@@ -1,21 +1,25 @@
+import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { ImportContacts } from '../../components/ImportContacts';
+import { customersMatchingSmartList, liveSmartLists } from '../../lib/crmSmartLists';
 import {
   displayName, lastStageChangeAt, liveForCustomer, propertyAddress, stageOf, timeAgo, todayBuckets,
 } from '../../lib/crmUi';
 import { useReady, useRows } from '../../lib/session';
-import type { Customer } from '../../lib/types';
+import type { Customer, SmartList } from '../../lib/types';
 
 export function Today() {
   const { engine } = useReady();
   const customers = useRows(engine, 'customers');
   const phones = useRows(engine, 'customer_phones');
+  const emails = useRows(engine, 'customer_emails');
   const properties = useRows(engine, 'customer_properties');
   const memberships = useRows(engine, 'customer_tags');
   const activities = useRows(engine, 'customer_activities');
   const groups = useRows(engine, 'tag_groups');
   const tags = useRows(engine, 'tags');
+  const smartListRows = useRows(engine, 'smart_lists');
 
   const live = (customers ?? []).filter((c) => !c.deleted_at);
   const buckets = todayBuckets(
@@ -25,16 +29,21 @@ export function Today() {
     tags ?? [],
     activities ?? [],
   );
+  const pinned = useMemo(
+    () => liveSmartLists(smartListRows).filter((l) => l.pin_today),
+    [smartListRows],
+  );
   const now = new Date();
   const loading = customers === null;
 
   const Section = ({
-    title, list, empty, hint,
+    title, list, empty, hint, footer,
   }: {
     title: string;
     list: Customer[];
     empty: string;
     hint: (c: Customer) => string;
+    footer?: ReactNode;
   }) => (
     <section className="crm-today-section">
       <div className="crm-section-head">
@@ -60,6 +69,7 @@ export function Today() {
       ) : (
         <p className="muted" style={{ margin: '0 2px' }}>{empty}</p>
       )}
+      {footer}
     </section>
   );
 
@@ -71,6 +81,20 @@ export function Today() {
     const ph = liveForCustomer(phones, c.id).sort((a, b) => a.sort - b.sort);
     return ph[0]?.value || c.phone || '';
   };
+
+  function pinnedMatches(list: SmartList): Customer[] {
+    return customersMatchingSmartList({
+      list,
+      customers: live,
+      phones: phones ?? [],
+      emails: emails ?? [],
+      properties: properties ?? [],
+      memberships: memberships ?? [],
+      activities: activities ?? [],
+      groups: groups ?? [],
+      tags: tags ?? [],
+    });
+  }
 
   return (
     <div className="page crm-today">
@@ -135,6 +159,26 @@ export function Today() {
             empty="No estimates out."
             hint={(c) => `Sent ${timeAgo(lastStageChangeAt(c.id, activities ?? []))}`}
           />
+
+          {pinned.map((list) => {
+            const matches = pinnedMatches(list);
+            return (
+              <Section
+                key={list.id}
+                title={list.name}
+                list={matches}
+                empty="No matches right now."
+                hint={(c) => firstAddr(c) || firstPhone(c) || stageOf(c.id, memberships ?? [], groups ?? [], tags ?? [])?.name || ''}
+                footer={(
+                  <div className="btn-row" style={{ marginTop: 4 }}>
+                    <Link to={`/contacts?list=${list.id}`} className="btn sm">
+                      <Icon name="users" size={16} />Open in Customers
+                    </Link>
+                  </div>
+                )}
+              />
+            );
+          })}
         </>
       )}
     </div>
