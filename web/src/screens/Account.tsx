@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { CalendarLink } from '../components/CalendarLink';
 import { SignaturePad } from '../components/SignaturePad';
+import { CRM_ENABLED } from '../lib/features';
 import { useInstall } from '../lib/install';
 import { can, useReady, useRow } from '../lib/session';
 
@@ -59,6 +60,9 @@ export function Account() {
         <Link className="list-item" to="/contacts"><b>Contacts</b><span className="muted small">Your team’s shared client list</span></Link>
         <Link className="list-item" to="/company"><b>Company</b><span className="muted small">Details on estimates{can.seePrices(org.role) ? ', day rate, markup' : ''}</span></Link>
         {can.manageTeam(org.role) && <Link className="list-item" to="/team"><b>Team</b><span className="muted small">Invite people and set roles</span></Link>}
+        {CRM_ENABLED && can.seePrices(org.role) && (
+          <Link className="list-item" to="/tags"><b>Tags</b><span className="muted small">Stages, types, flags, and custom groups</span></Link>
+        )}
       </nav>
       {orgs.length > 1 && (
         <section className="card">

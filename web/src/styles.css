@@ -868,6 +868,43 @@ details.more h4.label:first-of-type { margin-top: 2px; }
 .crm-smart-manage { display: grid; gap: 8px; }
 .crm-smart-manage-row { display: flex; align-items: center; gap: 4px; }
 
+/* Phase E: Settings tag group editor */
+.tag-ed-group { padding: 0; overflow: hidden; }
+.tag-ed-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border: 0; background: transparent; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}
+.tag-ed-head b { display: block; font-size: 16px; }
+.tag-ed-head .muted { display: block; margin-top: 2px; }
+.tag-ed-preview {
+  padding: 0 16px 14px; margin: 0;
+}
+.tag-ed-group:has(.tag-ed-body) .tag-ed-preview { display: none; }
+.tag-ed-body { padding: 0 16px 14px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.tag-ed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.tag-ed-row { display: flex; align-items: center; gap: 4px; }
+.tag-ed-tag {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.tag-ed-tag:hover { border-color: #B8BECB; }
+.tag-ed-tag .badge { margin-left: auto; }
+.tag-ed-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--line);
+}
+.tag-ed-dot.empty { background: transparent; border: 1.5px dashed #A3AAB8; }
+.chip .tag-ed-dot { width: 10px; height: 10px; display: inline-block; margin-right: 2px; vertical-align: 1px; }
+.tag-ed-move { display: flex; flex-direction: column; }
+.tag-ed-colors { gap: 10px; }
+.tag-ed-swatch {
+  width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line);
+  background: var(--bg); cursor: pointer; padding: 0;
+}
+.tag-ed-swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; border-color: transparent; }
+.tag-ed-swatch:not([style]) { background: repeating-linear-gradient(135deg, #fff 0 4px, #E7EAF0 4px 8px); }
+
 /* Phase C: ClientPicker property / phone detail */
 .pick-detail { display: grid; gap: 14px; }
 .pick-detail .list-item[aria-pressed="true"] {
