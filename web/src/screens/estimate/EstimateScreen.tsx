@@ -25,6 +25,7 @@ import { EventSheet } from '../calendar/EventSheet';
 import { dayLabel, jobSchedule } from '../../lib/calendar';
 import type { ChangeOrder, Job, JobPricing, Organization } from '../../lib/types';
 import { useJobDraft } from '../../lib/useJobDraft';
+import { CrewPrintActions } from '../../components/CrewPrintActions';
 import { SendActions } from './SendActions';
 import { StepClient } from './StepClient';
 import { StepPricing } from './StepPricing';
@@ -330,6 +331,7 @@ function SignedView({ job, pricing, company, updateJob, flush, setJob, setPricin
         </div>
         <h4 className="label">Estimate</h4>
         <SendActions job={job} pricing={pricing} company={company} flush={flush} />
+        <CrewPrintActions job={job} />
         <h4 className="label">Job</h4>
         <div className="btn-row" style={{ marginBottom: 12 }}>
           <button type="button" className="btn" onClick={() => setCo(blankChangeOrder())}><Icon name="plus" />Change order</button>
@@ -469,6 +471,9 @@ function JobSheet({ job, updateJob, flush }: { job: Job; updateJob: Draft['updat
           {septicLine(job.site) && <>{hasSeptic(job.site.septic) ? <b>⚠ Septic / drain field: {septicLine(job.site)}</b> : <>Septic / drain field: {septicLine(job.site)}</>}<br /></>}
           Days: {job.days + job.change_orders.reduce((s, c) => s + c.days, 0)} · Equipment: {job.equipment.map((e) => e.desc).filter(Boolean).join(', ') || 'none'}
         </p>
+      </section>
+      <section className="card">
+        <CrewPrintActions job={job} />
       </section>
       {company && (
         <details className="card">

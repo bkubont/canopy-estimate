@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { toCustomerCompany } from '../../components/EstimateDoc';
 import { InvoiceDoc, toCustomerInvoice } from '../../components/InvoiceDoc';
-import { Field, MoneyInput, PrintOnly } from '../../components/ui';
+import { Field, MoneyInput, PrintOnly, printDoc } from '../../components/ui';
 import { applyCrmStageAfterPayment } from '../../lib/crmStage';
 import { addDays, clientName, money, niceDate, normalizeJob, num, uid } from '../../lib/estimate';
 import { balanceDue, INVOICE_STATUS_LABEL, invoiceStatus, invoiceTotals, livePayments, METHOD_LABEL, paidForJob } from '../../lib/invoice';
@@ -213,7 +213,7 @@ export function InvoiceScreen() {
             <button type="button" className="btn primary" onClick={() => void sms()} disabled={!j.client.phone || busy}><Icon name="message" />Text</button>
             <button type="button" className="btn" onClick={() => void email()} disabled={!j.client.email || busy}><Icon name="mail" />Email</button>
             <button type="button" className="btn" onClick={() => void pdf()} disabled={busy}><Icon name="download" />PDF file</button>
-            <button type="button" className="btn" onClick={() => window.print()}><Icon name="printer" />Print</button>
+            <button type="button" className="btn" onClick={() => printDoc('invoice')}><Icon name="printer" />Print</button>
             <button type="button" className="btn" onClick={() => void getLink()} disabled={busy || inv.status === 'void'}><Icon name="link" />Customer link</button>
           </div>
           {link && <div className="copy-box mt"><input readOnly value={link} aria-label="Invoice link" onFocus={(e) => e.currentTarget.select()} /></div>}
@@ -245,7 +245,7 @@ export function InvoiceScreen() {
       </section>
 
       <div className="doc-preview" ref={docRef}><InvoiceDoc data={docData} /></div>
-      <PrintOnly><InvoiceDoc data={docData} /></PrintOnly>
+      <PrintOnly doc="invoice"><InvoiceDoc data={docData} /></PrintOnly>
 
       {inv.status !== 'void' && !draft && (
         <button type="button" className="btn danger" onClick={() => void voidInvoice()}>Void invoice</button>

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../../components/EstimateDoc';
-import { PrintOnly } from '../../components/ui';
+import { PrintOnly, printDoc } from '../../components/ui';
 import { customerPricing, summaryText } from '../../lib/estimate';
 import { elementToPdf, shareOrDownload } from '../../lib/pdf';
 import { useReady } from '../../lib/session';
@@ -81,7 +81,7 @@ export function SendActions({ job, pricing, company, flush, mode = 'full' }: {
   const extras = (
     <>
       <button type="button" className="btn" onClick={() => void pdf()} disabled={!!busy}>{busy === 'pdf' ? 'Making PDF…' : <><Icon name="download" />PDF file</>}</button>
-      <button type="button" className="btn" onClick={() => window.print()}><Icon name="printer" />Print</button>
+      <button type="button" className="btn" onClick={() => printDoc('estimate')}><Icon name="printer" />Print</button>
       <button type="button" className="btn" onClick={() => void shareLink()} disabled={!!busy}><Icon name="link" />Customer link</button>
     </>
   );
@@ -122,7 +122,7 @@ export function SendActions({ job, pricing, company, flush, mode = 'full' }: {
       )}
       {msg && <p className="hint" role="status">{msg}</p>}
       <div className="doc-preview" ref={docRef}>{doc}</div>
-      <PrintOnly>{doc}</PrintOnly>
+      <PrintOnly doc="estimate">{doc}</PrintOnly>
     </>
   );
 }
