@@ -29,9 +29,21 @@ begin
   -- Clear out demo rows from an earlier load that were removed, so this can run again.
   delete from public.payments where id::text like 'de0de000-%';
   delete from public.invoices where id::text like 'de0de000-%';
+  delete from public.expenses where id::text like 'de0de000-%';
+  delete from public.time_entries where id::text like 'de0de000-%';
+  delete from public.photos where id::text like 'de0de000-%';
   delete from public.events where id::text like 'de0de000-%';
+  delete from public.job_pricing where job_id::text like 'de0de000-%';
   delete from public.jobs where id::text like 'de0de000-%';
+  delete from public.customer_activities where id::text like 'de0de000-%';
+  delete from public.customer_tags where customer_id::text like 'de0de000-%';
+  delete from public.customer_phones where id::text like 'de0de000-%';
+  delete from public.customer_emails where id::text like 'de0de000-%';
+  delete from public.customer_properties where id::text like 'de0de000-%';
+  delete from public.smart_lists where id::text like 'de0de000-%';
   delete from public.customers where id::text like 'de0de000-%';
+  perform public.seed_org_crm_tags(v_org);
+  perform public.seed_org_smart_lists(v_org);
   select user_id into v_owner from public.members where org_id = v_org and role = 'owner' and deleted_at is null order by created_at limit 1;
   v_crew := case when v_owner is null then '[]'::jsonb else jsonb_build_array(v_owner::text) end;
   raise notice 'Adding demo data to %', v_name;
