@@ -34,6 +34,15 @@ Open **SQL Editor → New query** in Supabase. Paste and run each file in order:
 7. `supabase/migrations/20261117000000_photos.sql` (tree and job photos)
 8. `supabase/migrations/20261117000100_photos_storage.sql` (keeps receipt pictures from crew)
 9. `supabase/migrations/20261118000000_expenses_hours.sql` (expenses, receipts and hours per job)
+10. `supabase/migrations/20261119000000_own_hours.sql` (each person's own hours)
+11. `supabase/migrations/20261120000000_cancel_jobs.sql` (cancelling jobs)
+12. `supabase/migrations/20261121000000_calendar_feeds.sql` (calendar subscription links)
+13. `supabase/migrations/20261122000000_calendar_feed_crew.sql` (crew names in the calendar feed)
+14. `supabase/migrations/20261123000000_crm.sql` (customers: phones, emails, properties, tags, activity)
+15. `supabase/migrations/20261124000000_jobs_property_id.sql` (which property a job is at)
+16. `supabase/migrations/20261125000000_smart_lists.sql` (saved customer lists)
+17. `supabase/migrations/20261126000000_documents.sql` (saved PDF copies of signed estimates and sent/paid invoices; work history for Contact Sheet)
+18. `supabase/migrations/20261126000100_documents_storage.sql` (private storage for those PDFs)
 
 Already ran some? Just run the ones after the last you ran, in order.
 
