@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { saveMissingDocuments } from '../lib/documents';
 import { CRM_ENABLED } from '../lib/features';
 import { uploadPending } from '../lib/photos';
 import { can, useReady } from '../lib/session';
@@ -82,6 +83,28 @@ export function Shell() {
     window.addEventListener('online', go);
     return () => { clearInterval(t); window.removeEventListener('online', go); };
   }, [engine]);
+
+  // Save PDF copies of signed estimates and sent/paid invoices once they're on the
+  // server (owner/office only). Runs a few seconds after each sync, a few at a time.
+  useEffect(() => {
+    if (!can.seePrices(org.role)) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let last = engine.status.lastSyncedAt;
+    const go = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void saveMissingDocuments(engine, org.role).then((n) => { if (n) go(); });
+      }, 5_000);
+    };
+    go();
+    const off = engine.subscribe(() => {
+      if (engine.status.lastSyncedAt !== last) {
+        last = engine.status.lastSyncedAt;
+        go();
+      }
+    });
+    return () => { off(); if (timer) clearTimeout(timer); };
+  }, [engine, org.role]);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [drawer, setDrawer] = useState(false);
 

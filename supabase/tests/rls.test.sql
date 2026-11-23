@@ -590,3 +590,85 @@ select t.ok((select count(*) = 0 from public.customer_properties)
   and (select count(*) = 0 from public.tag_groups g, t.ids o where o.k = 'org' and g.org_id = o.v::uuid),
   'another company sees none of these CRM rows');
 reset role;
+
+-- ---------------------------------------------------------------- saved documents + work history (Contact Sheet)
+\set rae     '''66666666-6666-6666-6666-666666666601'''
+\set donejob '''66666666-6666-6666-6666-666666666611'''
+\set openjob '''66666666-6666-6666-6666-666666666612'''
+
+select t.login(:office, 'office@ats.test');
+set role authenticated;
+insert into public.customers (id, org_id, first_name, last_name, phone, email, town)
+  select :rae, v::uuid, 'Rae', 'Lee', '(231) 555-0177', 'Rae@Example.test', 'Elk Rapids' from t.ids where k = 'org';
+insert into public.jobs (id, org_id, number, customer_id, status, client)
+  select :donejob, v::uuid, 'E-2001', :rae, 'done', '{"street":"12 Bay St","town":"Elk Rapids"}' from t.ids where k = 'org';
+insert into public.job_pricing (job_id, org_id, day_rate, total)
+  select :donejob, v::uuid, 1500, 1500 from t.ids where k = 'org';
+insert into public.events (id, org_id, type, title, starts, ends, job_id)
+  select gen_random_uuid(), v::uuid, 'tree_work', 'Lee removal', '2026-10-02', '2026-10-03', :donejob from t.ids where k = 'org';
+insert into public.jobs (id, org_id, number, customer_id, status)
+  select :openjob, v::uuid, 'E-2002', :rae, 'pending' from t.ids where k = 'org';
+
+insert into public.documents (org_id, job_id, kind, version_key, number, total, path, bytes)
+  select v::uuid, :donejob, 'estimate', 'signed|co0', 'E-2001', 1500, v || '/66666666-6666-6666-6666-666666666611/estimate-1.pdf', 1234
+  from t.ids where k = 'org';
+select t.ok((select customer_id = :rae and created_by = :office from public.documents where job_id = :donejob),
+  'a saved document picks up the job''s customer and who saved it');
+select t.fails($$ insert into public.documents (org_id, job_id, kind, version_key, path)
+  select v::uuid, '66666666-6666-6666-6666-666666666611', 'estimate', 'signed|co0', v || '/x.pdf' from t.ids where k = 'org' $$,
+  'duplicate key', 'the same version of a document is saved only once');
+select t.fails($$ insert into public.documents (org_id, job_id, kind, version_key, path)
+  select v::uuid, '66666666-6666-6666-6666-666666666611', 'invoice', 'x', 'someone-else/x.pdf' from t.ids where k = 'org' $$,
+  'under its company', 'a document file must live under its own company');
+select t.fails($$ update public.documents set total = 1 where job_id = '66666666-6666-6666-6666-666666666611' $$,
+  'permission denied', 'saved documents cannot be changed');
+select t.fails($$ delete from public.documents where job_id = '66666666-6666-6666-6666-666666666611' $$,
+  'permission denied', 'saved documents cannot be deleted');
+
+select t.ok((select jsonb_array_length(public.customer_history(v::uuid, :rae)) = 1 from t.ids where k = 'org'),
+  'work history lists completed jobs only (pending E-2002 is left out)');
+select t.ok((select h -> 0 ->> 'number' = 'E-2001'
+             and (h -> 0 ->> 'total')::numeric = 1500
+             and h -> 0 ->> 'work_date' = '2026-10-02'
+             and h -> 0 ->> 'property' = '12 Bay St, Elk Rapids'
+             and jsonb_array_length(h -> 0 -> 'documents') = 1
+             and h -> 0 -> 'documents' -> 0 ->> 'kind' = 'estimate'
+           from (select public.customer_history(v::uuid, :rae) h from t.ids where k = 'org') x),
+  'work history shows number, total, work date, property and the saved estimate');
+insert into public.jobs (id, org_id, number, customer_id, status)
+  select '66666666-6666-6666-6666-666666666613', v::uuid, 'E-2003', :rae, 'scheduled' from t.ids where k = 'org';
+insert into public.invoices (id, org_id, job_id, number, lines, status)
+  select '66666666-6666-6666-6666-666666666621', v::uuid, '66666666-6666-6666-6666-666666666613', 'INV-2003',
+    '[{"id":"a","desc":"Pruning","qty":1,"unit":800,"taxable":false}]', 'sent' from t.ids where k = 'org';
+select t.ok((select jsonb_array_length(h) = 2
+             and exists (select 1 from jsonb_array_elements(h) e
+                         where e ->> 'number' = 'E-2003' and e ->> 'invoice_number' = 'INV-2003' and (e ->> 'total')::numeric = 800)
+           from (select public.customer_history(v::uuid, :rae) h from t.ids where k = 'org') x),
+  'an invoiced job counts as completed and shows the invoice total');
+
+select t.ok((select m -> 0 ->> 'id' = '66666666-6666-6666-6666-666666666601' and m -> 0 ->> 'matched_on' = 'phone'
+           from (select public.match_customers(v::uuid, array['+1 231.555.0177'], array[]::text[]) m from t.ids where k = 'org') x),
+  'match by phone ignores formatting and country code');
+select t.ok((select m -> 0 ->> 'matched_on' = 'email'
+           from (select public.match_customers(v::uuid, array[]::text[], array[' rae@example.TEST ']) m from t.ids where k = 'org') x),
+  'match by email ignores case and spaces');
+select t.ok((select m -> 0 ->> 'matched_on' = 'name'
+           from (select public.match_customers(v::uuid, array[]::text[], array[]::text[], 'rae lee') m from t.ids where k = 'org') x),
+  'match by full name as a last resort');
+select t.ok((select jsonb_array_length(public.match_customers(v::uuid, array['555-9999'], array['nobody@x.test'], 'Nobody')) = 0
+           from t.ids where k = 'org'), 'no match returns an empty list');
+
+select t.login(:crew, 'crew@ats.test');
+set role authenticated;
+select t.ok((select count(*) = 0 from public.documents), 'crew cannot see saved documents');
+select t.fails($$ select public.customer_history(v::uuid, '66666666-6666-6666-6666-666666666601') from t.ids where k = 'org' $$,
+  'Only the owner or office', 'crew cannot read work history');
+select t.fails($$ select public.match_customers(v::uuid, array['2315550177'], null) from t.ids where k = 'org' $$,
+  'Only the owner or office', 'crew cannot search customers for linking');
+
+select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
+set role authenticated;
+select t.fails($$ select public.customer_history(v::uuid, '66666666-6666-6666-6666-666666666601') from t.ids where k = 'org' $$,
+  'Only the owner or office', 'another company cannot read this work history');
+select t.ok((select count(*) = 0 from public.documents), 'another company sees no saved documents');
+reset role;
