@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { EstimateDoc, toCustomerCompany, toCustomerJob } from '../components/EstimateDoc';
 import { InvoiceDoc, toCustomerInvoice } from '../components/InvoiceDoc';
-import { customerPricing, normalizeJob, round2 } from './estimate';
+import { customerPricing, normalizeJob, round2, totals } from './estimate';
 import { livePayments } from './invoice';
 import { elementToPdf } from './pdf';
 import { can } from './session';
@@ -57,12 +57,18 @@ export function neededDocuments(
     if (raw.deleted_at) continue;
     const job = normalizeJob(raw);
 
-    // Signed estimate, one copy per signed version (each change order adds one).
+    // Signed estimate, one copy per signed version: as signed, then once more for
+    // each change order. Change orders are append-only on the server, so an
+    // earlier version is the job with only its first n change orders. Older
+    // versions come first, so a job signed before copies existed gets all of them.
     if (job.signed_at) {
       const p = pricingByJob.get(job.id);
-      const version_key = `${job.signed_at}|co${job.change_orders.length}`;
-      if (!have.has(keyOf({ job_id: job.id, kind: 'estimate', version_key }))) {
-        out.push({ kind: 'estimate', job, version_key, number: job.number, total: p ? p.total ?? null : null });
+      for (let n = 0; n <= job.change_orders.length; n++) {
+        const version_key = `${job.signed_at}|co${n}`;
+        if (have.has(keyOf({ job_id: job.id, kind: 'estimate', version_key }))) continue;
+        const version = { ...job, change_orders: job.change_orders.slice(0, n) };
+        const total = p ? totals(version, customerPricing(version, p)).total : null;
+        out.push({ kind: 'estimate', job: version, version_key, number: job.number, total });
       }
     }
 
@@ -76,7 +82,8 @@ export function neededDocuments(
       const live = livePayments(payments, job.id);
       const paid = round2(live.reduce((s, p) => s + Number(p.amount), 0));
       const last = live.map((p) => p.received_on).sort().pop() ?? '';
-      const version_key = `paid|${paid.toFixed(2)}|${last}`;
+      // Keyed by the invoice too, so a replacement invoice gets its own paid copy.
+      const version_key = `paid|${inv.id}|${paid.toFixed(2)}|${last}`;
       if (!have.has(keyOf({ job_id: job.id, kind: 'receipt', version_key }))) {
         out.push({ kind: 'receipt', job, invoice: inv, version_key, number: inv.number, total: inv.total ?? null });
       }
@@ -121,6 +128,36 @@ function docElement(d: NeededDoc, company: Organization, pricing: JobPricing | u
   return createElement(InvoiceDoc, { data: toCustomerInvoice(custCompany, d.invoice!, { number: d.job.number, client: d.job.client }, pays) });
 }
 
+const PAGE = 1000; // the API returns at most this many rows per request
+
+/** Every saved copy's key for this company, read page by page. Null if it can't be read. */
+async function savedKeys(orgId: string): Promise<SavedDocKey[] | null> {
+  const all: SavedDocKey[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('job_id, kind, version_key')
+      .eq('org_id', orgId)
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) return null;
+    all.push(...((data ?? []) as SavedDocKey[]));
+    if (!data || data.length < PAGE) return all;
+  }
+}
+
+async function alreadySaved(orgId: string, d: NeededDoc): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('job_id', d.job.id)
+    .eq('kind', d.kind)
+    .eq('version_key', d.version_key)
+    .limit(1);
+  return !!error || !!data?.length; // when unsure, don't upload
+}
+
 let running: Promise<number> | null = null;
 
 /**
@@ -133,11 +170,8 @@ export function saveMissingDocuments(engine: SyncEngine, role: string | undefine
   running ??= (async () => {
     let done = 0;
     try {
-      const { data: saved, error } = await supabase
-        .from('documents')
-        .select('job_id, kind, version_key')
-        .eq('org_id', engine.orgId);
-      if (error) return 0; // not set up yet on this project, or offline: try again later
+      const saved = await savedKeys(engine.orgId);
+      if (!saved) return 0; // not set up yet on this project, or offline: try again later
       const [jobs, pricing, invoices, payments, company] = await Promise.all([
         engine.all('jobs'),
         engine.all('job_pricing'),
@@ -157,11 +191,14 @@ export function saveMissingDocuments(engine: SyncEngine, role: string | undefine
         pricing,
         invoices.filter((i) => !pendingIds.has(i.id)),
         payments,
-        saved ?? [],
+        saved,
       ).slice(0, limit);
       const pricingByJob = new Map(pricing.map((p) => [p.job_id, p]));
 
       for (const d of todo) {
+        // Another device may have filed it since the list was read: check before
+        // uploading, because files can't be deleted once they're in storage.
+        if (await alreadySaved(engine.orgId, d)) continue;
         const id = crypto.randomUUID();
         const path = `${engine.orgId}/${d.job.id}/${d.kind}-${id}.pdf`;
         const blob = await renderPdf(docElement(d, company, pricingByJob.get(d.job.id), payments));
