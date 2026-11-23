@@ -658,6 +658,20 @@ select t.ok((select m -> 0 ->> 'matched_on' = 'name'
 select t.ok((select jsonb_array_length(public.match_customers(v::uuid, array['555-9999'], array['nobody@x.test'], 'Nobody')) = 0
            from t.ids where k = 'org'), 'no match returns an empty list');
 
+-- 60 customers share the surname Lee and sort before Rae, so a surname-only
+-- shortlist of 50 would miss her; every word must be checked before the limit.
+insert into public.customers (id, org_id, first_name, last_name)
+  select gen_random_uuid(), v::uuid, 'Aaron' || g, 'Lee' from t.ids, generate_series(1, 60) g where k = 'org';
+select t.ok((select jsonb_array_length(s) = 1 and s -> 0 ->> 'id' = '66666666-6666-6666-6666-666666666601'
+           from (select public.search_customers(v::uuid, '  LEE   rae ') s from t.ids where k = 'org') x),
+  'search checks every word before limiting, in any order and case');
+select t.ok((select jsonb_array_length(public.search_customers(v::uuid, 'elk rapids')) = 1 from t.ids where k = 'org'),
+  'search also looks at the town');
+select t.ok((select jsonb_array_length(public.search_customers(v::uuid, 'lee')) = 20 from t.ids where k = 'org'),
+  'search returns at most 20 customers');
+select t.ok((select public.search_customers(v::uuid, '%') = '[]'::jsonb and public.search_customers(v::uuid, '  ') = '[]'::jsonb
+           from t.ids where k = 'org'), 'wildcards are plain text and a blank search returns nothing');
+
 select t.login(:crew, 'crew@ats.test');
 set role authenticated;
 select t.ok((select count(*) = 0 from public.documents), 'crew cannot see saved documents');
@@ -665,6 +679,8 @@ select t.fails($$ select public.customer_history(v::uuid, '66666666-6666-6666-66
   'Only the owner or office', 'crew cannot read work history');
 select t.fails($$ select public.match_customers(v::uuid, array['2315550177'], null) from t.ids where k = 'org' $$,
   'Only the owner or office', 'crew cannot search customers for linking');
+select t.fails($$ select public.search_customers(v::uuid, 'lee') from t.ids where k = 'org' $$,
+  'Only the owner or office', 'crew cannot use the linking search');
 
 select t.login('00000000-0000-0000-0000-0000000000e1', 'other@co.test');
 set role authenticated;

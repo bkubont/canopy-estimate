@@ -43,6 +43,7 @@ Open **SQL Editor → New query** in Supabase. Paste and run each file in order:
 16. `supabase/migrations/20261125000000_smart_lists.sql` (saved customer lists)
 17. `supabase/migrations/20261126000000_documents.sql` (saved PDF copies of signed estimates and sent/paid invoices; work history for Contact Sheet)
 18. `supabase/migrations/20261126000100_documents_storage.sql` (private storage for those PDFs)
+19. `supabase/migrations/20261127000000_search_customers.sql` (customer search for Contact Sheet's linking)
 
 Already ran some? Just run the ones after the last you ran, in order.
 

@@ -47,7 +47,30 @@ describe('saved document copies', () => {
     const inv = sentInvoice(j);
     const saved = [{ job_id: j.id, kind: 'invoice', version_key: inv.sent_at! }];
     const out = neededDocuments([j], [], [inv], [pay(j.id, 400), pay(j.id, 600, { received_on: '2026-11-09' }), pay(j.id, 50, { voided_at: '2026-11-06' })], saved);
-    expect(out.map((d) => [d.kind, d.version_key])).toEqual([['receipt', 'paid|1000.00|2026-11-09']]);
+    expect(out.map((d) => [d.kind, d.version_key])).toEqual([['receipt', `paid|${inv.id}|1000.00|2026-11-09`]]);
+  });
+
+  it('files every earlier version of an estimate signed before copies existed', () => {
+    const co = (id: string, days: number) => ({ id, date: '', days, reason: 'More work', reason_other: '', trees: [], client_sig: 'x', client_sig_date: '', signed_by_name: '' });
+    const j = job('E-6', { signed_at: '2026-09-01T12:00:00Z', days: 1, change_orders: [co('a', 1), co('b', 2)] });
+    const p = blankPricing(j, { day_rate: 1000, equipment_markup: 1.2, tax_rate: 0 } as never);
+    const out = neededDocuments([j], [p], [], [], [{ job_id: j.id, kind: 'estimate', version_key: '2026-09-01T12:00:00Z|co1' }]);
+    expect(out.map((d) => [d.version_key, d.job.change_orders.length, d.total])).toEqual([
+      ['2026-09-01T12:00:00Z|co0', 0, 1000],
+      ['2026-09-01T12:00:00Z|co2', 2, 4000],
+    ]);
+  });
+
+  it('gives a replacement invoice its own paid receipt', () => {
+    const j = job('E-7', { stage: 'paid' });
+    const oldInv = sentInvoice(j, { id: 'inv-old', status: 'void' });
+    const newInv = sentInvoice(j, { id: 'inv-new', sent_at: '2026-11-08T10:00:00Z' });
+    const pays = [pay(j.id, 1000)];
+    const saved = [
+      { job_id: j.id, kind: 'receipt', version_key: `paid|${oldInv.id}|1000.00|2026-11-05` },
+      { job_id: j.id, kind: 'invoice', version_key: newInv.sent_at! },
+    ];
+    expect(neededDocuments([j], [], [oldInv, newInv], pays, saved).map((d) => [d.kind, d.invoice?.id])).toEqual([['receipt', 'inv-new']]);
   });
 
   it('skips deleted jobs', () => {
